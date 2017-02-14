@@ -71,6 +71,8 @@ namespace GlobalAttributes {
 	DEFAULT_QT_STYLE=QString("Fusion"),
 	UI_STYLE_OPT=QString("-style"),
 
+	FILE_LINK_TAG=QString("{file:%1}"),
+
 	SCHEMAS_ROOT_DIR=getPathFromEnv(QString("PGMODELER_SCHEMAS_DIR"), QString(SCHEMASDIR), QString("./schemas")),
 	LANGUAGES_DIR=getPathFromEnv(QString("PGMODELER_LANG_DIR"), QString(LANGDIR), QString("./lang")),
 	SAMPLES_DIR=getPathFromEnv(QString("PGMODELER_SAMPLES_DIR"), QString(SAMPLESDIR), QString("./samples")),

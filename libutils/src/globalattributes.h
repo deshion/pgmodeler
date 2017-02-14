@@ -86,8 +86,10 @@ namespace GlobalAttributes {
 	/*! \brief Fusion is the default widget style for pgModeler. User can change this by calling
   the executable using -style option. This same style is applied to crash handler. */
 	DEFAULT_QT_STYLE,
-	UI_STYLE_OPT;
+	UI_STYLE_OPT,
 
+	//! brief Template tag used to reference external files as object's source
+	FILE_LINK_TAG;
 
 	/*! \brief Variables used to reference the pgModeler directories.
 

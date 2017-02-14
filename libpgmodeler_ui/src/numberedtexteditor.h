@@ -28,6 +28,7 @@ based upon the code editor example provided by Qt
 
 #include <QPlainTextEdit>
 #include <QMenu>
+#include <QToolButton>
 #include "linenumberswidget.h"
 
 class NumberedTextEditor : public QPlainTextEdit {
@@ -52,6 +53,12 @@ class NumberedTextEditor : public QPlainTextEdit {
 		//! \brief Widget used to expose document line numbers
 		LineNumbersWidget *line_number_wgt;
 
+		bool allow_ext_files;
+
+		QWidget *top_widget;
+
+		QToolButton *load_file_btn, *link_file_btn, *clear_btn;
+
 		//! \brief Determines and returns the line numbers widget width
 		int getLineNumbersWidth(void);
 
@@ -60,7 +67,7 @@ class NumberedTextEditor : public QPlainTextEdit {
 		void keyPressEvent(QKeyEvent *event);
 
 	public:
-		NumberedTextEditor(QWidget * parent = 0);
+		NumberedTextEditor(QWidget * parent = 0, bool allow_ext_files = false);
 
 		static void setDefaultFont(const QFont &font);
 		static void setLineNumbersVisible(bool value);
@@ -84,6 +91,8 @@ class NumberedTextEditor : public QPlainTextEdit {
 		void identSelectionRight(void);
 		void identSelectionLeft(void);
 		void identSelection(bool ident_right);
+
+		void loadFile(bool only_ref = false);
 
 	public slots:
 		//! \brief Grabs the keyboard input and also highlight the current line

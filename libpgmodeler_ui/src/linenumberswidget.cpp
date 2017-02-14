@@ -48,6 +48,11 @@ void LineNumbersWidget::setColors(const QColor &font_color, const QColor &bg_col
 	LineNumbersWidget::bg_color=bg_color;
 }
 
+QColor LineNumbersWidget::getBackgroundColor(void)
+{
+	return(LineNumbersWidget::bg_color);
+}
+
 void LineNumbersWidget::paintEvent(QPaintEvent *event)
 {
 	QPainter painter(this);
