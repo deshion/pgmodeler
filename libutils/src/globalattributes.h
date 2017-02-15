@@ -89,7 +89,8 @@ namespace GlobalAttributes {
 	UI_STYLE_OPT,
 
 	//! brief Template tag used to reference external files as object's source
-	FILE_LINK_TAG;
+	FILE_LINK_TAG,
+	FILE_LINK_REGEXP;
 
 	/*! \brief Variables used to reference the pgModeler directories.
 

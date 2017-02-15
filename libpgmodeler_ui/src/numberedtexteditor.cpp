@@ -19,6 +19,7 @@
 #include "numberedtexteditor.h"
 #include "generalconfigwidget.h"
 #include "pgmodeleruins.h"
+#include "pgmodelerns.h"
 #include <QFileDialog>
 #include <QTextBlock>
 #include <QScrollBar>
@@ -72,7 +73,7 @@ NumberedTextEditor::NumberedTextEditor(QWidget * parent, bool allow_ext_files) :
 		link_file_btn->setIconSize(QSize(16,16));
 		link_file_btn->setAutoRaise(true);
 		link_file_btn->setText(trUtf8("Link file"));
-		link_file_btn->setToolTip(trUtf8("References an external file as object's source code.\nThe file is read everytime the object's definition is generated."));
+		link_file_btn->setToolTip(trUtf8("Reference an external file as object's source code.\nThe file is read everytime the object's definition is generated."));
 		link_file_btn->setFont(font);
 		link_file_btn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 		hbox->addWidget(link_file_btn);
@@ -300,7 +301,14 @@ void NumberedTextEditor::loadFile(bool only_ref)
 	if(sql_file_dlg.result()==QDialog::Accepted)
 	{
 		if(only_ref)
-			this->setPlainText(GlobalAttributes::FILE_LINK_TAG.arg(sql_file_dlg.selectedFiles().at(0)));
+		{
+			/* When referencing an external file we register its path relatively to the application's working dir,
+			 also we need to store the last modification date to avoid excessive loading when generating the object's source */
+			QDir dir(qApp->applicationDirPath());
+			this->setPlainText(GlobalAttributes::FILE_LINK_TAG
+												 .arg(dir.relativeFilePath(sql_file_dlg.selectedFiles().at(0)))
+												 .arg(QFileInfo(sql_file_dlg.selectedFiles().at(0)).lastModified().toMSecsSinceEpoch()));
+		}
 		else
 		{
 			QFile file;

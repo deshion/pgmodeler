@@ -20,6 +20,8 @@
 #include "databasemodel.h"
 #include <QDebug>
 #include <QHash>
+#include <QCoreApplication>
+#include <QFileInfo>
 
 namespace PgModelerNS {
 
@@ -150,15 +152,48 @@ namespace PgModelerNS {
 		}
 	}
 
+	attribs_map getFileReferenceDetails(const QString &reference)
+	{
+		QRegExp regex(GlobalAttributes::FILE_LINK_REGEXP);
+
+		if(!reference.contains(regex))
+			throw Exception(ERR_MALFORMED_FILE_REF,__PRETTY_FUNCTION__,__FILE__,__LINE__, nullptr, reference);
+
+		QString str = reference;
+		QStringList list = str.remove(QRegExp("(\\{|\\})+")).split(QChar(':'));
+		attribs_map attribs;
+
+		attribs[ParsersAttributes::FILENAME] = list[1];
+		attribs[ParsersAttributes::MODIFIED_AT] = list[2];
+
+		return(attribs);
+	}
+
+	bool isFileReferenceModified(const QString &reference)
+	{
+		attribs_map attribs = getFileReferenceDetails(reference);
+		QDir dir(qApp->applicationDirPath());
+		QFileInfo info(dir.absoluteFilePath(attribs[ParsersAttributes::FILENAME]));
+		qint64 last_mod = info.lastModified().toMSecsSinceEpoch();
+
+		return(last_mod < QString(attribs[ParsersAttributes::MODIFIED_AT]).toLongLong());
+	}
+
+	QString loadFileFromReference(const QString &reference, const QString &fallback_path)
+	{
+		attribs_map attribs = getFileReferenceDetails(reference);
+/*		QDir dir(qApp->applicationDirPath());
+		QFileInfo info(dir.absoluteFilePath(list[1]));*/
+	}
 
 	bool isReservedKeyword(const QString &word)
 	{
 		static QHash<QChar, QStringList> keywords={
 			{QChar('A'), {QString("ALL"), QString("ANALYSE"), QString("ANALYZE"), QString("AND"),
-						  QString("ANY"), QString("AS"),      QString("ASC"),     QString("AUTHORIZATION")}},
+										QString("ANY"), QString("AS"),      QString("ASC"),     QString("AUTHORIZATION")}},
 
 			{QChar('B'), {QString("BETWEEN"), QString("BIGINT"), QString("BINARY"), QString("BIT"),
-						  QString("BOOLEAN"), QString("BOTH")}},
+										QString("BOOLEAN"), QString("BOTH")}},
 
 			{QChar('C'), {QString("CASE"),         QString("CAST"),         QString("CHAR"),    QString("CHARACTER"),
 						  QString("CHECK"),        QString("COALESCE"),     QString("COLLATE"), QString("COLUMN"),

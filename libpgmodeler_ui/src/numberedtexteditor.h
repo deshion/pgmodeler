@@ -53,6 +53,7 @@ class NumberedTextEditor : public QPlainTextEdit {
 		//! \brief Widget used to expose document line numbers
 		LineNumbersWidget *line_number_wgt;
 
+		//! \brief Indicates if the source code can be loaded/reference from external files enabling the top_widget usage
 		bool allow_ext_files;
 
 		QWidget *top_widget;

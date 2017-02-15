@@ -42,6 +42,19 @@ namespace PgModelerNS {
 	//! \brief Returns true if the specified word is a PostgreSQL reserved word.
 	extern bool isReservedKeyword(const QString &word);
 
+	/*! \brief Returns an string list containing the filename and last modification date extracted
+	from the a file referece tag. {file:[path]:[last_modification]} */
+	extern attribs_map getFileReferenceDetails(const QString &reference);
+
+	/*! \brief Returns true if the file in the reference tag was modified according to the modification
+	date registered on it */
+	extern bool isFileReferenceModified(const QString &reference);
+
+	/*! \brief Load a file from a reference tag and returns its content. By default, the filename
+	is relative to the application working dir. A fallback diretory can be specified so the function can try to
+	find the file from that path */
+	extern QString loadFileFromReference(const QString &reference, const QString &fallback_path);
+
 	/*! \brief Generates a unique name based upon the specified object and the list of objects of the same type.
   User can specify a suffix for the generated name as well if the comparison inside the method must be done with
   formated names */
