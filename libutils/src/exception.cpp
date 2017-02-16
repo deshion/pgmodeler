@@ -249,6 +249,8 @@ QString Exception::messages[ERROR_COUNT][2]={
 	{"ERR_CONNECTION_BROKEN", QT_TR_NOOP("The connection was unexpectedly closed by the database server `%1' at port `%2'!")},
 	{"ERR_DROP_CURRDB_DEFAULT", QT_TR_NOOP("Failed to drop the database `%1' because it is defined as the default database for the connection `%2'!")},
 	{"ERR_MALFORMED_FILE_REF", QT_TR_NOOP("Usage of a malformed referece to a file was detected!")},
+	{"ERR_FILE_REF_NOT_LOADED", QT_TR_NOOP("Failed to generate the SQL code for `%1' (%2)! The object depends on the file `%3' which could not be loaded.")},
+
 };
 
 Exception::Exception(void)

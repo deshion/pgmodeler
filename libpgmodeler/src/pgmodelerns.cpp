@@ -176,14 +176,36 @@ namespace PgModelerNS {
 		QFileInfo info(dir.absoluteFilePath(attribs[ParsersAttributes::FILENAME]));
 		qint64 last_mod = info.lastModified().toMSecsSinceEpoch();
 
-		return(last_mod < QString(attribs[ParsersAttributes::MODIFIED_AT]).toLongLong());
+		return(last_mod != QString(attribs[ParsersAttributes::MODIFIED_AT]).toLongLong());
 	}
 
 	QString loadFileFromReference(const QString &reference, const QString &fallback_path)
 	{
 		attribs_map attribs = getFileReferenceDetails(reference);
-/*		QDir dir(qApp->applicationDirPath());
-		QFileInfo info(dir.absoluteFilePath(list[1]));*/
+		QDir dir(qApp->applicationDirPath());
+		QFile file;
+		QString buffer;
+
+		file.setFileName(dir.absoluteFilePath(attribs[ParsersAttributes::FILENAME]));
+
+		if(!file.open(QFile::ReadOnly))
+		{
+			//If the fallback path is set we try to get the file from there
+			if(!fallback_path.isEmpty())
+			{
+				dir.setPath(fallback_path);
+				file.setFileName(dir.absoluteFilePath(attribs[ParsersAttributes::FILENAME]));
+				file.open(QFile::ReadOnly);
+			}
+
+			if(!file.isOpen())
+				throw Exception(Exception::getErrorMessage(ERR_FILE_DIR_NOT_ACCESSED).arg(file.fileName()),
+												ERR_FILE_DIR_NOT_ACCESSED ,__PRETTY_FUNCTION__,__FILE__,__LINE__, nullptr, file.fileName());
+		}
+
+		buffer.append(file.readAll());
+		file.close();
+		return(buffer);
 	}
 
 	bool isReservedKeyword(const QString &word)

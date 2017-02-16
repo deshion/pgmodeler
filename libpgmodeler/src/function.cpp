@@ -17,6 +17,7 @@
 */
 
 #include "function.h"
+#include "pgmodelerns.h"
 
 Function::Function(void)
 {
@@ -452,8 +453,30 @@ QString Function::getCodeDefinition(unsigned def_type)
 
 QString Function::getCodeDefinition(unsigned def_type, bool reduced_form)
 {
-	QString code_def=getCachedCode(def_type, reduced_form);
-	if(!code_def.isEmpty()) return(code_def);
+	QString loaded_source;
+
+	if(def_type == SchemaParser::SQL_DEFINITION &&
+		 source_code.contains(QRegExp(GlobalAttributes::FILE_LINK_REGEXP)) &&
+		 (code_invalidated || (!code_invalidated && PgModelerNS::isFileReferenceModified(source_code))))
+	{
+		try
+		{
+			loaded_source = PgModelerNS::loadFileFromReference(source_code, QString());
+		}
+		catch(Exception &e)
+		{
+			throw Exception(Exception::getErrorMessage(ERR_FILE_REF_NOT_LOADED)
+											.arg(this->obj_name).arg(this->getTypeName()).arg(e.getExtraInfo()),
+											ERR_FILE_REF_NOT_LOADED, __PRETTY_FUNCTION__, __FILE__, __LINE__, nullptr, this->source_code);
+		}
+	}
+	else
+	{
+		QString code_def = getCachedCode(def_type, reduced_form);
+
+		if(!code_def.isEmpty())
+			return(code_def);
+	}
 
 	setParametersAttribute(def_type);
 
@@ -482,7 +505,7 @@ QString Function::getCodeDefinition(unsigned def_type, bool reduced_form)
 	attributes[ParsersAttributes::LEAKPROOF]=(is_leakproof ? ParsersAttributes::_TRUE_ : QString());
 	attributes[ParsersAttributes::SECURITY_TYPE]=(~security_type);
 	attributes[ParsersAttributes::BEHAVIOR_TYPE]=(~behavior_type);
-	attributes[ParsersAttributes::DEFINITION]=source_code;
+	attributes[ParsersAttributes::DEFINITION]=(loaded_source.isEmpty() ? source_code : loaded_source);
 
 	if(language->getName()==~LanguageType(LanguageType::c))
 	{
