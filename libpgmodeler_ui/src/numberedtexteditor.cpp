@@ -94,11 +94,14 @@ NumberedTextEditor::NumberedTextEditor(QWidget * parent, bool allow_ext_files) :
 		connect(clear_btn, &QToolButton::clicked, [=](){
 			this->clear();
 			this->setReadOnly(false);
-			clear_btn->setEnabled(false);
 		});
 
 		hbox->addWidget(clear_btn);
 		top_widget->setLayout(hbox);
+
+		connect(this, &NumberedTextEditor::textChanged, [=](){
+			clear_btn->setEnabled(!this->toPlainText().isEmpty());
+		});
 	}
 
 	setWordWrapMode(QTextOption::NoWrap);
@@ -305,7 +308,7 @@ void NumberedTextEditor::loadFile(bool only_ref)
 			/* When referencing an external file we register its path relatively to the application's working dir,
 			 also we need to store the last modification date to avoid excessive loading when generating the object's source */
 			QDir dir(qApp->applicationDirPath());
-			this->setPlainText(GlobalAttributes::FILE_LINK_TAG
+			this->setPlainText(GlobalAttributes::FILE_REF_TAG
 												 .arg(dir.relativeFilePath(sql_file_dlg.selectedFiles().at(0)))
 												 .arg(QFileInfo(sql_file_dlg.selectedFiles().at(0)).lastModified().toMSecsSinceEpoch()));
 		}

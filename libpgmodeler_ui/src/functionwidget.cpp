@@ -338,6 +338,7 @@ void FunctionWidget::setAttributes(DatabaseModel *model, OperationList *op_list,
 		else
 		{
 			source_code_txt->setPlainText(func->getSourceCode());
+			source_code_txt->setReadOnly(func->getSourceCode().contains(QRegExp(GlobalAttributes::FILE_REF_REGEXP)));
 		}
 
 		parameters_tab->blockSignals(false);

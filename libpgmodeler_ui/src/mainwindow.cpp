@@ -834,6 +834,7 @@ void MainWindow::addModel(const QString &filename)
 			{
 				model_tab->loadModel(filename);
 				models_tbw->setTabToolTip(models_tbw->currentIndex(), filename);
+
 				//Get the "public" schema and set as system object
 				public_sch=dynamic_cast<Schema *>(model_tab->db_model->getObject(QString("public"), OBJ_SCHEMA));
 				if(public_sch)	public_sch->setSystemObject(true);

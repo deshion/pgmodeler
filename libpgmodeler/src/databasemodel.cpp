@@ -2889,6 +2889,8 @@ void DatabaseModel::loadModel(const QString &filename)
 				 GlobalAttributes::OBJECT_DTD_DIR +
 				 GlobalAttributes::DIR_SEPARATOR;
 
+		QDir::setCurrent(QFileInfo(filename).absolutePath());
+
 		try
 		{
 			loading_model=true;

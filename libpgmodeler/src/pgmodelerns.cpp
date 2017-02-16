@@ -154,7 +154,7 @@ namespace PgModelerNS {
 
 	attribs_map getFileReferenceDetails(const QString &reference)
 	{
-		QRegExp regex(GlobalAttributes::FILE_LINK_REGEXP);
+		QRegExp regex(GlobalAttributes::FILE_REF_REGEXP);
 
 		if(!reference.contains(regex))
 			throw Exception(ERR_MALFORMED_FILE_REF,__PRETTY_FUNCTION__,__FILE__,__LINE__, nullptr, reference);
@@ -174,17 +174,49 @@ namespace PgModelerNS {
 		attribs_map attribs = getFileReferenceDetails(reference);
 		QDir dir(qApp->applicationDirPath());
 		QFileInfo info(dir.absoluteFilePath(attribs[ParsersAttributes::FILENAME]));
-		qint64 last_mod = info.lastModified().toMSecsSinceEpoch();
+		QString fallback_path = QDir::currentPath();
 
+		if(!info.exists() && !fallback_path.isEmpty())
+		{
+			dir.setPath(fallback_path);
+			info.setFile(dir.absoluteFilePath(attribs[ParsersAttributes::FILENAME]));
+		}
+
+		if(!info.exists())
+			throw Exception(Exception::getErrorMessage(ERR_FILE_DIR_NOT_ACCESSED).arg(info.fileName()),
+											ERR_FILE_DIR_NOT_ACCESSED ,__PRETTY_FUNCTION__,__FILE__,__LINE__, nullptr, info.fileName());
+
+		qint64 last_mod = info.lastModified().toMSecsSinceEpoch();
 		return(last_mod != QString(attribs[ParsersAttributes::MODIFIED_AT]).toLongLong());
 	}
 
-	QString loadFileFromReference(const QString &reference, const QString &fallback_path)
+	void updateFileReference(QString &reference)
+	{
+		attribs_map attribs = getFileReferenceDetails(reference);
+		QDir dir(qApp->applicationDirPath());
+		QFileInfo info(dir.absoluteFilePath(attribs[ParsersAttributes::FILENAME]));
+		QString fallback_path = QDir::currentPath();
+
+		if(!info.exists() && !fallback_path.isEmpty())
+		{
+			fallback_path += GlobalAttributes::DIR_SEPARATOR + QFileInfo(attribs[ParsersAttributes::FILENAME]).fileName();
+			info.setFile(fallback_path);
+		}
+
+		if(!info.exists())
+			throw Exception(Exception::getErrorMessage(ERR_FILE_DIR_NOT_ACCESSED).arg(info.fileName()),
+											ERR_FILE_DIR_NOT_ACCESSED ,__PRETTY_FUNCTION__,__FILE__,__LINE__, nullptr, info.fileName());
+
+		reference = GlobalAttributes::FILE_REF_TAG.arg(attribs[ParsersAttributes::FILENAME]).arg(info.lastModified().toMSecsSinceEpoch());
+	}
+
+	QString loadFileReference(const QString &reference)
 	{
 		attribs_map attribs = getFileReferenceDetails(reference);
 		QDir dir(qApp->applicationDirPath());
 		QFile file;
 		QString buffer;
+		QString fallback_path = QDir::currentPath();
 
 		file.setFileName(dir.absoluteFilePath(attribs[ParsersAttributes::FILENAME]));
 
@@ -193,8 +225,8 @@ namespace PgModelerNS {
 			//If the fallback path is set we try to get the file from there
 			if(!fallback_path.isEmpty())
 			{
-				dir.setPath(fallback_path);
-				file.setFileName(dir.absoluteFilePath(attribs[ParsersAttributes::FILENAME]));
+				fallback_path += GlobalAttributes::DIR_SEPARATOR + QFileInfo(attribs[ParsersAttributes::FILENAME]).fileName();
+				file.setFileName(fallback_path);
 				file.open(QFile::ReadOnly);
 			}
 

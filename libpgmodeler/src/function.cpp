@@ -18,6 +18,7 @@
 
 #include "function.h"
 #include "pgmodelerns.h"
+#include "databasemodel.h"
 
 Function::Function(void)
 {
@@ -455,13 +456,19 @@ QString Function::getCodeDefinition(unsigned def_type, bool reduced_form)
 {
 	QString loaded_source;
 
+	/* If the function's source is a reference to file we need to load the file
+	pointed by the reference and use as the real function body */
 	if(def_type == SchemaParser::SQL_DEFINITION &&
-		 source_code.contains(QRegExp(GlobalAttributes::FILE_LINK_REGEXP)) &&
-		 (code_invalidated || (!code_invalidated && PgModelerNS::isFileReferenceModified(source_code))))
+		 source_code.contains(QRegExp(GlobalAttributes::FILE_REF_REGEXP)) &&
+		 (code_invalidated || PgModelerNS::isFileReferenceModified(source_code)))
 	{
 		try
 		{
-			loaded_source = PgModelerNS::loadFileFromReference(source_code, QString());
+			loaded_source = PgModelerNS::loadFileReference(source_code);
+
+			/* Everytime we load a file from reference we need to update the modified_at attribute so
+			 we avoid the unnecessary loading when generating the function's SQL */
+			PgModelerNS::updateFileReference(source_code);
 		}
 		catch(Exception &e)
 		{
@@ -527,12 +534,21 @@ QString Function::getAlterDefinition(BaseObject *object)
 	try
 	{
 		attribs_map attribs;
+		QString source, aux_source;
 
 		attributes[ParsersAttributes::ALTER_CMDS]=BaseObject::getAlterDefinition(object);
 
-		if(this->source_code.simplified()!=func->source_code.simplified() ||
-				this->library!=func->library ||
-				this->symbol!=func->symbol)
+		if(this->source_code.contains(QRegExp(GlobalAttributes::FILE_REF_REGEXP)))
+			source = PgModelerNS::loadFileReference(this->source_code).simplified();
+		else
+			source = this->source_code.simplified();
+
+		if(func->source_code.contains(QRegExp(GlobalAttributes::FILE_REF_REGEXP)))
+			aux_source = PgModelerNS::loadFileReference(func->source_code).simplified();
+		else
+			aux_source = func->source_code.simplified();
+
+		if(source != aux_source || this->library != func->library || this->symbol != func->symbol)
 		{
 			attribs[ParsersAttributes::DEFINITION]=func->getCodeDefinition(SchemaParser::SQL_DEFINITION);
 			attribs[ParsersAttributes::DEFINITION].replace(QString("CREATE FUNCTION"), QString("CREATE OR REPLACE FUNCTION"));
