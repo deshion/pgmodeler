@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,22 +18,23 @@
 
 #include <QtTest/QtTest>
 #include "databasemodel.h"
+#include "qtcompat/qtextstreamcompat.h"
 
 class DatabaseModelTest: public QObject {
 	private:
 		Q_OBJECT
 
 	private slots:
-		void saveObjectsMetadata(void);
-		void loadObjectsMetadata(void);
+		void saveObjectsMetadata();
+		void loadObjectsMetadata();
 };
 
-void DatabaseModelTest::saveObjectsMetadata(void)
+void DatabaseModelTest::saveObjectsMetadata()
 {
 	DatabaseModel dbmodel;
 	QTextStream out(stdout);
-	QString output=QFileInfo(BINDIR).absolutePath() + GlobalAttributes::DIR_SEPARATOR + QString("demo.omf"),
-			input=SAMPLESDIR + GlobalAttributes::DIR_SEPARATOR + QString("demo.dbm");
+	QString output=QFileInfo(BINDIR).absolutePath() + GlobalAttributes::DirSeparator + QString("demo.omf"),
+			input=SAMPLESDIR + GlobalAttributes::DirSeparator + QString("demo.dbm");
 
 	try
 	{
@@ -45,31 +46,31 @@ void DatabaseModelTest::saveObjectsMetadata(void)
 	}
 	catch (Exception &e)
 	{
-		out << e.getExceptionsText() << endl;
+		out << e.getExceptionsText() << QtCompat::endl;
 	}
 
 	QCOMPARE(QFileInfo(output).exists(), true);
 }
 
-void DatabaseModelTest::loadObjectsMetadata(void)
+void DatabaseModelTest::loadObjectsMetadata()
 {
 	DatabaseModel dbmodel;
 	QTextStream out(stdout);
-	QString input_opf=QFileInfo(BINDIR).absolutePath() + GlobalAttributes::DIR_SEPARATOR + QString("demo.omf"),
-			input_dbm=SAMPLESDIR + GlobalAttributes::DIR_SEPARATOR + QString("demo.dbm"),
-			output=QFileInfo(BINDIR).absolutePath() + GlobalAttributes::DIR_SEPARATOR + QString("demo_changed.dbm");
+	QString input_opf=QFileInfo(BINDIR).absolutePath() + GlobalAttributes::DirSeparator + QString("demo.omf"),
+			input_dbm=SAMPLESDIR + GlobalAttributes::DirSeparator + QString("demo.dbm"),
+			output=QFileInfo(BINDIR).absolutePath() + GlobalAttributes::DirSeparator + QString("demo_changed.dbm");
 
 	try
 	{
 		dbmodel.createSystemObjects(false);
 		dbmodel.loadModel(input_dbm);
 		dbmodel.loadObjectsMetadata(input_opf);
-		dbmodel.saveModel(output, SchemaParser::XML_DEFINITION);
+		dbmodel.saveModel(output, SchemaParser::XmlDefinition);
 		QCOMPARE(true, true);
 	}
 	catch (Exception &e)
 	{
-		out << e.getExceptionsText() << endl;
+		out << e.getExceptionsText() << QtCompat::endl;
 		QCOMPARE(false, true);
 	}
 }

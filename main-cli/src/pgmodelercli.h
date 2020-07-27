@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,13 +18,14 @@
 
 /**
 \ingroup pgmodeler-cli
-\class PgModelerCLI
+\class PgModelerCliApp
 \brief Implements the operations export models whitout use the graphical interface
 */
 
-#ifndef PGMODELER_CLI_H
-#define PGMODELER_CLI_H
+#ifndef PGMODELER_CLI_APP_H
+#define PGMODELER_CLI_APP_H
 
+#include "application.h"
 #include <QObject>
 #include <QTextStream>
 #include <QCoreApplication>
@@ -34,15 +35,25 @@
 #include "modelexporthelper.h"
 #include "generalconfigwidget.h"
 #include "connectionsconfigwidget.h"
+#include "relationshipconfigwidget.h"
+#include "generalconfigwidget.h"
+#include "databaseimporthelper.h"
+#include "modelsdiffhelper.h"
 
-class PgModelerCLI: public QApplication {
+class PgModelerCliApp: public Application {
 	private:
 		Q_OBJECT
 
-		XMLParser *xmlparser;
+		XmlParser *xmlparser;
 
 		//! \brief Export helper object
-		ModelExportHelper export_hlp;
+		ModelExportHelper *export_hlp;
+
+		//! \brief Import helper object
+		DatabaseImportHelper *import_hlp;
+
+		//! \brief Diff helper object
+		ModelsDiffHelper *diff_hlp;
 
 		//! \brief Reference database model
 		DatabaseModel *model;
@@ -51,22 +62,33 @@ class PgModelerCLI: public QApplication {
 		ObjectsScene *scene;
 
 		//! \brief Stores the configured connection
-		Connection connection;
+		Connection connection,
+
+		//! \brief Stores the extra configured connection (only for diff)
+		extra_connection;
 
 		//! \brief Loaded connections
 		map<QString, Connection *> connections;
 
 		//! \brief Connection configuration widget used to load available connections from file
-		ConnectionsConfigWidget conn_conf;
+		ConnectionsConfigWidget *conn_conf;
+
+		//! \brief Relationship configuration widget used to load custom relationship settings
+		RelationshipConfigWidget *rel_conf;
+
+		GeneralConfigWidget *general_conf;
 
 		//! \brief Creates an standard out to handles QStrings
 		static QTextStream out;
 
 		//! \brief Stores the long option names. The boolean indicates if the option accepts a value
-		map<QString, bool> long_opts;
+		static map<QString, bool> long_opts;
 
 		//! \brief Stores the short option names.
-		attribs_map short_opts;
+		static attribs_map short_opts;
+
+		//! \brief Stores the accepted options by the different operations
+		static map<QString, QStringList> accepted_opts;
 
 		//! \brief Stores the parsed options names and values.
 		attribs_map parsed_opts;
@@ -75,66 +97,116 @@ class PgModelerCLI: public QApplication {
 		bool silent_mode;
 
 		//! \brief Stores the xml code for the objects being fixed
-		QStringList objs_xml;
+		QStringList objs_xml,
+
+		//! \brief Stores the object filters for reverse engineering
+		obj_filters;
 
 		//! \brief Zoom to be applied onto the png export
 		double zoom;
 
-		//! \brief Option names constants
-		static const QString INPUT,
-		OUTPUT,
-		EXPORT_TO_FILE,
-		EXPORT_TO_PNG,
-		EXPORT_TO_SVG,
-		EXPORT_TO_DBMS,
-		DROP_DATABASE,
-		DROP_OBJECTS,
-		PGSQL_VER,
-		HELP,
-		SHOW_GRID,
-		SHOW_DELIMITERS,
-		PAGE_BY_PAGE,
-		IGNORE_DUPLICATES,
-		IGNORE_ERROR_CODES,
-		CONN_ALIAS,
-		HOST,
-		PORT,
-		USER,
-		PASSWD,
-		INITIAL_DB,
-		SILENT,
-		LIST_CONNS,
-		SIMULATE,
-		FIX_MODEL,
-		FIX_TRIES,
-		ZOOM_FACTOR,
-		USE_TMP_NAMES,
-		DBM_MIME_TYPE,
-		INSTALL,
-		UNINSTALL,
+		//! \brief Start date used for filter changelog of the input database model (partial diff)
+		QDateTime start_date,
 
-		TAG_EXPR,
-		END_TAG_EXPR,
-		ATTRIBUTE_EXPR;
+		//! \brief End date used for filter changelog of the input database model (partial diff)
+		end_date;
+
+		static const QRegExp PasswordRegExp;
+		static const QString PasswordPlaceholder;
+
+		//! \brief Option names constants
+		static const QString Input,
+		Output,
+		InputDb,
+		ExportToFile,
+		ExportToPng,
+		ExportToSvg,
+		ExportToDbms,
+		ExportToDict,
+		ImportDb,
+		Diff,
+		DropDatabase,
+		DropObjects,
+		PgSqlVer,
+		Help,
+		ShowGrid,
+		ShowDelimiters,
+		PageByPage,
+		IgnoreDuplicates,
+		IgnoreErrorCodes,
+		ConnAlias,
+		Host,
+		Port,
+		User,
+		Passwd,
+		InitialDb,
+		Silent,
+		ListConns,
+		Simulate,
+		FixModel,
+		FixTries,
+		ZoomFactor,
+		UseTmpNames,
+		DbmMimeType,
+		Install,
+		Uninstall,
+		SystemWide,
+		NoIndex,
+		Splitted,
+
+		IgnoreImportErrors,
+		ImportSystemObjs,
+		ImportExtensionObjs,
+		DebugMode,
+		FilterObjects,
+		OnlyMatching,
+		MatchByName,
+		ForceChildren,
+		AllChildren,
+
+		PartialDiff,
+		ForceDiff,
+		StartDate,
+		EndDate,
+		CompareTo,
+		SaveDiff,
+		ApplyDiff,
+		NoDiffPreview,
+		DropClusterObjs,
+		RevokePermissions,
+		DropMissingObjs,
+		ForceDropColsConstrs,
+		RenameDb,
+		TruncOnColsTypeChange,
+		NoSequenceReuse,
+		NoCascadeDropTrunc,
+		ForceRecreateObjs,
+		OnlyUnmodifiable,
+
+		CreateConfigs,
+
+		TagExpr,
+		EndTagExpr,
+		AttributeExpr,
+
+		MsgFileAssociated,
+		MsgNoFileAssociation;
 
 		//! \brief Parsers the options and executes the action specified by them
 		void parseOptions(attribs_map &parsed_opts);
 
 		//! \brief Shows the options menu
-		void showMenu(void);
+		void showMenu();
 
 		//! \brief Returns if the specified options exists on short options map
 		bool isOptionRecognized(QString &op, bool &accepts_val);
 
-		//! \brief Initializes the options maps
-		void initializeOptions(void);
-
 		/*! \brief Extracts the xml defintions from the input model and store them on obj_xml list
 		in order to be parsed by the recreateObjects() method */
-		void extractObjectXML(void);
+		void extractObjectXML();
 
 		//! \brief Recreates the objects from the obj_xml list fixing the creation order for them
-		void recreateObjects(void);
+		void recreateObjects();
 
 		//! \brief Fix some xml attributes and remove unused tags
 		void fixObjectAttributes(QString &obj_xml);
@@ -148,21 +220,35 @@ class PgModelerCLI: public QApplication {
 
 		/*! \brief Install the .dbm file association in the mime database (default behaviour).
 		The paramenter 'uninstall' is used to clean up any file association done previously. */
-		void handleMimeDatabase(bool uninstall);
+		void handleMimeDatabase(bool uninstall, bool system_wide);
 
 		/*! \brief Fixes the references to opertor classes and families by replacing tags like
 		<opclass name="name"/> by <opclass signature="name USING index_method"/>. This method operates
 		only over operator classes, indexes and constraints */
 		void fixOpClassesFamiliesReferences(QString &obj_xml);
 
+		void fixModel();
+		void exportModel();
+		void importDatabase();
+		void diffModelDatabase();
+		void updateMimeType();
+		void configureConnection(bool extra_conn);
+		void importDatabase(DatabaseModel *model, Connection conn);
+		void printMessage(const QString &msg);
+		void handleLinuxMimeDatabase(bool uninstall, bool system_wide);
+		void handleWindowsMimeDatabase(bool uninstall, bool system_wide);
+		void createConfigurations();
+		void listConnections();
+
 	public:
-		PgModelerCLI(int argc, char **argv);
-		~PgModelerCLI(void);
-		int exec(void);
+		PgModelerCliApp(int argc, char **argv);
+		virtual ~PgModelerCliApp();
+		int exec();
 
 	private slots:
 		void handleObjectAddition(BaseObject *);
-		void updateProgress(int progress, QString msg);
+		void updateProgress(int progress, QString msg, ObjectType = ObjectType::BaseObject);
+		void printIgnoredError(QString err_cod, QString err_msg, QString cmd);
 		void handleObjectRemoval(BaseObject *object);
 };
 

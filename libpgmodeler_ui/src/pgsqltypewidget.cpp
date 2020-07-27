@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 #include "pgsqltypewidget.h"
 
-const QString PgSQLTypeWidget::INVALID_TYPE = QString("invalid_type");
+const QString PgSQLTypeWidget::InvalidType("invalid_type");
 
 PgSQLTypeWidget::PgSQLTypeWidget(QWidget *parent, const QString &label) : QWidget(parent)
 {
@@ -35,55 +35,46 @@ PgSQLTypeWidget::PgSQLTypeWidget(QWidget *parent, const QString &label) : QWidge
 
 		format_hl=nullptr;
 		format_hl=new SyntaxHighlighter(format_txt, true);
-		format_hl->loadConfiguration(GlobalAttributes::SQL_HIGHLIGHT_CONF_PATH);
+		format_hl->loadConfiguration(GlobalAttributes::getSQLHighlightConfPath());
 		this->adjustSize();
 
-		IntervalType::getTypes(interval_lst);
+		interval_lst = IntervalType::getTypes();
 		interval_cmb->addItem("");
 		interval_cmb->addItems(interval_lst);
 
-		SpatialType::getTypes(spatial_lst);
+		spatial_lst = SpatialType::getTypes();
 		spatial_lst.sort();
-		spatial_cmb->addItem(trUtf8("NONE"));
+		spatial_cmb->addItem(tr("NONE"));
 		spatial_cmb->addItems(spatial_lst);
 
 		type_cmb->installEventFilter(this);
 
-		connect(type_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(updateTypeFormat(void)));
-		connect(precision_sb, SIGNAL(valueChanged(int)), this, SLOT(updateTypeFormat(void)));
-		connect(length_sb, SIGNAL(valueChanged(int)), this, SLOT(updateTypeFormat(void)));
-		connect(dimension_sb, SIGNAL(valueChanged(int)), this, SLOT(updateTypeFormat(void)));
-		connect(interval_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(updateTypeFormat(void)));
-		connect(timezone_chk, SIGNAL(toggled(bool)), this, SLOT(updateTypeFormat(void)));
-		connect(spatial_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(updateTypeFormat(void)));
-		connect(var_m_chk, SIGNAL(toggled(bool)), this, SLOT(updateTypeFormat(void)));
-		connect(var_z_chk, SIGNAL(toggled(bool)), this, SLOT(updateTypeFormat(void)));
-		connect(srid_spb, SIGNAL(valueChanged(int)), this, SLOT(updateTypeFormat(void)));
+		connect(type_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(updateTypeFormat()));
+		connect(precision_sb, SIGNAL(valueChanged(int)), this, SLOT(updateTypeFormat()));
+		connect(length_sb, SIGNAL(valueChanged(int)), this, SLOT(updateTypeFormat()));
+		connect(dimension_sb, SIGNAL(valueChanged(int)), this, SLOT(updateTypeFormat()));
+		connect(interval_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(updateTypeFormat()));
+		connect(timezone_chk, SIGNAL(toggled(bool)), this, SLOT(updateTypeFormat()));
+		connect(spatial_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(updateTypeFormat()));
+		connect(var_m_chk, SIGNAL(toggled(bool)), this, SLOT(updateTypeFormat()));
+		connect(var_z_chk, SIGNAL(toggled(bool)), this, SLOT(updateTypeFormat()));
+		connect(srid_spb, SIGNAL(valueChanged(int)), this, SLOT(updateTypeFormat()));
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
 bool PgSQLTypeWidget::eventFilter(QObject *object, QEvent *event)
 {
 	if(event->type() == QEvent::KeyRelease && object == type_cmb)
-	{
-		try
-		{
-			updateTypeFormat();
-		}
-		catch(Exception &)
-		{
-			format_txt->setPlainText(INVALID_TYPE);
-		}
-	}
+		updateTypeFormat();
 
-	return(QWidget::eventFilter(object, event));
+	return QWidget::eventFilter(object, event);
 }
 
-void PgSQLTypeWidget::updateTypeFormat(void)
+void PgSQLTypeWidget::updateTypeFormat()
 {
 	try
 	{
@@ -118,14 +109,15 @@ void PgSQLTypeWidget::updateTypeFormat(void)
 		if(spatial_cmb->isVisible())
 		{
 			SpatialType spatial_tp;
-			spatial_tp=SpatialType(spatial_cmb->currentText(), srid_spb->value());
+			QString sp_type_name = spatial_cmb->currentIndex() > 0 ? spatial_cmb->currentText() : "";
+			spatial_tp = SpatialType(sp_type_name, srid_spb->value());
 
 			if(var_z_chk->isChecked() && var_m_chk->isChecked())
-				spatial_tp.setVariation(SpatialType::var_zm);
+				spatial_tp.setVariation(SpatialType::VarZm);
 			else if(var_m_chk->isChecked())
-				spatial_tp.setVariation(SpatialType::var_m);
+				spatial_tp.setVariation(SpatialType::VarM);
 			else if(var_z_chk->isChecked())
-				spatial_tp.setVariation(SpatialType::var_z);
+				spatial_tp.setVariation(SpatialType::VarZ);
 
 			type.setSpatialType(spatial_tp);
 		}
@@ -138,9 +130,9 @@ void PgSQLTypeWidget::updateTypeFormat(void)
 
 		format_txt->setPlainText(*type);
 	}
-	catch(Exception &e)
+	catch(Exception &)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		format_txt->setPlainText(InvalidType);
 	}
 }
 
@@ -154,21 +146,21 @@ void PgSQLTypeWidget::listPgSQLTypes(QComboBox *combo, DatabaseModel *model, uns
 		combo->clear();
 
 		//Getting the user defined type adding them into the combo
-		PgSQLType::getUserTypes(types,model, user_type_conf);
+		PgSqlType::getUserTypes(types,model, user_type_conf);
 		types.sort();
 		count=types.size();
 
 		for(idx=0; idx < count; idx++)
-			combo->addItem(types[idx], QVariant(PgSQLType::getUserTypeIndex(types[idx],nullptr,model)));
+			combo->addItem(types[idx], QVariant(PgSqlType::getUserTypeIndex(types[idx],nullptr,model)));
 
 		//Getting the built-in type adding them into the combo
-		PgSQLType::getTypes(types, oid_types, pseudo_types);
+		types = PgSqlType::getTypes(oid_types, pseudo_types);
 		types.sort();
 		combo->addItems(types);
 	}
 }
 
-void PgSQLTypeWidget::setAttributes(PgSQLType type, DatabaseModel *model,  unsigned usr_type_conf, bool oid_types, bool pseudo_types)
+void PgSQLTypeWidget::setAttributes(PgSqlType type, DatabaseModel *model,  unsigned usr_type_conf, bool oid_types, bool pseudo_types)
 {
 	try
 	{
@@ -195,6 +187,10 @@ void PgSQLTypeWidget::setAttributes(PgSQLType type, DatabaseModel *model,  unsig
 		idx=interval_cmb->findText(~(type.getIntervalType()));
 		interval_cmb->setCurrentIndex(idx);
 
+		idx=spatial_cmb->findText(~(type.getSpatialType()));
+		if(idx < 0) idx = 0;
+		spatial_cmb->setCurrentIndex(idx);
+
 		timezone_chk->setChecked(type.isWithTimezone());
 
 		this->type=type;
@@ -202,15 +198,15 @@ void PgSQLTypeWidget::setAttributes(PgSQLType type, DatabaseModel *model,  unsig
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-PgSQLType PgSQLTypeWidget::getPgSQLType(void)
+PgSqlType PgSQLTypeWidget::getPgSQLType()
 {
-	if(format_txt->toPlainText() == INVALID_TYPE)
-		throw Exception(ERR_ASG_INV_TYPE_OBJECT,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+	if(format_txt->toPlainText() == InvalidType)
+		throw Exception(ErrorCode::AsgInvalidTypeObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
-	return(type);
+	return type;
 }
 

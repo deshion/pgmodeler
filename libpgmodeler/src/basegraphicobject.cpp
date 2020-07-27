@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,15 +18,19 @@
 
 #include "basegraphicobject.h"
 
-BaseGraphicObject::BaseGraphicObject(void)
+BaseGraphicObject::BaseGraphicObject()
 {
 	is_modified=true;
 	is_faded_out=false;
-	attributes[ParsersAttributes::X_POS]=QString();
-	attributes[ParsersAttributes::Y_POS]=QString();
-	attributes[ParsersAttributes::POSITION]=QString();
-	attributes[ParsersAttributes::FADED_OUT]=QString();
+	attributes[Attributes::XPos]="";
+	attributes[Attributes::YPos]="";
+	attributes[Attributes::Position]="";
+	attributes[Attributes::FadedOut]="";
+	attributes[Attributes::Layer]="";
+	attributes[Attributes::ZValue]="";
 	receiver_object=nullptr;
+	layer = 0;	
+	z_value=0;
 }
 
 void BaseGraphicObject::setProtected(bool value)
@@ -64,26 +68,26 @@ void BaseGraphicObject::setFadedOut(bool value)
 	is_faded_out = value;
 }
 
-bool BaseGraphicObject::isModified(void)
+bool BaseGraphicObject::isModified()
 {
-	return(is_modified);
+	return is_modified;
 }
 
-bool BaseGraphicObject::isFadedOut(void)
+bool BaseGraphicObject::isFadedOut()
 {
-	return(is_faded_out);
+	return is_faded_out;
 }
 
-void BaseGraphicObject::setFadedOutAttribute(void)
+void BaseGraphicObject::setFadedOutAttribute()
 {
-	attributes[ParsersAttributes::FADED_OUT]=(is_faded_out ? ParsersAttributes::_TRUE_ : QString());
+	attributes[Attributes::FadedOut]=(is_faded_out ? Attributes::True : "");
 }
 
-void BaseGraphicObject::setPositionAttribute(void)
+void BaseGraphicObject::setPositionAttribute()
 {
-	attributes[ParsersAttributes::X_POS]=QString("%1").arg(position.x());
-	attributes[ParsersAttributes::Y_POS]=QString("%1").arg(position.y());
-	attributes[ParsersAttributes::POSITION]=schparser.getCodeDefinition(ParsersAttributes::POSITION, attributes, SchemaParser::XML_DEFINITION);
+	attributes[Attributes::XPos]=QString("%1").arg(position.x());
+	attributes[Attributes::YPos]=QString("%1").arg(position.y());
+	attributes[Attributes::Position]=schparser.getCodeDefinition(Attributes::Position, attributes, SchemaParser::XmlDefinition);
 }
 
 void  BaseGraphicObject::setPosition(QPointF pos)
@@ -92,15 +96,16 @@ void  BaseGraphicObject::setPosition(QPointF pos)
 	position=pos;
 }
 
-QPointF BaseGraphicObject::getPosition(void)
+QPointF BaseGraphicObject::getPosition()
 {
-	return(position);
+	return position;
 }
 
 void BaseGraphicObject::operator = (BaseGraphicObject &obj)
 {
 	*(dynamic_cast<BaseObject *>(this))=dynamic_cast<BaseObject &>(obj);
 	this->position=obj.position;
+	this->z_value=obj.z_value;
 }
 
 void BaseGraphicObject::setReceiverObject(QObject *obj)
@@ -111,13 +116,40 @@ void BaseGraphicObject::setReceiverObject(QObject *obj)
 	receiver_object=obj;
 }
 
-QObject *BaseGraphicObject::getReceiverObject(void)
+QObject *BaseGraphicObject::getOverlyingObject()
 {
-	return(receiver_object);
+	return receiver_object;
 }
 
 bool BaseGraphicObject::isGraphicObject(ObjectType type)
 {
-	return(type==OBJ_TABLE || type==OBJ_VIEW || type==OBJ_RELATIONSHIP ||
-				 type==BASE_RELATIONSHIP || type==OBJ_TEXTBOX || type==OBJ_SCHEMA);
+	return (type==ObjectType::Table || type==ObjectType::View || type==ObjectType::Relationship ||
+				 type==ObjectType::BaseRelationship || type==ObjectType::Textbox || type==ObjectType::Schema ||
+				 type==ObjectType::ForeignTable);
+}
+
+void BaseGraphicObject::setLayer(unsigned layer)
+{
+	setCodeInvalidated(this->layer != layer);
+	this->layer = layer;
+}
+
+unsigned BaseGraphicObject::getLayer()
+{
+	return layer;
+}
+
+void BaseGraphicObject::setZValue(int z_value)
+{
+	if(z_value < MinZValue)
+		z_value = MinZValue;
+	else if(z_value > MaxZValue)
+		z_value = MaxZValue;
+
+	this->z_value = z_value;
+}
+
+int BaseGraphicObject::getZValue()
+{
+	return z_value;
 }

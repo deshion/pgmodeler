@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,9 +27,9 @@
 
 #include "baseobjectwidget.h"
 #include "ui_constraintwidget.h"
-#include "objecttablewidget.h"
+#include "objectstablewidget.h"
 #include "messagebox.h"
-#include "elementswidget.h"
+#include "elementstablewidget.h"
 
 class ConstraintWidget: public BaseObjectWidget, public Ui::ConstraintWidget {
 	private:
@@ -39,11 +39,11 @@ class ConstraintWidget: public BaseObjectWidget, public Ui::ConstraintWidget {
 		
 		SyntaxHighlighter *expression_hl;
 		
-		ElementsWidget *excl_elems_wgt;
+		ElementsTableWidget *excl_elems_tab;
 		
 		/*! \brief Table widgets used to store the columns that forms the constraint as well the
 		referenced columns (only for foreign keys) */
-		ObjectTableWidget *columns_tab,
+		ObjectsTableWidget *columns_tab,
 		*ref_columns_tab;
 		
 		//! \brief Referenced table selector
@@ -55,25 +55,23 @@ class ConstraintWidget: public BaseObjectWidget, public Ui::ConstraintWidget {
 		//! \brief Adds the column to the column's table at the specified row
 		void addColumn(Column *column, unsigned col_id, int row);
 		
-		void hideEvent(QHideEvent *event);
-		
 	public:
-		ConstraintWidget(QWidget * parent = 0);
+		ConstraintWidget(QWidget * parent = nullptr);
 		void setAttributes(DatabaseModel *model, OperationList *op_list, BaseObject *parent_obj, Constraint *constr);
 		
 	private slots:
 		//! \brief Shows only the fields related to the selected constraint type
-		void selectConstraintType(void);
+		void selectConstraintType();
 		
 		//! \brief Selects the referenced table as well updates the combo containing the referenced table columns
-		void selectReferencedTable(void);
+		void selectReferencedTable();
 		
 		void addColumn(int row);
 		void removeColumn(int);
-		void removeColumns(void);
+		void removeColumns();
 		
 	public slots:
-		void applyConfiguration(void);
+		void applyConfiguration();
 };
 
 #endif

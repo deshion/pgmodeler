@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,19 +28,26 @@
 #include "textboxview.h"
 #include "tableview.h"
 #include "relationship.h"
+#include "beziercurveitem.h"
 
 class RelationshipView: public BaseObjectView {
 	private:
 		Q_OBJECT
 
 		//! \brief Graphical point radius
-		static constexpr double GRAPHIC_PNT_RADIUS=6.0f;
+		static constexpr double GraphicPointRadius=6.0;
 
 		//! \brief Length of the lines linked to fk/pk columns
-		static constexpr double CONN_LINE_LENGTH=20.0f;
+		static constexpr double ConnLineLength=20.0;
 
 		//! \brief Indicates that the relationship labels must be hidden
 		static bool hide_name_label;
+
+		//! \brief Indicates that the relationship lines should be curved
+		static bool use_curved_lines;
+
+		//! \brief Indicates that the relationship should be drawn in Crow's foot notation
+		static bool use_crows_foot;
 
 		/*! \brief Specify the type of connection used by the lines. The first (classical)
 		is to connect the line to tables through their central points. The second (better semantics)
@@ -93,20 +100,33 @@ class RelationshipView: public BaseObjectView {
 
 		QGraphicsEllipseItem *line_circles[2];
 
+		//! \brief Stores the curved lines representing the relationship
+		vector<BezierCurveItem *> curves;
+
+		//! \brief Stores the crow's foot notation descriptors
+		QGraphicsItemGroup * cf_descriptors[2];
+
+		vector<QGraphicsLineItem *> src_cf_lines,	dst_cf_lines;
+
+		QGraphicsEllipseItem *round_cf_descriptors[2];
+
 		//! \brief Stores the selected child object index
 		int sel_object_idx;
 
 		//! \brief Configures the labels positioning
-		void configureLabels(void);
+		void configureLabels();
 
 		//! \brief Configures the descriptor form and positioning
-		void configureDescriptor(void);
+		void configureDescriptor();
+
+		//! \brief Configures the crow's feet descriptors form and positioning
+		void configureCrowsFootDescriptors();
 
 		//! \brief Configures the attributes positioning
-		void configureAttributes(void);
+		void configureAttributes();
 
 		//! \brief Configures the position info object
-		void configurePositionInfo(void);
+		void configurePositionInfo();
 
 		//! \brief Configures the specified label's position based as well some styles for it
 		void configureLabelPosition(unsigned label_id, double x, double y);
@@ -121,40 +141,53 @@ class RelationshipView: public BaseObjectView {
 		/*! \brief (Re)connects the tables to the relationship changing the signals captured.
 		This method is called whenever the placeholder usage is toggled. If the placeholders are on
 		the the table's signal s_relUpdateRequested() is used otherwise the s_objectMoved() is used */
-		void connectTables(void);
+		void connectTables();
 
 		//! \brief Disconnects the signal handled by the relationship which senders are the tables
-		void disconnectTables(void);
+		void disconnectTables();
 
 	public slots:
 		//! \brief Configures the relationship line
-		void configureLine(void);
+		void configureLine();
 
 		//! \brief Returns the label through its index
 		TextboxView *getLabel(unsigned lab_idx);
 
 	private slots:
 		//! \brief Makes the comple relationship configuration
-		void configureObject(void);
+		void configureObject();
 
 	public:
-		static const unsigned CONNECT_CENTER_PNTS=0,
-		CONNECT_FK_TO_PK=1;
+		static constexpr unsigned ConnectCenterPoints=0,
+		ConnectFkToPk=1,
+		ConnectTableEdges=2;
 
 		RelationshipView(BaseRelationship *rel);
-		~RelationshipView(void);
+		virtual ~RelationshipView();
 
 		//! \brief Calculates the relationship bounding rect considering all the children objects dimension
-		QRectF __boundingRect(void);
+		QRectF __boundingRect();
 
 		//! \brief Returns the relationship that generates the graphical representation
-		BaseRelationship *getSourceObject(void);
+		BaseRelationship *getUnderlyingObject();
 
 		//! \brief Hides the relationship's name label. This applies to all relationship instances
 		static void setHideNameLabel(bool value);
 
 		//! \brief Returns the current visibility state of name label
-		static bool isNameLabelHidden(void);
+		static bool isNameLabelHidden();
+
+		//! \brief Enables the usage of curved lines for all relationships
+		static void setCurvedLines(bool value);
+
+		//! \brief Returns the current state of curved lines usage
+		static bool isCurvedLines();
+
+		//! \brief Enables the usage of Crow's foot notation for all relationships
+		static void setCrowsFoot(bool value);
+
+		//! \brief Returns the current state of Crow's foot notation usage
+		static bool isCrowsFoot();
 
 		/*! \brief Configures the mode in which the lines are connected on tables.
 		The first one is the CONNECT_CENTER_PNTS (the classical one) which connects the
@@ -163,12 +196,15 @@ class RelationshipView: public BaseObjectView {
 		static void setLineConnectionMode(unsigned mode);
 
 		//! \brief Returns the line connection mode used for the relationships
-		static unsigned getLineConnectinMode(void);
+		static unsigned getLineConnectinMode();
 
 		/*! \brief Returns the connection point for the specified table. The connection point is
 		 where the relationship is connected on envolved tables. The point returned deffers depending on the
 		 line connection mode used.	*/
 		QPointF getConnectionPoint(unsigned table_idx);
+
+		void configureObjectShadow(void) = delete;
+		void configureObjectSelection(void) = delete;
 
 	signals:
 		void s_relationshipModified(BaseGraphicObject *rel);

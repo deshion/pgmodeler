@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,8 +33,8 @@ class Role: public BaseObject {
 		static unsigned role_id;
 
 		/*! \brief Options for the role (SUPERUSER, CREATEDB, CREATEROLE,
-		 INHERIT, LOGIN, ENCRYPTED, REPLICATION) */
-		bool options[7];
+		 INHERIT, LOGIN, ENCRYPTED, REPLICATION, BYPASSRLS) */
+		bool options[8];
 
 		//! \brief Connection limit for the role
 		int conn_limit;
@@ -59,20 +59,21 @@ class Role: public BaseObject {
 
 	public:
 		//! \brief Constants used to reference the available options for the role
-		static const unsigned OP_SUPERUSER=0,
-		OP_CREATEDB=1,
-		OP_CREATEROLE=2,
-		OP_INHERIT=3,
-		OP_LOGIN=4,
-		OP_ENCRYPTED=5,
-		OP_REPLICATION=6;
+		static constexpr unsigned OpSuperuser=0,
+		OpCreateDb=1,
+		OpCreateRole=2,
+		OpInherit=3,
+		OpLogin=4,
+		OpEncrypted=5,
+		OpReplication=6,
+		OpBypassRls=7;
 
 		//! \brief Constants used to reference the internal role lists of the class
-		static const unsigned REF_ROLE=10,
-		MEMBER_ROLE=20,
-		ADMIN_ROLE=30;
+		static constexpr unsigned RefRole=10,
+		MemberRole=20,
+		AdminRole=30;
 
-		Role(void);
+		Role();
 
 		//! \brief Sets one option for the role (Via OP_??? constants)
 		void setOption(unsigned op_type, bool value);
@@ -109,16 +110,17 @@ class Role: public BaseObject {
 		unsigned getRoleCount(unsigned role_type);
 
 		//! \brief Returns the connection limit for the role
-		unsigned getConnectionLimit(void);
+		unsigned getConnectionLimit();
 
 		//! \brief Returns the validity date for the role
-		QString getValidity(void);
+		QString getValidity();
 
 		//! \brief Returns the role password
-		QString getPassword(void);
+		QString getPassword();
 
 		//! \brief Returns the SQL / XML definition for the role
 		virtual QString getCodeDefinition(unsigned def_type) final;
+		virtual QString getCodeDefinition(unsigned def_type, bool reduced_form) final;
 
 		virtual QString getAlterDefinition(BaseObject *object, bool ignore_name_diff=false) final;
 };

@@ -1,5 +1,4 @@
 # SQL definition for index elements
-# PostgreSQL Version: 9.x
 # CAUTION: Do not modify this file unless you know what you are doing.
 #          Code generation can be broken if incorrect changes are made.
 $br $tb $sp $sp
@@ -7,7 +6,7 @@ $br $tb $sp $sp
  {column}
 %else 
   %if {expression} %then
-    [(] {expression} [)]
+    ({expression})
   %end
 %end
 

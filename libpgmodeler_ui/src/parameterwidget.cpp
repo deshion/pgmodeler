@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 #include "parameterwidget.h"
 
-ParameterWidget::ParameterWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_PARAMETER)
+ParameterWidget::ParameterWidget(QWidget *parent): BaseObjectWidget(parent, ObjectType::Parameter)
 {
 	try
 	{
@@ -41,32 +41,27 @@ ParameterWidget::ParameterWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_
 		parameter_grid->addWidget(data_type,2, 0, 1, 4);
 		parameter_grid->addItem(spacer, parameter_grid->count()+1,0);
 
-		configureFormLayout(parameter_grid, OBJ_PARAMETER);
+		configureFormLayout(parameter_grid, ObjectType::Parameter);
 		connect(param_variadic_chk, SIGNAL(toggled(bool)), param_in_chk, SLOT(setDisabled(bool)));
 		connect(param_variadic_chk, SIGNAL(toggled(bool)), param_out_chk, SLOT(setDisabled(bool)));
-		connect(param_in_chk, SIGNAL(toggled(bool)), this, SLOT(enableVariadic(void)));
-		connect(param_out_chk, SIGNAL(toggled(bool)), this, SLOT(enableVariadic(void)));
+		connect(param_in_chk, SIGNAL(toggled(bool)), this, SLOT(enableVariadic()));
+		connect(param_out_chk, SIGNAL(toggled(bool)), this, SLOT(enableVariadic()));
 
 		setMinimumSize(500, 200);
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void ParameterWidget::enableVariadic(void)
+void ParameterWidget::enableVariadic()
 {
-	param_variadic_chk->setChecked(!param_in_chk->isChecked() &&
-								   !param_out_chk->isChecked());
-}
+	param_variadic_chk->setEnabled(!param_in_chk->isChecked() &&
+																 !param_out_chk->isChecked());
 
-void ParameterWidget::hideEvent(QHideEvent *event)
-{
-	param_in_chk->setChecked(false);
-	param_out_chk->setChecked(false);
-	default_value_edt->clear();
-	BaseObjectWidget::hideEvent(event);
+	if(!param_variadic_chk->isEnabled())
+		param_variadic_chk->setChecked(false);
 }
 
 void ParameterWidget::setAttributes(Parameter param, DatabaseModel *model)
@@ -82,7 +77,7 @@ void ParameterWidget::setAttributes(Parameter param, DatabaseModel *model)
 	BaseObjectWidget::setAttributes(model,&this->parameter, nullptr);
 }
 
-void ParameterWidget::applyConfiguration(void)
+void ParameterWidget::applyConfiguration()
 {
 	try
 	{
@@ -98,12 +93,12 @@ void ParameterWidget::applyConfiguration(void)
 	catch(Exception &e)
 	{
 		cancelConfiguration();
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-Parameter ParameterWidget::getParameter(void)
+Parameter ParameterWidget::getParameter()
 {
-	return(parameter);
+	return parameter;
 }
 

@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,36 +29,36 @@
 #include "ui_metadatahandlingform.h"
 #include "modelwidget.h"
 #include "htmlitemdelegate.h"
-#include "hinttextwidget.h"
+#include "fileselectorwidget.h"
 
 class MetadataHandlingForm: public QDialog, public Ui::MetadataHandlingForm {
 	private:
 		Q_OBJECT
 
 		ModelWidget *model_wgt;
+
 		HtmlItemDelegate *htmlitem_deleg;
+
 		QTreeWidgetItem *root_item;
 
-		HintTextWidget *db_metadata_ht, *objs_positioning_ht, *objs_protection_ht,
-		*objs_sql_disabled_ht, *custom_sql_ht, *textbox_objs_ht, *tag_objs_ht,
-		*custom_colors_ht, *extract_ht, *restore_ht, *objs_fadedout_ht, *objs_extattribs_ht,
-		*generic_sql_objs_ht;
+		FileSelectorWidget *backup_file_sel;
 
 		void showEvent(QShowEvent *);
-		void selectFile(bool is_output);
 
 	public:
-		MetadataHandlingForm(QWidget * parent = 0, Qt::WindowFlags f = 0);
+		MetadataHandlingForm(QWidget * parent = nullptr, Qt::WindowFlags f = Qt::Widget);
 		void setModelWidget(ModelWidget *model_wgt);
 		void setModelWidgets(QList<ModelWidget *> models);
 
 	private slots:
 		void updateProgress(int progress, QString msg, unsigned type_id);
-		void handleObjectsMetada(void);	
-		void enableMetadataHandling(void);
+		void handleObjectsMetada();
+		void enableMetadataHandling();
+		void selectAllOptions();
+		void configureSelector();
 
 	signals:
-		void s_metadataHandled(void);
+		void s_metadataHandled();
 };
 
 #endif

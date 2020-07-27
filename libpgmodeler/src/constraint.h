@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,6 +30,10 @@
 #include "tablespace.h"
 #include "column.h"
 #include "excludeelement.h"
+#include "pgsqltypes/constrainttype.h"
+#include "pgsqltypes/deferraltype.h"
+#include "pgsqltypes/matchtype.h"
+#include "pgsqltypes/actiontype.h"
 
 class Constraint: public TableObject{
 	private:
@@ -81,22 +85,22 @@ class Constraint: public TableObject{
 		//! \brief Formats the exclude elements string used by the SchemaParser
 		void setExcludeElementsAttribute(unsigned def_type);
 
-		void setDeclInTableAttribute(void);
+		void setDeclInTableAttribute();
 
 	public:
 		/*! \brief Access the source columns that means the columns that constrais
 		is applied (from the constraint's parent table) */
-		static const unsigned SOURCE_COLS=0,
+		static constexpr unsigned SourceCols=0,
 
 		/*! \brief Access the referenced columns that means the columns from the
 														 referenced table primary key (only for foreign keys) */
-		REFERENCED_COLS=1;
+		ReferencedCols=1;
 
-		static const unsigned DELETE_ACTION=0,
-		UPDATE_ACTION=1;
+		static constexpr unsigned DeleteAction=0,
+		UpdateAction=1;
 
-		Constraint(void);
-		~Constraint(void);
+		Constraint();
+		virtual ~Constraint();
 
 		/*! \brief Adds one column to the internal column list referenced by the
 		 constants SOURCE_COLS or REFERENCED_COLS */
@@ -141,10 +145,13 @@ class Constraint: public TableObject{
 		void setNoInherit(bool value);
 
 		//! \brief Returns the constraint fill factor
-		unsigned getFillFactor(void);
+		unsigned getFillFactor();
 
 		//! \brief Retuns the action type (ON DELETE or ON UPDATE) of a foreign key
 		ActionType getActionType(unsigned act_id);
+
+		//! \brief Returns the list of columns of the specified type SOURCE_COLS or REFERENCED_COLS
+		vector<Column *> getColumns(unsigned col_type);
 
 		/*! \brief Returns one column (using its index) from the internal constraint column lists.
 		 Use the constants SOURCE_COLS or REFERENCED_COLS to access the lists */
@@ -159,54 +166,54 @@ class Constraint: public TableObject{
 		unsigned getColumnCount(unsigned col_type);
 
 		//! \brief Returns the exclude constraint element count
-		unsigned getExcludeElementCount(void);
+		unsigned getExcludeElementCount();
 
 		//! \brief Returns a list of exclude elements
-		vector<ExcludeElement> getExcludeElements(void);
+		vector<ExcludeElement> getExcludeElements();
 
 		/*! \brief Removes one column from internal list using its name.
 		 Use the constants SOURCE_COLS or REFERENCED_COLS to access the lists */
 		void removeColumn(const QString &name, unsigned col_type);
 
 		//! \brief Remove all columns from the internal lists
-		void removeColumns(void);
+		void removeColumns();
 
 		//! \brief Returns the constraint type
-		ConstraintType getConstraintType(void);
+		ConstraintType getConstraintType();
 
 		//! \brief Returns the check expression
-		QString getExpression(void);
+		QString getExpression();
 
 		//! \brief Returns the referenced table
-		BaseTable *getReferencedTable(void);
+		BaseTable *getReferencedTable();
 
 		//! \brief Returns the constraint's deferral type
-		DeferralType getDeferralType(void);
+		DeferralType getDeferralType();
 
 		//! \brief Indicates whether the constraint is deferrable
-		bool isDeferrable(void);
+		bool isDeferrable();
 
 		//! \brief Returns if the constraints will propagated to child tables
-		bool isNoInherit(void);
+		bool isNoInherit();
 
 		/*! \brief Returns whether the constraint references columns added
 		 by relationship. This method is used as auxiliary
 		 to control which constraints reference columns added by the
 		 relationship in order to avoid referece breaking due constants
 		 connections and disconnections of relationships */
-		bool isReferRelationshipAddedColumn(void);
+		bool isReferRelationshipAddedColumn();
 
 		/*! \brief Returns the list of all columns that is created by relationships.
 	This method is slower than isReferRelationshipAddedColumn() so it's not
 	recommended to use it only check if the object is referencing columns
 	added by relationship */
-		vector<Column *> getRelationshipAddedColumns(void);
+		vector<Column *> getRelationshipAddedColumns();
 
 		//! \brief Returns the matching type adopted by the constraint
-		MatchType getMatchType(void);
+		MatchType getMatchType();
 
 		//! \brief Returns the indexing type adopted by the constraint
-		IndexingType getIndexType(void);
+		IndexingType getIndexType();
 
 		/*! \brief Returns the SQL / XML definition for the constraint.
 		 This method calls getCodeDefintion(unsigned, bool) with the
@@ -225,6 +232,9 @@ class Constraint: public TableObject{
 		/*! \brief Indicates whether the column is referenced in internal column list or exclude element list.
 		The second parameter is useful to permit or not the search of column only on referenced columns list. */
 		bool isColumnReferenced(Column *column, bool search_only_ref_cols = false);
+
+		//! \brief Indicates whether the columns are referenced in internal column list
+		bool isColumnsExist(vector<Column *> columns, unsigned col_type);
 
 		//! \brief Adds an exclude element to the constraint using an column (only exclude constraint)
 		void addExcludeElement(Column *column, Operator *oper, OperatorClass *op_class, bool use_sorting, bool asc_order, bool nulls_first);
@@ -245,7 +255,7 @@ class Constraint: public TableObject{
 		void removeExcludeElement(unsigned idx_elem);
 
 		//! \brief Remove all exclude elements from the constraint
-		void removeExcludeElements(void);
+		void removeExcludeElements();
 
 		//! \brief Toggles the not-null flag from source columns on primary key constraints. This methods has no effect in other constraint types
 		void setColumnsNotNull(bool value);

@@ -3,7 +3,7 @@
 CAUTION: Do not modify this file unless you know what you are doing.
          Unexpected results may occur if the code is changed deliberately.
 -->
-<dbmodel pgmodeler-ver="0.8.2-beta1" last-position="61,10" last-zoom="1"
+<dbmodel pgmodeler-ver="0.9.3-beta" last-position="0,0" last-zoom="0.5" max-obj-count="19"
 	 default-owner="postgres">
 <role name="admin1"
       superuser="true"
@@ -54,24 +54,24 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[comentario no espaco tabela teste]]></comment>
 </tablespace>
 
-<database name="sampledb" encoding="UTF8" template="template1" connlimit="10" lc-collate="pt_BR" lc-ctype="pt_BR">
+<database name="sampledb" encoding="UTF8" template="template1" connlimit="10" lc-collate="pt_BR" lc-ctype="pt_BR" is-template="false" allow-conns="true">
 	<role name="admin1"/>
 	<tablespace name="&quot;espaco_tabelaњљ&quot;"/>
 	<comment><![CDATA[comentario no banco de dados teste]]></comment>
 </database>
 
-<schema name="public" rect-visible="true" fill-color="#ffc0c0" sql-disabled="true">
+<schema name="public" layer="0" rect-visible="true" fill-color="#ffc0c0" sql-disabled="true">
 </schema>
 
-<schema name="schema_B" rect-visible="true" fill-color="#c0c0ff">
+<schema name="schema_B" layer="0" rect-visible="true" fill-color="#c0c0ff">
 	<role name="admin1"/>
 	<comment><![CDATA[comentario no esquema]]></comment>
 </schema>
 
-<schema name="schema_A" rect-visible="true" fill-color="#00c0c0">
+<schema name="schema_A" layer="0" rect-visible="true" fill-color="#00c0c0">
 </schema>
 
-<schema name="schema_C" rect-visible="true" fill-color="#ffdca8">
+<schema name="schema_C" layer="0" rect-visible="true" fill-color="#ffdca8">
 </schema>
 
 <function name="funcao_validator"
@@ -87,10 +87,10 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[Comentário na função  validator]]></comment>
 	<language name="c" sql-disabled="true"/>
 	<return-type>
-	<type name="void"/>
+	<type name="void" length="1"/>
 	</return-type>
 	<parameter name="param1">
-		<type name="oid"/>
+		<type name="oid" length="1"/>
 	</parameter>
 	<definition library="/usr/local/lib/funcoes.so" symbol="funcao_validator"/>
 </function>
@@ -108,7 +108,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[Comentário na função handler]]></comment>
 	<language name="c" sql-disabled="true"/>
 	<return-type>
-	<type name="language_handler"/>
+	<type name="language_handler" length="1"/>
 	</return-type>
 	<definition library="/usr/local/lib/funcoes.so" symbol="funcao_handler"/>
 </function>
@@ -126,16 +126,16 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[Comentário na função input]]></comment>
 	<language name="c" sql-disabled="true"/>
 	<return-type>
-	<type name="&quot;any&quot;"/>
+	<type name="&quot;any&quot;" length="1"/>
 	</return-type>
 	<parameter name="param1">
-		<type name="cstring"/>
+		<type name="cstring" length="1"/>
 	</parameter>
 	<parameter name="param2">
-		<type name="oid"/>
+		<type name="oid" length="1"/>
 	</parameter>
 	<parameter name="param3">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</parameter>
 	<definition library="/usr/local/lib/funcoes.so" symbol="funcao_handler"/>
 </function>
@@ -153,10 +153,10 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[Comentário na função output]]></comment>
 	<language name="c" sql-disabled="true"/>
 	<return-type>
-	<type name="cstring"/>
+	<type name="cstring" length="1"/>
 	</return-type>
 	<parameter name="param1">
-		<type name="&quot;any&quot;"/>
+		<type name="&quot;any&quot;" length="1"/>
 	</parameter>
 	<definition library="/usr/local/lib/funcoes.so" symbol="funcao_handler"/>
 </function>
@@ -174,16 +174,16 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[Comentário na função recv]]></comment>
 	<language name="c" sql-disabled="true"/>
 	<return-type>
-	<type name="&quot;any&quot;"/>
+	<type name="&quot;any&quot;" length="1"/>
 	</return-type>
 	<parameter name="param1">
-		<type name="internal"/>
+		<type name="internal" length="1"/>
 	</parameter>
 	<parameter name="param2">
-		<type name="oid"/>
+		<type name="oid" length="1"/>
 	</parameter>
 	<parameter name="param3">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</parameter>
 	<definition library="/usr/local/lib/funcoes.so" symbol="funcao_handler"/>
 </function>
@@ -201,10 +201,10 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[Comentário na função send]]></comment>
 	<language name="c" sql-disabled="true"/>
 	<return-type>
-	<type name="bytea"/>
+	<type name="bytea" length="1"/>
 	</return-type>
 	<parameter name="param1">
-		<type name="&quot;any&quot;"/>
+		<type name="&quot;any&quot;" length="1"/>
 	</parameter>
 	<definition library="/usr/local/lib/funcoes.so" symbol="funcao_handler"/>
 </function>
@@ -222,10 +222,10 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[Comentário na função tpmodin]]></comment>
 	<language name="c" sql-disabled="true"/>
 	<return-type>
-	<type name="integer"/>
+	<type name="integer" length="1"/>
 	</return-type>
 	<parameter name="param1">
-		<type name="cstring" dimension="1"/>
+		<type name="cstring" length="1" dimension="1"/>
 	</parameter>
 	<definition library="/usr/local/lib/funcoes.so" symbol="funcao_handler"/>
 </function>
@@ -243,10 +243,10 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[Comentário na função tpmodout]]></comment>
 	<language name="c" sql-disabled="true"/>
 	<return-type>
-	<type name="cstring"/>
+	<type name="cstring" length="1"/>
 	</return-type>
 	<parameter name="param1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</parameter>
 	<definition library="/usr/local/lib/funcoes.so" symbol="funcao_handler"/>
 </function>
@@ -264,10 +264,10 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[Comentário na função analyze]]></comment>
 	<language name="c" sql-disabled="true"/>
 	<return-type>
-	<type name="boolean"/>
+	<type name="boolean" length="1"/>
 	</return-type>
 	<parameter name="param1">
-		<type name="internal"/>
+		<type name="internal" length="1"/>
 	</parameter>
 	<definition library="/usr/local/lib/funcoes.so" symbol="funcao_handler"/>
 </function>
@@ -285,16 +285,16 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[Comentário na função cast]]></comment>
 	<language name="plpgsql" sql-disabled="true"/>
 	<return-type>
-	<type name="float"/>
+	<type name="float" length="1"/>
 	</return-type>
 	<parameter name="param1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</parameter>
 	<parameter name="param2">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</parameter>
 	<parameter name="param31">
-		<type name="boolean"/>
+		<type name="boolean" length="1"/>
 	</parameter>
 	<definition><![CDATA[SELECT * FROM BLA]]></definition>
 </function>
@@ -312,22 +312,22 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[Comentário na função conversion]]></comment>
 	<language name="c" sql-disabled="true"/>
 	<return-type>
-	<type name="void"/>
+	<type name="void" length="1"/>
 	</return-type>
 	<parameter name="param1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</parameter>
 	<parameter name="param2">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</parameter>
 	<parameter name="param3">
-		<type name="cstring"/>
+		<type name="cstring" length="1"/>
 	</parameter>
 	<parameter name="param4">
-		<type name="internal"/>
+		<type name="internal" length="1"/>
 	</parameter>
 	<parameter name="param5">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</parameter>
 	<definition library="/usr/local/lib/funcoes.so" symbol="funcao_handler"/>
 </function>
@@ -345,13 +345,13 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[Comentário na função operator]]></comment>
 	<language name="c" sql-disabled="true"/>
 	<return-type>
-	<type name="void"/>
+	<type name="void" length="1"/>
 	</return-type>
 	<parameter name="param1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</parameter>
 	<parameter name="param2">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</parameter>
 	<definition library="/usr/local/lib/funcoes.so" symbol="funcao_handler"/>
 </function>
@@ -369,13 +369,13 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[Comentário na função operator]]></comment>
 	<language name="c" sql-disabled="true"/>
 	<return-type>
-	<type name="void"/>
+	<type name="void" length="1"/>
 	</return-type>
 	<parameter name="param1">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</parameter>
 	<parameter name="param2">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</parameter>
 	<definition library="/usr/local/lib/funcoes.so" symbol="funcao_handler"/>
 </function>
@@ -393,13 +393,13 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[Comentário na função operator]]></comment>
 	<language name="c" sql-disabled="true"/>
 	<return-type>
-	<type name="integer"/>
+	<type name="integer" length="1"/>
 	</return-type>
 	<parameter name="param0">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</parameter>
 	<parameter name="param1">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</parameter>
 	<parameter name="param2">
 		<type name="varchar" length="0"/>
@@ -423,10 +423,10 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[Comentário na função final]]></comment>
 	<language name="c" sql-disabled="true"/>
 	<return-type>
-	<type name="integer"/>
+	<type name="integer" length="1"/>
 	</return-type>
 	<parameter name="param1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</parameter>
 	<definition library="/usr/local/lib/funcoes.so" symbol="funcao_handler"/>
 </function>
@@ -443,7 +443,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<comment><![CDATA[Função teste que retorna strings.]]></comment>
 	<language name="plpgsql" sql-disabled="true"/>
 	<return-type>
-	<type name="trigger"/>
+	<type name="trigger" length="1"/>
 	</return-type>
 	<definition><![CDATA[SELECT /* */ FROM]]></definition>
 </function>
@@ -457,9 +457,9 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<role name="admin1"/>
 	<comment><![CDATA[Coment�rio no tipo_usr_base]]></comment>
 	<function ref-type="input" signature="&quot;schema_B&quot;.funcao_input(cstring,oid,integer)"/>
-	<function ref-type="output" signature="&quot;schema_B&quot;.funcao_output(any)"/>
+	<function ref-type="output" signature="&quot;schema_B&quot;.funcao_output(&quot;any&quot;)"/>
 	<function ref-type="receive" signature="&quot;schema_B&quot;.funcao_recv(internal,oid,integer)"/>
-	<function ref-type="send" signature="&quot;schema_B&quot;.funcao_send(any)"/>
+	<function ref-type="send" signature="&quot;schema_B&quot;.funcao_send(&quot;any&quot;)"/>
 	<function ref-type="tpmodin" signature="&quot;schema_B&quot;.funcao_tpmodin(cstring[])"/>
 	<function ref-type="tpmodout" signature="&quot;schema_B&quot;.funcao_tpmodout(integer)"/>
 	<function ref-type="analyze" signature="&quot;schema_B&quot;.funcao_analyze(internal)"/>
@@ -472,10 +472,10 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<function ref-type="validator" signature="&quot;schema_B&quot;.funcao_validator(oid)"/>
 </language>
 
-<cast cast-type="assignment">
+<cast  cast-type="assignment">
 	<comment><![CDATA[comentario na conversao]]></comment>
-	<type name="integer"/>
-	<type name="float"/>
+	<type name="integer" length="1"/>
+	<type name="float" length="1"/>
 	<function signature="&quot;schema_B&quot;.funcao_cast(integer,integer,boolean)"/>
 </cast>
 
@@ -490,8 +490,8 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<schema name="&quot;schema_B&quot;"/>
 	<role name="admin1"/>
 	<comment><![CDATA[comentario no operador teste]]></comment>
-	<type name="integer" ref-type="left-type"/>
-	<type name="text" ref-type="right-type"/>
+	<type name="integer" length="1" ref-type="left-type"/>
+	<type name="text" length="1" ref-type="right-type"/>
 	<function ref-type="operfunc" signature="&quot;schema_B&quot;.funcao_operator(integer,text)"/>
 </operator>
 
@@ -499,8 +499,8 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<schema name="&quot;schema_B&quot;"/>
 	<role name="admin1"/>
 	<comment><![CDATA[comentario no operador teste1]]></comment>
-	<type name="text" ref-type="left-type"/>
-	<type name="integer" ref-type="right-type"/>
+	<type name="text" length="1" ref-type="left-type"/>
+	<type name="integer" length="1" ref-type="right-type"/>
 	<operator ref-type="commutator-op" signature="&quot;schema_B&quot;.%?!*-/!%=(integer,text)"/>
 	<function ref-type="operfunc" signature="&quot;schema_B&quot;.funcao_operator_1(text,integer)"/>
 </operator>
@@ -516,7 +516,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<role name="admin1"/>
 	<comment><![CDATA[comentario na classe de operadores teste1]]></comment>
 	<opfamily signature="&quot;schema_B&quot;.familia_teste USING btree"/>
-	<type name="text"/>
+	<type name="text" length="1"/>
 	<element type="function" stg-number="1">
 		<function ref-type="operfunc" signature="&quot;schema_B&quot;.funcao_operator(integer,text)"/>
 	</element>
@@ -524,7 +524,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 		<operator ref-type="commutator-op" signature="&quot;schema_B&quot;.%?!*-/!%=(integer,text)"/>
 	</element>
 	<element type="storage">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</element>
 </opclass>
 
@@ -532,38 +532,38 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<schema name="&quot;schema_B&quot;"/>
 	<role name="admin1"/>
 	<comment><![CDATA[comentario na funcao agregada teste]]></comment>
-	<type name="text"/>
+	<type name="text" length="1"/>
 	<type name="varchar" length="50"/>
-	<type name="char"/>
-	<type name="integer" ref-type="state-type"/>
+	<type name="char" length="1"/>
+	<type name="integer" length="1" ref-type="state-type"/>
 	<function ref-type="transition" signature="&quot;schema_B&quot;.funcao_transition(integer,text,varchar,char)"/>
 	<function ref-type="final" signature="&quot;schema_B&quot;.funcao_final(integer)"/>
 </aggregate>
 
-<domain name="dominio_teste" constraint="rest_teste" not-null="true">
+<domain name="dominio_teste" not-null="true">
 	<schema name="&quot;schema_B&quot;"/>
 	<role name="admin1"/>
 	<comment><![CDATA[comentario no " dominio teste]]></comment>
-		<type name="text"/>
+	<type name="text" length="1"/>
 </domain>
 
-<table name="table_A1">
+<table name="table_A1" layer="0" collapse-mode="2" max-obj-count="6" z-value="0">
 	<schema name="&quot;schema_A&quot;"/>
-	<position x="150" y="930.4"/>
+	<position x="220" y="1160"/>
 	<column name="coluna_B_" not-null="true">
-		<type name="serial"/>
+		<type name="serial" length="1"/>
 	</column>
 	<column name="coluna_B1_">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_B2_" not-null="true">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</column>
 	<column name="coluna_B3_">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<column name="coluna_Teste">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<constraint name="tabela_B_pk" type="pk-constr" factor="100" table="&quot;schema_A&quot;.&quot;table_A1&quot;">
 		<columns names="coluna_B_" ref-type="src-columns"/>
@@ -576,20 +576,20 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="table_A2">
+<table name="table_A2" layer="0" collapse-mode="2" max-obj-count="7" z-value="0">
 	<schema name="&quot;schema_A&quot;"/>
-	<position x="90" y="1207.8"/>
+	<position x="80" y="1540"/>
 	<column name="њcoluna_Bњ" not-null="true">
-		<type name="serial"/>
+		<type name="serial" length="1"/>
 	</column>
 	<column name="њcoluna_B1њ">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="њcoluna_B2њ" not-null="true">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</column>
 	<column name="њcoluna_B3њ">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<constraint name="tabela_B_pk" type="pk-constr" factor="100" table="&quot;schema_A&quot;.&quot;table_A2&quot;">
 		<columns names="њcoluna_Bњ" ref-type="src-columns"/>
@@ -602,20 +602,20 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="table_C1">
+<table name="table_C1" layer="0" collapse-mode="2" max-obj-count="4" z-value="0">
 	<schema name="&quot;schema_C&quot;"/>
-	<position x="1567" y="567.2"/>
+	<position x="1980" y="740"/>
 	<column name="coluna_B" not-null="true">
-		<type name="serial"/>
+		<type name="serial" length="1"/>
 	</column>
 	<column name="coluna_B1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_B2" not-null="true">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</column>
 	<column name="coluna_B3">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<constraint name="tabela_B_pk" type="pk-constr" factor="100" table="&quot;schema_C&quot;.&quot;table_C1&quot;">
 		<columns names="coluna_B" ref-type="src-columns"/>
@@ -628,20 +628,20 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="tabela_B_4a" protected="true">
+<table name="tabela_B_4a" layer="0" protected="true" collapse-mode="2" max-obj-count="6" z-value="0">
 	<schema name="public"/>
 	<position x="1021" y="949"/>
 	<column name="coluna_B" not-null="true" protected="true">
-		<type name="serial"/>
+		<type name="serial" length="1"/>
 	</column>
 	<column name="coluna_B1" protected="true">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_B2" not-null="true" protected="true">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</column>
 	<column name="coluna_B3" protected="true">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<constraint name="tabela_B_pk" type="pk-constr" factor="100" protected="true" table="public.&quot;tabela_B_4a&quot;">
 		<columns names="coluna_B" ref-type="src-columns"/>
@@ -654,20 +654,20 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="table_B1">
+<table name="table_B1" layer="0" collapse-mode="2" max-obj-count="4" z-value="0">
 	<schema name="&quot;schema_B&quot;"/>
-	<position x="628.889" y="549.667"/>
+	<position x="880" y="740"/>
 	<column name="coluna_B" not-null="true">
-		<type name="serial"/>
+		<type name="serial" length="1"/>
 	</column>
 	<column name="coluna_B1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_B2" not-null="true">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</column>
 	<column name="coluna_B3">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<constraint name="tabela_B_pk" type="pk-constr" factor="100" table="&quot;schema_B&quot;.&quot;table_B1&quot;">
 		<columns names="coluna_B" ref-type="src-columns"/>
@@ -680,20 +680,20 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="tabela_B_4c">
+<table name="tabela_B_4c" layer="0" collapse-mode="2" max-obj-count="9" z-value="0">
 	<schema name="public"/>
-	<position x="1019" y="1231.4"/>
+	<position x="1340" y="1640"/>
 	<column name="coluna_B" not-null="true">
-		<type name="serial"/>
+		<type name="serial" length="1"/>
 	</column>
 	<column name="coluna_B1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_B2" not-null="true">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</column>
 	<column name="coluna_B3">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<constraint name="tabela_B_pk" type="pk-constr" factor="100" table="public.&quot;tabela_B_4c&quot;">
 		<columns names="coluna_B" ref-type="src-columns"/>
@@ -706,20 +706,20 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="table_C2">
+<table name="table_C2" layer="0" collapse-mode="2" max-obj-count="7" z-value="0">
 	<schema name="&quot;schema_C&quot;"/>
-	<position x="1515" y="250.4"/>
+	<position x="1300" y="180"/>
 	<column name="coluna_B">
-		<type name="serial"/>
+		<type name="serial" length="1"/>
 	</column>
 	<column name="coluna_B1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_B2" not-null="true">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</column>
 	<column name="coluna_B3">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<constraint name="tabela_B_uq" type="uq-constr" factor="100" table="&quot;schema_C&quot;.&quot;table_C2&quot;">
 		<columns names="coluna_B2" ref-type="src-columns"/>
@@ -729,23 +729,23 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="table_A3">
+<table name="table_A3" layer="0" collapse-mode="2" max-obj-count="6" z-value="0">
 	<schema name="&quot;schema_A&quot;"/>
-	<position x="612" y="1033"/>
+	<position x="700" y="1520"/>
 	<column name="coluna_B" not-null="true">
-		<type name="serial"/>
+		<type name="serial" length="1"/>
 	</column>
 	<column name="coluna_B1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_B2" not-null="true">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</column>
 	<column name="coluna_B3">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<column name="coluna_Teste">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<constraint name="tabela_B_pk" type="pk-constr" factor="100" table="&quot;schema_A&quot;.&quot;table_A3&quot;">
 		<columns names="coluna_B" ref-type="src-columns"/>
@@ -758,20 +758,20 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="table_C3">
+<table name="table_C3" layer="0" collapse-mode="2" max-obj-count="4" z-value="0">
 	<schema name="&quot;schema_C&quot;"/>
-	<position x="958" y="263"/>
+	<position x="2160" y="200"/>
 	<column name="coluna_B" not-null="true">
-		<type name="serial"/>
+		<type name="serial" length="1"/>
 	</column>
 	<column name="coluna_B1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_B2" not-null="true">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</column>
 	<column name="coluna_B3">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<constraint name="tabela_B_pk" type="pk-constr" factor="100" table="&quot;schema_C&quot;.&quot;table_C3&quot;">
 		<columns names="coluna_B" ref-type="src-columns"/>
@@ -784,23 +784,23 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="table_A4">
+<table name="table_A4" layer="0" collapse-mode="2" max-obj-count="6" z-value="0">
 	<schema name="&quot;schema_A&quot;"/>
-	<position x="604" y="906"/>
+	<position x="720" y="1140"/>
 	<column name="coluna_B" not-null="true">
-		<type name="serial"/>
+		<type name="serial" length="1"/>
 	</column>
 	<column name="coluna_B1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_B2" not-null="true">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</column>
 	<column name="coluna_B3">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<column name="coluna_Teste">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<constraint name="tabela_B_pk" type="pk-constr" factor="100" table="&quot;schema_A&quot;.&quot;table_A4&quot;">
 		<columns names="coluna_B" ref-type="src-columns"/>
@@ -813,20 +813,20 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="table_C4">
+<table name="table_C4" layer="0" collapse-mode="2" max-obj-count="9" z-value="0">
 	<schema name="&quot;schema_C&quot;"/>
-	<position x="948" y="617.8"/>
+	<position x="1260" y="700"/>
 	<column name="coluna_B" not-null="true">
-		<type name="serial"/>
+		<type name="serial" length="1"/>
 	</column>
 	<column name="coluna_B1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_B2" not-null="true">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</column>
 	<column name="coluna_B3">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<constraint name="tabela_B_pk" type="pk-constr" factor="100" table="&quot;schema_C&quot;.&quot;table_C4&quot;">
 		<columns names="coluna_B" ref-type="src-columns"/>
@@ -839,20 +839,20 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="table_B2">
+<table name="table_B2" layer="0" collapse-mode="2" max-obj-count="6" z-value="0">
 	<schema name="&quot;schema_B&quot;"/>
-	<position x="482.444" y="722.333"/>
+	<position x="480" y="720"/>
 	<column name="coluna_B" not-null="true">
-		<type name="serial"/>
+		<type name="serial" length="1"/>
 	</column>
 	<column name="coluna_B1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_B2" not-null="true">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</column>
 	<column name="coluna_B3">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<constraint name="tabela_B_pk" type="pk-constr" factor="100" table="&quot;schema_B&quot;.&quot;table_B2&quot;">
 		<columns names="coluna_B" ref-type="src-columns"/>
@@ -865,20 +865,20 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="table_B4">
+<table name="table_B4" layer="0" collapse-mode="2" max-obj-count="4" z-value="0">
 	<schema name="&quot;schema_B&quot;"/>
-	<position x="108.444" y="700.667"/>
+	<position x="100" y="760"/>
 	<column name="coluna_B" not-null="true">
-		<type name="serial"/>
+		<type name="serial" length="1"/>
 	</column>
 	<column name="coluna_B1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_B2" not-null="true">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</column>
 	<column name="coluna_B3">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<constraint name="tabela_B_pk" type="pk-constr" factor="100" table="&quot;schema_B&quot;.&quot;table_B4&quot;">
 		<columns names="coluna_B" ref-type="src-columns"/>
@@ -891,20 +891,20 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="table_B3">
+<table name="table_B3" layer="0" collapse-mode="2" max-obj-count="4" z-value="0">
 	<schema name="&quot;schema_B&quot;"/>
-	<position x="629.333" y="254.889"/>
+	<position x="660" y="320"/>
 	<column name="coluna_B" not-null="true">
-		<type name="serial"/>
+		<type name="serial" length="1"/>
 	</column>
 	<column name="coluna_B1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_B2" not-null="true">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</column>
 	<column name="coluna_B3">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<constraint name="tabela_B_pk" type="pk-constr" factor="100" table="&quot;schema_B&quot;.&quot;table_B3&quot;">
 		<tablespace name="&quot;espaco_tabelaњљ&quot;"/>
@@ -918,33 +918,33 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="tabela_B_4z" oids="true">
+<table name="tabela_B_4z" layer="0" oids="true" collapse-mode="2" max-obj-count="6" z-value="0">
 	<schema name="public"/>
-	<position x="1183" y="1102.6"/>
+	<position x="1780" y="1380"/>
 	<column name="coluna_B" not-null="true">
-		<type name="serial"/>
+		<type name="serial" length="1"/>
 	</column>
 	<column name="coluna_B1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_B2" not-null="true">
-		<type name="text"/>
+		<type name="text" length="1"/>
 	</column>
 	<column name="coluna_B3">
-		<type name="float"/>
+		<type name="float" length="1"/>
 	</column>
 	<column name="coluna_USR_TESTE">
-		<type name="&quot;schema_B&quot;.tipo_usr_base" precision="32721"/>
+		<type name="&quot;schema_B&quot;.tipo_usr_base" length="1"/>
 	</column>
 	<constraint name="tabela_B_4z_pk" type="pk-constr" factor="10" table="public.&quot;tabela_B_4z&quot;">
 		<columns names="coluna_B" ref-type="src-columns"/>
 	</constraint>
 </table>
 
-<view name="view_B1">
+<view name="view_B1" layer="0" collapse-mode="2" max-obj-count="4" z-value="0">
 	<schema name="&quot;schema_B&quot;"/>
 	<comment><![CDATA[comentario na visao teste]]></comment>
-	<position x="88.3332" y="250.667"/>
+	<position x="80" y="320"/>
 	<reference table="&quot;schema_B&quot;.&quot;table_B3&quot;" column="coluna_B" alias="tp" column-alias="codusr"/>
 	<reference table="&quot;schema_B&quot;.&quot;table_B4&quot;" column="coluna_B3" alias="tp" column-alias="dtemiss"/>
 	<reference alias="conta">
@@ -955,35 +955,30 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<expression type="from-exp">3,0</expression>
 </view>
 
-<relationship name="&quot;rel_visao_teste_tabela_B_4k&quot;" type="reltv"
+<relationship name="&quot;rel_visao_teste_tabela_B_4k&quot;" type="reltv" layer="0"
 	 custom-color="#9fdf3a"
 	 src-table="&quot;schema_B&quot;.&quot;view_B1&quot;"
 	 dst-table="&quot;schema_B&quot;.&quot;table_B3&quot;"
 	 src-required="false" dst-required="false"/>
 
-<relationship name="&quot;rel_visao_teste_tabela_B_4j&quot;" type="reltv"
+<relationship name="&quot;rel_visao_teste_tabela_B_4j&quot;" type="reltv" layer="0"
 	 custom-color="#0f30f0"
 	 src-table="&quot;schema_B&quot;.&quot;view_B1&quot;"
 	 dst-table="&quot;schema_B&quot;.&quot;table_B4&quot;"
 	 src-required="false" dst-required="false"/>
 
-<relationship name="rel_visao_teste_tabela_B_4i" type="reltv"
+<relationship name="&quot;rel_visao_teste_tabela_B_4i&quot;" type="reltv" layer="0"
 	 custom-color="#af3c3b"
 	 src-table="&quot;schema_B&quot;.&quot;view_B1&quot;"
 	 dst-table="&quot;schema_B&quot;.&quot;table_B2&quot;"
-	 src-required="false" dst-required="false">
-	<line>
-		<position x="407" y="393"/>
-	<position x="410.139" y="769.033"/>
-	</line>
-</relationship>
+	 src-required="false" dst-required="false"/>
 
-<textbox name="caixa_texto_Teste" italic="true" font-size="9">
-	<position x="488" y="481"/>
+<textbox name="caixa_texto_Teste" layer="0" italic="true" z-value="0" font-size="9">
+	<position x="480" y="480"/>
 	<comment><![CDATA[Caixa X:0 Y:0]]></comment>
 </textbox>
 
-<relationship name="table_A1_has_one_table_A2" type="rel11"
+<relationship name="table_A1_has_one_table_A2" type="rel11" layer="0"
 	 src-col-pattern="{sc}_{st}"
 	 pk-pattern="{dt}_pk" uq-pattern="{dt}_uq"
 	 src-fk-pattern="{st}_fk"
@@ -992,7 +987,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	 dst-table="&quot;schema_A&quot;.&quot;table_A1&quot;"
 	 src-required="false" dst-required="true"/>
 
-<relationship name="table_B2_has_one_table_B2" type="rel11"
+<relationship name="table_B2_has_one_table_B2" type="rel11" layer="0"
 	 src-col-pattern="{sc}_{st}"
 	 pk-pattern="{dt}_pk" uq-pattern="{dt}_uq"
 	 src-fk-pattern="{st}_fk"
@@ -1001,27 +996,22 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	 dst-table="&quot;schema_B&quot;.&quot;table_B2&quot;"
 	 src-required="false" dst-required="false">
 	<line>
-		<position x="746.444" y="759.693"/>
-	<position x="746.444" y="712.333"/>
-	<position x="651.777" y="712.333"/>
+		<position x="810.3" y="824.637"/>
+	<position x="810.3" y="697"/>
+	<position x="684.867" y="697"/>
 	</line>
 </relationship>
 
-<relationship name="table_A3_has_many_table_A2" type="rel1n"
+<relationship name="table_A3_has_many_table_A2" type="rel1n" layer="0"
 	 src-col-pattern="{sc}_{st}"
 	 pk-pattern="{dt}_pk" uq-pattern="{dt}_uq"
 	 src-fk-pattern="{st}_fk"
 	 custom-color="#f91566"
 	 src-table="&quot;schema_A&quot;.&quot;table_A3&quot;"
 	 dst-table="&quot;schema_A&quot;.&quot;table_A2&quot;"
-	 src-required="false" dst-required="false">
-	<line>
-		<position x="487.85" y="1061.6"/>
-	<position x="487.85" y="1306.4"/>
-	</line>
-</relationship>
+	 src-required="false" dst-required="false"/>
 
-<relationship name="table_C1_has_many_table_C2" type="rel1n"
+<relationship name="table_C1_has_many_table_C2" type="rel1n" layer="0"
 	 src-col-pattern="{sc}_{st}"
 	 pk-pattern="{dt}_pk" uq-pattern="{dt}_uq"
 	 src-fk-pattern="{st}_fk"
@@ -1032,7 +1022,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	 identifier="true"
 />
 
-<relationship name="table_C2_has_many_table_C4" type="rel1n"
+<relationship name="table_C2_has_many_table_C4" type="rel1n" layer="0"
 	 src-col-pattern="{sc}_{st}"
 	 pk-pattern="{dt}_pk" uq-pattern="{dt}_uq"
 	 src-fk-pattern="{st}_fk"
@@ -1043,25 +1033,18 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	 identifier="true"
 
 	 deferrable="true" defer-type="INITIALLY IMMEDIATE">
-	<line>
-		<position x="1387.85" y="335"/>
-	<position x="1387.85" y="702.4"/>
-	</line>
 	<column name="coluna_Teste1">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_Teste2">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="__coluna_Teste3">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
-	<constraint name="relacao_teste_6_pk" type="pk-constr" factor="100">
-		<columns names="__coluna_Teste3" ref-type="src-columns"/>
-	</constraint>
 </relationship>
 
-<relationship name="table_A2_has_many_tabela_B_4c" type="rel1n"
+<relationship name="table_A2_has_many_tabela_B_4c" type="rel1n" layer="0"
 	 src-col-pattern="{sc}_{st}"
 	 pk-pattern="{dt}_pk" uq-pattern="{dt}_uq"
 	 src-fk-pattern="{st}_fk"
@@ -1070,28 +1053,21 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	 dst-table="public.&quot;tabela_B_4c&quot;"
 	 src-required="false" dst-required="false"
 	 deferrable="true" defer-type="INITIALLY IMMEDIATE">
-	<line>
-		<position x="691.35" y="1236.4"/>
-	<position x="691.35" y="1316"/>
-	</line>
 	<label ref-type="name-label">
 		<position x="24.6257" y="36.4514"/>
 	</label>
 	<column name="coluna_B11">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_Teste2">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
 	<column name="coluna_Teste3">
-		<type name="integer"/>
+		<type name="integer" length="1"/>
 	</column>
-	<constraint name="relacao_teste_7_pk" type="pk-constr" factor="100">
-		<columns names="coluna_Teste3" ref-type="src-columns"/>
-	</constraint>
 </relationship>
 
-<relationship name="tabela_B_4c_has_many_tabela_B_4a" type="rel1n"
+<relationship name="tabela_B_4c_has_many_tabela_B_4a" type="rel1n" layer="0"
 	 src-col-pattern="{sc}_{st}"
 	 pk-pattern="{dt}_pk" uq-pattern="{dt}_uq"
 	 src-fk-pattern="{st}_fk"
@@ -1101,7 +1077,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	 src-required="false" dst-required="false"
 	 deferrable="true" defer-type="INITIALLY IMMEDIATE"/>
 
-<relationship name="many_table_B1_has_many_table_B3" type="relnn"
+<relationship name="many_table_B1_has_many_table_B3" type="relnn" layer="0"
 	 src-col-pattern="{sc}_{st}" dst-col-pattern="{sc}_{dt}"
 	 pk-pattern="{gt}_pk" uq-pattern="{gt}_uq"
 	 src-fk-pattern="{st}_fk" dst-fk-pattern="{dt}_fk"
@@ -1112,7 +1088,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	 src-required="false" dst-required="false"
 	 table-name="tabela_REL_NN"/>
 
-<relationship name="table_C3_has_many_table_C2" type="rel1n"
+<relationship name="table_C3_has_many_table_C2" type="rel1n" layer="0"
 	 src-col-pattern="{sc}_{st}"
 	 pk-pattern="{dt}_pk" uq-pattern="{dt}_uq"
 	 src-fk-pattern="{st}_fk"
@@ -1121,10 +1097,6 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	 dst-table="&quot;schema_C&quot;.&quot;table_C2&quot;"
 	 src-required="false" dst-required="false"
 	 deferrable="true" defer-type="INITIALLY IMMEDIATE">
-	<line>
-		<position x="1336.85" y="291.6"/>
-	<position x="1336.85" y="349"/>
-	</line>
 	<label ref-type="name-label">
 		<position x="-11.8743" y="-78.1485"/>
 	</label>
@@ -1173,16 +1145,16 @@ CAUTION: Do not modify this file unless you know what you are doing.
 		<function signature="public.funcao_teste()"/>
 </trigger>
 
-<textbox name="pagila_desc" font-size="11">
-	<position x="81" y="36.273"/>
+<textbox name="pagila_desc" layer="0" z-value="0" font-size="11">
+	<position x="80" y="0"/>
 	<comment><![CDATA[[ sampledb database ]
 
 This database model is here just for historical (or nostalgic) reason,
 being heavily used on initial versions of pgModeler to test the integration
 between the objects.
 
-It does not represent any specific context and export it to database will
-generate several errors since they are arbitrarily connected and, furthermore,
+It does not represent any specific context and export it to a database server 
+will generate several errors since they are arbitrarily connected and, furthermore,
 some other dependency objects are purposely mal-formed to provoke SQL errors.]]></comment>
 </textbox>
 

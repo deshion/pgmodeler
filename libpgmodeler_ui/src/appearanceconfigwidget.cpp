@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,36 +25,80 @@ AppearanceConfigWidget::AppearanceConfigWidget(QWidget * parent) : BaseConfigWid
 	setupUi(this);
 
 	QString conf_ids[]={
-		ParsersAttributes::GLOBAL,ParsersAttributes::CONSTRAINTS, ParsersAttributes::OBJ_SELECTION,
-		ParsersAttributes::POSITION_INFO, ParsersAttributes::POSITION_INFO,
-		ParsersAttributes::OBJECT_TYPE, ParsersAttributes::LOCKER_ARC, ParsersAttributes::LOCKER_BODY,
-		ParsersAttributes::TABLE_SCHEMA_NAME, ParsersAttributes::TABLE_NAME, ParsersAttributes::TABLE_BODY,
-		ParsersAttributes::TABLE_EXT_BODY, ParsersAttributes::TABLE_TITLE,
-		BaseObject::getSchemaName(OBJ_RULE), BaseObject::getSchemaName(OBJ_RULE),
-		BaseObject::getSchemaName(OBJ_INDEX),	BaseObject::getSchemaName(OBJ_INDEX),
-		BaseObject::getSchemaName(OBJ_TRIGGER),	BaseObject::getSchemaName(OBJ_TRIGGER),
-		BaseObject::getSchemaName(OBJ_CONSTRAINT),	BaseObject::getSchemaName(OBJ_CONSTRAINT),
-		ParsersAttributes::VIEW_SCHEMA_NAME, ParsersAttributes::VIEW_NAME,
-		ParsersAttributes::VIEW_BODY /*23*/, ParsersAttributes::VIEW_EXT_BODY /*24*/, ParsersAttributes::VIEW_TITLE /*25*/, ParsersAttributes::ALIAS,
-		ParsersAttributes::REF_COLUMN, ParsersAttributes::REF_TABLE, ParsersAttributes::REFERENCE,
-		BaseObject::getSchemaName(OBJ_TEXTBOX), ParsersAttributes::COLUMN, ParsersAttributes::COLUMN,
-		ParsersAttributes::INH_COLUMN, ParsersAttributes::PROT_COLUMN, ParsersAttributes::PK_COLUMN,
-		ParsersAttributes::PK_COLUMN, ParsersAttributes::FK_COLUMN, ParsersAttributes::FK_COLUMN,
-		ParsersAttributes::UQ_COLUMN, ParsersAttributes::UQ_COLUMN, ParsersAttributes::NN_COLUMN,
-		ParsersAttributes::NN_COLUMN, ParsersAttributes::RELATIONSHIP, ParsersAttributes::LABEL,
-		ParsersAttributes::LABEL, ParsersAttributes::ATTRIBUTE, ParsersAttributes::ATTRIBUTE,
-		ParsersAttributes::TAG, ParsersAttributes::TAG, ParsersAttributes::PLACEHOLDER};
+	/* 00 */	Attributes::Global,
+	/* 01 */	Attributes::Constraints,
+	/* 02 */	Attributes::ObjSelection,
+	/* 03 */	Attributes::PositionInfo,
+	/* 04 */	Attributes::PositionInfo,
+	/* 05 */	Attributes::ObjectType,
+	/* 06 */	Attributes::LockerArc,
+	/* 07 */	Attributes::LockerBody,
+	/* 08 */	Attributes::TableSchemaName,
+	/* 09 */	Attributes::TableName,
+	/* 10 */	Attributes::TableBody,
+	/* 11 */	Attributes::TableExtBody,
+	/* 12 */	Attributes::TableTitle,
+	/* 13 */	BaseObject::getSchemaName(ObjectType::Rule),
+	/* 14 */	BaseObject::getSchemaName(ObjectType::Rule),
+	/* 15 */	BaseObject::getSchemaName(ObjectType::Index),
+	/* 16 */	BaseObject::getSchemaName(ObjectType::Index),
+	/* 17 */	BaseObject::getSchemaName(ObjectType::Trigger),
+	/* 18 */	BaseObject::getSchemaName(ObjectType::Trigger),
+	/* 19 */	BaseObject::getSchemaName(ObjectType::Constraint),
+	/* 20 */	BaseObject::getSchemaName(ObjectType::Constraint),
+	/* 21 */	BaseObject::getSchemaName(ObjectType::Policy),
+	/* 22 */	BaseObject::getSchemaName(ObjectType::Policy),
+	/* 23 */	Attributes::ViewSchemaName,
+	/* 24 */	Attributes::ViewName,
+	/* 25 */	Attributes::ViewBody,
+	/* 26 */	Attributes::ViewExtBody,
+	/* 27 */	Attributes::ViewTitle,
+	/* 28 */	Attributes::Alias,
+	/* 29 */	Attributes::RefColumn,
+	/* 30 */	Attributes::RefTable,
+	/* 31 */	Attributes::Reference,
+	/* 32 */	BaseObject::getSchemaName(ObjectType::Textbox),
+	/* 33 */	Attributes::Column,
+	/* 34 */	Attributes::Column,
+	/* 35 */	Attributes::InhColumn,
+	/* 36 */	Attributes::ProtColumn,
+	/* 37 */	Attributes::PkColumn,
+	/* 38 */	Attributes::PkColumn,
+	/* 39 */	Attributes::FkColumn,
+	/* 40 */	Attributes::FkColumn,
+	/* 41 */	Attributes::UqColumn,
+	/* 42 */	Attributes::UqColumn,
+	/* 43 */	Attributes::NnColumn,
+	/* 44 */	Attributes::NnColumn,
+	/* 45 */	Attributes::Relationship,
+	/* 46 */	Attributes::Label,
+	/* 47 */	Attributes::Label,
+	/* 48 */	Attributes::Attribute,
+	/* 49 */	Attributes::Attribute,
+	/* 50 */	Attributes::Tag,
+	/* 51 */	Attributes::Tag,
+	/* 52 */	Attributes::Placeholder,
+	/* 53 */	Attributes::ForeignTableSchemaName,
+	/* 54 */	Attributes::ForeignTableName,
+	/* 55 */	Attributes::ForeignTableBody,
+	/* 56 */	Attributes::ForeignTableExtBody,
+	/* 57 */	Attributes::ForeignTableTitle };
+
 	int i, count=element_cmb->count(),
-			//This auxiliary vector stores the id of elements that represents color/font conf. of objects
-			obj_conf_ids_vect[]={ 2, 4, 6, 7, 10, 11, 12, 14, 16, 18, 20, 23, 24, 25,
-														29, 30, 32, 36, 38, 40, 42, 43, 45, 47, 49, 50 };
+			//This auxiliary vector stores the id of elements that represents color/font confing of graphical objects
+			obj_conf_ids_vect[]={ 2, 4, 6, 7,
+														10, 11, 12, 14, 16, 18,
+														20, 22, 25, 26, 27,
+														31, 32, 34, 38,
+														40, 42, 44, 45, 47, 49,
+														51, 52, 55, 56, 57 };
 	vector<int> conf_obj_ids(obj_conf_ids_vect, obj_conf_ids_vect + sizeof(obj_conf_ids_vect) / sizeof(int));
 
 	conf_items.resize(count);
 	for(i=0; i < count; i++)
 	{
 		conf_items[i].conf_id=conf_ids[i];
-		conf_items[i].obj_conf=(std::find(conf_obj_ids.begin(), conf_obj_ids.end(), i)!=conf_obj_ids.end());
+		conf_items[i].obj_conf=(std::find(conf_obj_ids.begin(), conf_obj_ids.end(), i) != conf_obj_ids.end());
 	}
 
 	color_picker=new ColorPickerWidget(3, this);
@@ -80,12 +124,12 @@ AppearanceConfigWidget::AppearanceConfigWidget(QWidget * parent) : BaseConfigWid
 	grid->addWidget(color_picker, 3, 1, 1, 4);
 	grid->addWidget(viewp, 4 , 0, 1, 5);
 
-	connect(element_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(enableConfigElement(void)));
-	connect(font_cmb, SIGNAL(currentFontChanged(QFont)), this, SLOT(applyFontStyle(void)));
-	connect(font_size_spb, SIGNAL(valueChanged(double)), this, SLOT(applyFontStyle(void)));
-	connect(bold_chk, SIGNAL(toggled(bool)), this, SLOT(applyFontStyle(void)));
-	connect(underline_chk, SIGNAL(toggled(bool)), this, SLOT(applyFontStyle(void)));
-	connect(italic_chk, SIGNAL(toggled(bool)), this, SLOT(applyFontStyle(void)));
+	connect(element_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(enableConfigElement()));
+	connect(font_cmb, SIGNAL(currentFontChanged(QFont)), this, SLOT(applyFontStyle()));
+	connect(font_size_spb, SIGNAL(valueChanged(double)), this, SLOT(applyFontStyle()));
+	connect(bold_chk, SIGNAL(toggled(bool)), this, SLOT(applyFontStyle()));
+	connect(underline_chk, SIGNAL(toggled(bool)), this, SLOT(applyFontStyle()));
+	connect(italic_chk, SIGNAL(toggled(bool)), this, SLOT(applyFontStyle()));
 
 	connect(color_picker, SIGNAL(s_colorChanged(unsigned, QColor)), this, SLOT(applyElementColor(unsigned, QColor)));
 
@@ -96,22 +140,22 @@ AppearanceConfigWidget::AppearanceConfigWidget(QWidget * parent) : BaseConfigWid
 	});
 }
 
-AppearanceConfigWidget::~AppearanceConfigWidget(void)
+AppearanceConfigWidget::~AppearanceConfigWidget()
 {
 	scene->removeItem(placeholder);
 
-	delete(placeholder);
-	delete(viewp);
-	delete(scene);
-	delete(model);
+	delete placeholder;
+	delete viewp;
+	delete scene;
+	delete model;
 }
 
-map<QString, attribs_map> AppearanceConfigWidget::getConfigurationParams(void)
+map<QString, attribs_map> AppearanceConfigWidget::getConfigurationParams()
 {
-	return(config_params);
+	return config_params;
 }
 
-void AppearanceConfigWidget::loadExampleModel(void)
+void AppearanceConfigWidget::loadExampleModel()
 {
 	try
 	{
@@ -123,11 +167,9 @@ void AppearanceConfigWidget::loadExampleModel(void)
 
 		if(model->getObjectCount()==0)
 		{
-			model->loadModel(GlobalAttributes::TMPL_CONFIGURATIONS_DIR +
-							 GlobalAttributes::DIR_SEPARATOR +
-							 GlobalAttributes::EXAMPLE_MODEL);
+			model->loadModel(GlobalAttributes::getTmplConfigurationFilePath("", GlobalAttributes::ExampleModel));
 
-			count=model->getObjectCount(OBJ_TABLE);
+			count=model->getObjectCount(ObjectType::Table);
 			for(i=0; i < count; i++)
 			{
 				tab=new TableView(model->getTable(i));
@@ -135,28 +177,35 @@ void AppearanceConfigWidget::loadExampleModel(void)
 				scene->addItem(tab);
 			}
 
-			count=model->getObjectCount(OBJ_VIEW);
+			count=model->getObjectCount(ObjectType::ForeignTable);
+			for(i=0; i < count; i++)
+			{
+				tab=new TableView(model->getForeignTable(i));
+				scene->addItem(tab);
+			}
+
+			count=model->getObjectCount(ObjectType::View);
 			for(i=0; i < count; i++)
 			{
 				view=new GraphicalView(model->getView(i));
 				scene->addItem(view);
 			}
 
-			count=model->getObjectCount(OBJ_RELATIONSHIP);
+			count=model->getObjectCount(ObjectType::Relationship);
 			for(i=0; i < count; i++)
 			{
-				rel=new RelationshipView(model->getRelationship(i, OBJ_RELATIONSHIP));
+				rel=new RelationshipView(model->getRelationship(i, ObjectType::Relationship));
 				scene->addItem(rel);
 			}
 
-			count=model->getObjectCount(BASE_RELATIONSHIP);
+			count=model->getObjectCount(ObjectType::BaseRelationship);
 			for(i=0; i < count; i++)
 			{
-				rel=new RelationshipView(model->getRelationship(i, BASE_RELATIONSHIP));
+				rel=new RelationshipView(model->getRelationship(i, ObjectType::BaseRelationship));
 				scene->addItem(rel);
 			}
 
-			count=model->getObjectCount(OBJ_TEXTBOX);
+			count=model->getObjectCount(ObjectType::Textbox);
 			for(i=0; i < count; i++)
 			{
 				txtbox=new StyledTextboxView(model->getTextbox(i));
@@ -164,26 +213,26 @@ void AppearanceConfigWidget::loadExampleModel(void)
 				scene->addItem(txtbox);
 			}
 
-			placeholder->setRect(QRectF(170, 190, 100,50));
+			placeholder->setRect(QRectF(170, 280, 100,50));
 			updatePlaceholderItem();
 			scene->addItem(placeholder);
 		}
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void AppearanceConfigWidget::updatePlaceholderItem(void)
+void AppearanceConfigWidget::updatePlaceholderItem()
 {
-	placeholder->setBrush(BaseObjectView::getFillStyle(ParsersAttributes::PLACEHOLDER));
-	QPen pen=BaseObjectView::getBorderStyle(ParsersAttributes::PLACEHOLDER);
+	placeholder->setBrush(BaseObjectView::getFillStyle(Attributes::Placeholder));
+	QPen pen=BaseObjectView::getBorderStyle(Attributes::Placeholder);
 	pen.setStyle(Qt::DashLine);
 	placeholder->setPen(pen);
 }
 
-void AppearanceConfigWidget::loadConfiguration(void)
+void AppearanceConfigWidget::loadConfiguration()
 {
 	try
 	{
@@ -204,18 +253,18 @@ void AppearanceConfigWidget::loadConfiguration(void)
 		}
 
 		this->enableConfigElement();
-		font_cmb->setCurrentFont(BaseObjectView::getFontStyle(ParsersAttributes::GLOBAL).font());
+		font_cmb->setCurrentFont(BaseObjectView::getFontStyle(Attributes::Global).font());
 		model->setObjectsModified();
 		updatePlaceholderItem();
 		scene->update();
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e, e.getExtraInfo());
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e, e.getExtraInfo());
 	}
 }
 
-void AppearanceConfigWidget::saveConfiguration(void)
+void AppearanceConfigWidget::saveConfiguration()
 {
 	try
 	{
@@ -248,7 +297,7 @@ void AppearanceConfigWidget::saveConfiguration(void)
 				attribs[attrib_id]=item.colors[2].name();
 			}
 			//If the item is a font config
-			else if(item.conf_id!=ParsersAttributes::GLOBAL && !item.obj_conf)
+			else if(item.conf_id!=Attributes::Global && !item.obj_conf)
 			{
 				font=item.font_fmt.font();
 
@@ -256,14 +305,14 @@ void AppearanceConfigWidget::saveConfiguration(void)
 				attrib_id=item.conf_id + QString("-fcolor");
 				attribs[attrib_id]=item.font_fmt.foreground().color().name();
 
-				attrib_id=item.conf_id + QString("-") + ParsersAttributes::ITALIC;
-				attribs[attrib_id]=(font.italic() ? ParsersAttributes::_TRUE_ : ParsersAttributes::_FALSE_);
+				attrib_id=item.conf_id + QString("-") + Attributes::Italic;
+				attribs[attrib_id]=(font.italic() ? Attributes::True : Attributes::False);
 
-				attrib_id=item.conf_id + QString("-") + ParsersAttributes::BOLD;
-				attribs[attrib_id]=(font.bold() ? ParsersAttributes::_TRUE_ : ParsersAttributes::_FALSE_);
+				attrib_id=item.conf_id + QString("-") + Attributes::Bold;
+				attribs[attrib_id]=(font.bold() ? Attributes::True : Attributes::False);
 
-				attrib_id=item.conf_id + QString("-") + ParsersAttributes::UNDERLINE;
-				attribs[attrib_id]=(font.underline() ? ParsersAttributes::_TRUE_ : ParsersAttributes::_FALSE_);
+				attrib_id=item.conf_id + QString("-") + Attributes::Underline;
+				attribs[attrib_id]=(font.underline() ? Attributes::True : Attributes::False);
 			}
 			//Special case: treating the global font element
 			else
@@ -273,16 +322,16 @@ void AppearanceConfigWidget::saveConfiguration(void)
 			}
 		}
 
-		config_params[GlobalAttributes::OBJECTS_STYLE_CONF]=attribs;
-		BaseConfigWidget::saveConfiguration(GlobalAttributes::OBJECTS_STYLE_CONF, config_params);
+		config_params[GlobalAttributes::ObjectsStyleConf]=attribs;
+		BaseConfigWidget::saveConfiguration(GlobalAttributes::ObjectsStyleConf, config_params);
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void AppearanceConfigWidget::enableConfigElement(void)
+void AppearanceConfigWidget::enableConfigElement()
 {
 	//QPalette pal;
 	int idx=element_cmb->currentIndex();
@@ -302,8 +351,8 @@ void AppearanceConfigWidget::enableConfigElement(void)
 	color_picker->setVisible(colors_lbl->isVisible());
 
 	//Buttons visible when a object configuration element is selected
-	//color_picker->setButtonVisible(1, conf_items[idx].obj_conf);
-	//color_picker->setButtonVisible(2, conf_items[idx].obj_conf);
+	color_picker->setButtonVisible(1, conf_items[idx].obj_conf);
+	color_picker->setButtonVisible(2, conf_items[idx].obj_conf);
 
 	underline_chk->blockSignals(true);
 	italic_chk->blockSignals(true);
@@ -361,7 +410,7 @@ void AppearanceConfigWidget::applyElementColor(unsigned color_idx, QColor color)
 	setConfigurationChanged(true);
 }
 
-void AppearanceConfigWidget::applyFontStyle(void)
+void AppearanceConfigWidget::applyFontStyle()
 {
 	QFont font;
 
@@ -380,17 +429,17 @@ void AppearanceConfigWidget::applyFontStyle(void)
 	setConfigurationChanged(true);
 }
 
-void AppearanceConfigWidget::restoreDefaults(void)
+void AppearanceConfigWidget::restoreDefaults()
 {
 	try
 	{
-		BaseConfigWidget::restoreDefaults(GlobalAttributes::OBJECTS_STYLE_CONF);
+		BaseConfigWidget::restoreDefaults(GlobalAttributes::ObjectsStyleConf, false);
 		this->loadConfiguration();
 		setConfigurationChanged(true);
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 

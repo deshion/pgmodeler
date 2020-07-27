@@ -6,16 +6,42 @@
 #      well the schema name of the parent table in the both data retrieving methods (list/attribs)
 
 %if {list} %then
-[ SELECT cl.attnum AS oid, cl.attname AS name FROM pg_attribute AS cl
+[ SELECT cl.attnum AS oid, cl.attname AS name, 
+   cl.attrelid::regclass::text AS parent,
+   'table' AS parent_type FROM pg_attribute AS cl
    LEFT JOIN pg_class AS tb ON tb.oid = cl.attrelid
    LEFT JOIN pg_namespace AS ns ON ns.oid = tb.relnamespace
    WHERE cl.attisdropped IS FALSE AND relname=]'{table}' [ AND nspname= ] '{schema}'
-   [ AND attnum >= 0  ORDER BY attnum ASC ]
+
+%if {name-filter} %then
+  [ AND ] ( {name-filter} )
+%end
+   
+[ AND attnum >= 0  ORDER BY attnum ASC ]
 %else
     %if {attribs} %then
      [SELECT cl.attnum AS oid, cl.attname AS name, cl.attnotnull AS not_null_bool,
-	     cl.attacl AS permission, df.adsrc AS default_value,
+	     cl.attacl AS permission, pg_get_expr(df.adbin, df.adrelid) AS default_value,
 	     ds.description AS comment, tb.oid AS table, ]
+
+    %if ({pgsql-ver} >=f "10.0") %then
+        [ CASE
+          WHEN cl.attidentity = 'a' THEN 'ALWAYS'
+          WHEN cl.attidentity = 'd' THEN 'BY DEFAULT'
+          ELSE NULL
+          END AS identity_type, ]
+    %else
+        [ NULL AS identity_type, ]
+    %end
+    
+    %if ({pgsql-ver} >=f "12.0") %then
+        [ CASE
+          WHEN cl.attgenerated = 's' THEN TRUE          
+          ELSE FALSE
+          END AS generated_bool, ]
+    %else
+        [ FALSE AS generated_bool, ]
+    %end
 
        #Creating an attribute to indicate if the column is inherited or not
        [ CASE

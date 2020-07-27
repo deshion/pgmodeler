@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -36,17 +36,18 @@ class ColumnWidget: public BaseObjectWidget, public Ui::ColumnWidget {
 		SyntaxHighlighter *hl_default_value;
 		PgSQLTypeWidget *data_type;
 		ObjectSelectorWidget *sequence_sel;
-		
-		void hideEvent(QHideEvent *event);
-		
+		Sequence ident_col_seq;
+
 	public:
-		ColumnWidget(QWidget * parent = 0);
+		ColumnWidget(QWidget * parent = nullptr);
 		void setAttributes(DatabaseModel *model, OperationList *op_list, BaseObject *parent_obj, Column *column);
 		
 	private slots:
-		
+		void editSequenceAttributes();
+		void enableDefaultValueFields();
+
 	public slots:
-		void applyConfiguration(void);
+		void applyConfiguration();
 };
 
 #endif

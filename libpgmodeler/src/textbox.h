@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -42,14 +42,14 @@ class Textbox: public BaseGraphicObject{
 
 	public:
 		//! \brief Constants used to configure the text attributes
-		static const unsigned ITALIC_TXT=0,
-		BOLD_TXT=1,
-		UNDERLINE_TXT=2;
+		static constexpr unsigned ItalicText=0,
+		BoldText=1,
+		UnderlineText=2;
 
 		/*! \brief To define the content of the textboxes
 		 the method setComment() must be used and the getComment()
 		 method used to get the current text */
-		Textbox(void);
+		Textbox();
 
 		//! \brief Sets the attributes of the text
 		void setTextAttribute(unsigned attrib, bool value);
@@ -66,9 +66,11 @@ class Textbox: public BaseGraphicObject{
 		//! \brief Returns the current state of the passed text attribute
 		bool getTextAttribute(unsigned attrib);
 
-		QColor getTextColor(void);
+		QColor getTextColor();
 
-		double getFontSize(void);
+		double getFontSize();
+
+		virtual void setZValue(int z_value);
 
 		//! \brief Copies the attributes between textboxes
 		void operator = (Textbox &txtbox);

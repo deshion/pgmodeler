@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -37,7 +37,13 @@ class ObjectsScene: public QGraphicsScene {
 	private:
 		Q_OBJECT
 
+		//! \brief Holds the names of the layers on the scene used to separate in the objects on the canvas
+		QStringList layers, active_layers;
+
 		vector<BaseObjectView *> removed_objs;
+
+		//! \brief Holds the tables/views which have selected children objects
+		QList<BaseTableView *> tabs_sel_children;
 
 		//! \brief Indicates if the corner move is enabled for the scene
 		static bool corner_move,
@@ -49,9 +55,9 @@ class ObjectsScene: public QGraphicsScene {
 		//! \brief Indicates if the scene need to be moved
 		bool move_scene;
 
-		static const int SCENE_MOVE_STEP=20,
-		SCENE_MOVE_TIMEOUT=50,
-		SCENE_MOVE_THRESHOLD=30;
+		static constexpr int SceneMoveStep=20,
+		SceneMoveTimeout=50,
+		SceneMoveThreshold=30;
 
 		//! \brief Timer responsible to move the scene
 		QTimer scene_move_timer,
@@ -105,22 +111,24 @@ class ObjectsScene: public QGraphicsScene {
 		//! \brief Line used as a guide when inserting new relationship
 		QGraphicsLineItem *rel_line;
 
-		//! \brief Aligns the specified point in relation to the grid
-		static QPointF alignPointToGrid(const QPointF &pnt);
-
 		/*! \brief Indicates if the mouse cursor is under a move spot portion of scene.
 		Additionally this method configures the direction of movement when returning true */
-		bool mouseIsAtCorner(void);
+		bool mouseIsAtCorner();
 
-		QGraphicsView *getActiveViewport(void);
+		QGraphicsView *getActiveViewport();
 
-		//! brief Performs the final steps when moving the objects like adjusting position to grid, moving children object, etc
+		//! \brief Performs the final steps when moving the objects like adjusting position to grid, moving children object, etc
 		void finishObjectsMove(const QPointF &pnt_end);
 
-		/*! brief Performs the scene position adjustment when pressing/releasing the arrow keys to avoid objects to be hidden in the corners.
+		/*! \brief Performs the scene position adjustment when pressing/releasing the arrow keys to avoid objects to be hidden in the corners.
 		This method will adjust the scene size automatically when moving objects right or down if the selected items bounding rects
 		exceeds the scene's size limits */
 		void adjustScenePositionOnKeyEvent(int key);
+
+		//! \brief Formats the name of the layer removing any invalid chars and doing the desambiguation in case the name already exists
+		QString formatLayerName(const QString &name);
+
+		void clearTablesChildrenSelection();
 
 	protected:
 		//! \brief Brush used to draw the grid over the scene
@@ -134,19 +142,72 @@ class ObjectsScene: public QGraphicsScene {
 		void keyReleaseEvent(QKeyEvent *event);
 
 		//! \brief Draws a line from the point 'p_start' to the cursor position and simulates the relationship creation
-		void showRelationshipLine(bool value, const QPointF &p_start=QPointF(NAN,NAN));
+		void showRelationshipLine(bool value, const QPointF &p_start=QPointF(DNaN,DNaN));
+
+		void blockItemsSignals(bool block);
 
 	public:
-		ObjectsScene(void);
-		~ObjectsScene(void);
+		static constexpr unsigned DefaultLayer = 0,
+		InvalidLayer = UINT_MAX;
+
+		ObjectsScene();
+		virtual ~ObjectsScene();
+
+		/*! \brief Add a new layer to the scene. In case of duplicated name this method
+		 * automatically does the desambiguation. The name of the new layer is returned. */
+		QString addLayer(const QString &name);
+
+		/*! \brief Rename the layer of the provided index. In case of duplicated name this method
+		 * 	automatically does the desambiguation. */
+		QString renameLayer(unsigned idx, const QString &name);
+
+		//! \brief Remove the named layer. Objects in the destroyed layer are automatically moved to the default one
+		void removeLayer(const QString &name);
+
+		//! \brief Destroy all layers (except the default one) moving all objects from the destroyed layers to the default one
+		void removeLayers();
+
+		//! \brief Set the named layers as active. Activating a layer causes objects attached to it to be visible
+		void setActiveLayers(QStringList act_layers);
+
+		//! \brief Set the layers with the provided indexes as active. Activating a layer causes objects attached to it to be visible
+		void setActiveLayers(QList<unsigned> ids);
+
+		/*! \brief Move the objects from a layer to another. This method automatically hides/show the objects in the new layer
+		 * according to the activation status of the destination layer */
+		void moveObjectsToLayer(unsigned old_layer, unsigned new_layer);
+
+		//! \brief Returns true when the named layer is currenctly activated
+		bool isLayerActive(const QString &name);
+
+		//! \brief Returns true when the layer with the provided id is currenctly activated
+		bool isLayerActive(unsigned layer_id);
+
+		//! \brief Returns a list containing the names of the active layers
+		QStringList getActiveLayers();
+
+		//! \brief Returns a list containing the ids of the active layers
+		QList<unsigned> getActiveLayersIds();
+
+		//! \brief Returns a list containing the names of all layers in the scene
+		QStringList getLayers();
+
+		//! \brief Returns the id of the named layer. If the layer does not exist the constant ObjectsScene::InvalidLayer is returned
+		unsigned getLayerId(const QString &name);
+
+		//! \brief This method causes objects in the active layers to have their visibility state updated.
+		void updateActiveLayers();
 
 		static void setEnableCornerMove(bool enable);
 		static void setInvertRangeSelectionTrigger(bool invert);
-		static bool isCornerMoveEnabled(void);
+		static bool isCornerMoveEnabled();
 
 		static void setGridSize(unsigned size);
 		static void setGridOptions(bool show_grd, bool align_objs_grd, bool show_page_dlm);
-		static void getGridOptions(bool &show_grd, bool &align_objs_grd, bool &show_pag_dlm);
+
+		static bool isAlignObjectsToGrid();
+		static bool isShowGrid();
+		static bool isShowPageDelimiters();
 
 		static void setPaperConfiguration(QPrinter::PaperSize paper_sz, QPrinter::Orientation orient, QRectF margins, QSizeF custom_size=QSizeF(0,0));
 		static void getPaperConfiguration(QPrinter::PaperSize &paper_sz, QPrinter::Orientation &orient, QRectF &margins, QSizeF &custom_size);
@@ -157,6 +218,9 @@ class ObjectsScene: public QGraphicsScene {
 		void addItem(QGraphicsItem *item);
 		void removeItem(QGraphicsItem *item);
 		void setSceneRect(const QRectF &rect);
+
+		//! \brief Aligns the specified point in relation to the grid
+		static QPointF alignPointToGrid(const QPointF &pnt);
 
 		/*! \brief Returns the items bounding rect. By default the method returns the same as QGraphicsScene::itemsBoundingRect.
 		If the parameter seek_only_db_objs is true the returned rect will have the origin point calculated based upon the
@@ -171,14 +235,18 @@ class ObjectsScene: public QGraphicsScene {
 		//! \brief Returns a vector containing all the page rects.
 		vector<QRectF> getPagesForPrinting(const QSizeF &paper_size, const QSizeF &margin, unsigned &h_page_cnt, unsigned &v_page_cnt);
 
-		bool isRangeSelectionEnabled(void);
-		bool isRangeSelectionTriggerInverted(void);
-		bool isRelationshipLineVisible(void);
-		bool isMovingObjects(void);
+		bool isRangeSelectionEnabled();
+		bool isRangeSelectionTriggerInverted();
+		bool isRelationshipLineVisible();
+		bool isMovingObjects();
+
+		QList<QGraphicsItem *> selectedItems(void) const;
+		bool hasOnlyTableChildrenSelection(void) const;
 
 	public slots:
-		void alignObjectsToGrid(void);
-		void update(void);
+		void alignObjectsToGrid();
+		void update();
+		void clearSelection();
 
 		//! \brief Toggles the object range selection
 		void enableRangeSelection(bool value);
@@ -189,19 +257,16 @@ class ObjectsScene: public QGraphicsScene {
 		void enableSceneMove(bool value=true);
 
 		//! \brief Moves the scene when the user puts the mouse cursor on one of scene's edges
-		void moveObjectScene(void);
-
-		//! \brief Handles and redirects the signal emitted by the modified object
-		void emitObjectModification(BaseGraphicObject *object);
+		void moveObjectScene();
 
 		//! \brief Handles and redirects the signal emitted by the selected child object
-		void emitChildObjectSelection(TableObject *child_obj);
+		void handlePopupMenuRequested(TableObject *child_obj);
 
 		//! \brief Handles and redirects the signal emitted by the selected object
-		void emitObjectSelection(BaseGraphicObject *object, bool selected);
+		void handleObjectSelection(BaseGraphicObject *object, bool selected);
 
-		//! \brief Handles and redirects the signal emitted by the tables/views when the extended attributes are toggled
-		void emitExtAttributesToggled(void);
+		//! \brief Handles the tables children objects selection changes
+		void handleChildrenSelectionChanged();
 
 	signals:
 		//! \brief Signal emitted when the user start or finalizes a object movement.
@@ -210,14 +275,20 @@ class ObjectsScene: public QGraphicsScene {
 		//! \brief Signal emitted when a object is modified on scene
 		void s_objectModified(BaseGraphicObject *objeto);
 
-		//! \brief Signal emitted when the user toggles a table's extended attributes in the scene
-		void s_extAttributesToggled(void);
+		//! \brief Signal emitted when the user toggles a table's collapse mode in the scene
+		void s_collapseModeChanged();
+
+		//! \brief Signal emitted when the user toggles a table's attributes pagination
+		void s_paginationToggled();
+
+		//! \brief Signal emitted when the user changes a table's attributes page
+		void s_currentPageChanged();
 
 		//! \brief Signal emitted when the user right-click a specific object on the scene requesting the popup menu
 		void s_popupMenuRequested(BaseObject *);
 
 		//! \brief Signal emitted when the user right-click one or more objects on the scene requesting the popup menu
-		void s_popupMenuRequested(void);
+		void s_popupMenuRequested();
 
 		//! \brief Signal emitted when the user double-click a object
 		void s_objectDoubleClicked(BaseGraphicObject *objeto);
@@ -225,8 +296,23 @@ class ObjectsScene: public QGraphicsScene {
 		//! \brief Signal emitted when a object is selected
 		void s_objectSelected(BaseGraphicObject *objeto, bool selecionado);
 
-		//! \brief Signal emtted when a blank area of the canvas is pressed
+		//! \brief Signal emitted when objects are selected via range selection
+		void s_objectsSelectedInRange();
+
+		//! \brief Signal emitted when a blank area of the canvas is pressed
 		void s_objectsScenePressed(Qt::MouseButtons);
+
+		//! \brief Signal emitted when the active layers change
+		void s_activeLayersChanged();
+
+		//! \brief Signal emitted when the layers change (add, remove, rename)
+		void s_layersChanged();
+
+		//! \brief Signal emitted when objects are moved from a layer to another
+		void s_objectsMovedLayer();
+
+		//! \brief Signal emitted when tables children objects have their selection statuses changed
+		void s_childrenSelectionChanged();
 
 		friend class ModelWidget;
 };

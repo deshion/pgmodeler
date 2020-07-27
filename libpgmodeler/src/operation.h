@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -66,28 +66,27 @@ class Operation {
 		vector<Permission *> permissions;
 
 		//! \brief Generate an unique id for the operation based upon the memory addresses of objects held by it
-		QString generateOperationId(void);
+		QString generateOperationId();
 
 	public:
 		//! \brief Constants used to reference the type of operations
-		static const unsigned NO_OPERATION=0,
-		OBJECT_MODIFIED=1,
-		OBJECT_CREATED=2,
-		OBJECT_REMOVED=3,
+		static constexpr unsigned NoOperation=0,
+		ObjectModified=1,
+		ObjectCreated=2,
+		ObjectRemoved=3,
 		/*! \brief This type of operation has the same effect of operation OBJECT_MODIFIED
 							except that it not (re)validate relationships as happens with operations.
 							This type of operation (OBJECT_MOVED) is useful to undo position changes of
 							graphical objects without executing unnecessary revalidations of relationships */
-		OBJECT_MOVED=4;
+		ObjectMoved=4;
 
 		//! \brief Operation chain types
-		static const unsigned NO_CHAIN=0, //! \brief The operation is not part of a chain
-		CHAIN_START=1, //! \brief The operation is the head of the chain
-		CHAIN_MIDDLE=2, //! \brief The operation is in the middle of the chain
-		CHAIN_END=3; //! \brief The operation is the last on the chain
+		static constexpr unsigned NoChain=0, //! \brief The operation is not part of a chain
+		ChainStart=1, //! \brief The operation is the head of the chain
+		ChainMiddle=2, //! \brief The operation is in the middle of the chain
+		ChainEnd=3; //! \brief The operation is the last on the chain
 
-
-		Operation(void);
+		Operation();
 
 		void setObjectIndex(int idx);
 		void setChainType(unsigned type);
@@ -98,15 +97,15 @@ class Operation {
 		void setPermissions(const vector<Permission *> &perms);
 		void setXMLDefinition(const QString &xml_def);
 
-		int getObjectIndex(void);
-		unsigned getChainType(void);
-		unsigned getOperationType(void);
-		BaseObject *getOriginalObject(void);
-		BaseObject *getPoolObject(void);
-		BaseObject *getParentObject(void);
-		vector<Permission *> getPermissions(void);
-		QString getXMLDefinition(void);
-		bool isOperationValid(void);
+		int getObjectIndex();
+		unsigned getChainType();
+		unsigned getOperationType();
+		BaseObject *getOriginalObject();
+		BaseObject *getPoolObject();
+		BaseObject *getParentObject();
+		vector<Permission *> getPermissions();
+		QString getXMLDefinition();
+		bool isOperationValid();
 };
 
 #endif

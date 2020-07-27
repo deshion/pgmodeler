@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ HtmlItemDelegate::HtmlItemDelegate(QObject *parent) : PlainTextItemDelegate(pare
 
 }
 
-HtmlItemDelegate::~HtmlItemDelegate(void)
+HtmlItemDelegate::~HtmlItemDelegate()
 {
 
 }
@@ -39,13 +39,15 @@ void HtmlItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opti
 
 	if(text.contains(QRegExp("(<)(\\/)?(.+)((>)|(\\/>))(\n)?")))
 	{
-		QTextDocument doc;
-		QRect rect;
-		QColor bg_color;
+		static QTextDocument doc;
+		static QRect rect;
+		static QColor bg_color;
+		static int dy = 0;
 
 		text.replace(QString("\n"), QString("<br/>"));
-		rect=QRect(QPoint(option.rect.left() + option.decorationSize.width() + 5,
-						  option.rect.top()), option.rect.size());
+		rect.setTop(option.rect.top());
+		rect.setLeft(option.rect.left() + option.decorationSize.width() + 5);
+		rect.setSize(option.rect.size());
 
 		//Painting the correct background color according to the item state
 		if((option.state & QStyle::State_Selected) == QStyle::State_Selected)
@@ -63,7 +65,8 @@ void HtmlItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opti
 
 		//Set the text to a html document instance and draw it to the painter
 		doc.setHtml(text);
-		painter->translate(rect.topLeft());
+		dy = abs(option.rect.height() - option.decorationSize.height()) / 2;
+		painter->translate(rect.topLeft() - QPoint(0, dy));
 		doc.drawContents(painter);
 	}
 

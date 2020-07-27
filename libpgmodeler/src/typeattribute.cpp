@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,48 +18,55 @@
 
 #include "typeattribute.h"
 
-TypeAttribute::TypeAttribute(void)
+TypeAttribute::TypeAttribute()
 {
-	obj_type=OBJ_TYPE_ATTRIBUTE;
+	obj_type=ObjectType::TypeAttribute;
 }
 
-void TypeAttribute::setType(PgSQLType type)
+TypeAttribute::TypeAttribute(const TypeAttribute &type_attr) : TypeAttribute()
+{
+    type = type_attr.type;
+    obj_name = type_attr.obj_name;
+    collation = type_attr.collation;
+}
+
+void TypeAttribute::setType(PgSqlType type)
 {
 	setCodeInvalidated(this->type != type);
 	this->type=type;
 }
 
-PgSQLType TypeAttribute::getType(void)
+PgSqlType TypeAttribute::getType()
 {
-	return(type);
+	return type;
 }
 
 QString TypeAttribute::getCodeDefinition(unsigned def_type)
 {
 	QString code_def=getCachedCode(def_type, false);
-	if(!code_def.isEmpty()) return(code_def);
+	if(!code_def.isEmpty()) return code_def;
 
-	if(def_type==SchemaParser::SQL_DEFINITION)
-		attributes[ParsersAttributes::NAME]=BaseObject::formatName(obj_name);
+	if(def_type==SchemaParser::SqlDefinition)
+		attributes[Attributes::Name]=BaseObject::formatName(obj_name);
 	else
-		attributes[ParsersAttributes::NAME]=obj_name;
+		attributes[Attributes::Name]=obj_name;
 
-	attributes[ParsersAttributes::TYPE]=type.getCodeDefinition(def_type);
+	attributes[Attributes::Type]=type.getCodeDefinition(def_type);
 
 	if(collation)
 	{
-		if(def_type==SchemaParser::SQL_DEFINITION)
-			attributes[ParsersAttributes::COLLATION]=collation->getName(true);
+		if(def_type==SchemaParser::SqlDefinition)
+			attributes[Attributes::Collation]=collation->getName(true);
 		else
-			attributes[ParsersAttributes::COLLATION]=collation->getCodeDefinition(def_type, true);
+			attributes[Attributes::Collation]=collation->getCodeDefinition(def_type, true);
 	}
 
-	return(BaseObject::__getCodeDefinition(def_type));
+	return BaseObject::__getCodeDefinition(def_type);
 }
 
 void TypeAttribute::operator = (const TypeAttribute &tpattrib)
 {
-	this->obj_name=tpattrib.obj_name;
-	this->type=tpattrib.type;
-	this->collation=tpattrib.collation;
+    this->obj_name = tpattrib.obj_name;
+    this->type = tpattrib.type;
+    this->collation = tpattrib.collation;
 }

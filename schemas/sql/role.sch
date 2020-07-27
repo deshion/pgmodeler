@@ -1,5 +1,4 @@
 # SQL definition for type roles
-# PostgreSQL Version: 9.x
 # CAUTION: Do not modify this file unless you know what you are doing.
 #          Code generation can be broken if incorrect changes are made.
 
@@ -19,7 +18,9 @@
 %if {createrole} %then $br $tb CREATEROLE %end
 %if {inherit} %then $br $tb INHERIT %end
 %if {login} %then $br $tb LOGIN %end
+
 %if {replication} %and ({pgsql-ver} != "9.0") %then $br $tb REPLICATION %end
+%if {bypassrls} %and ({pgsql-ver} >=f "9.5") %then $br $tb BYPASSRLS %end
 
 %if {password} %then
  $br $tb

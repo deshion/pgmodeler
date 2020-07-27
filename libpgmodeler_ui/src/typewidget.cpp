@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,21 +18,20 @@
 
 #include "typewidget.h"
 
-TypeWidget::TypeWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_TYPE)
+TypeWidget::TypeWidget(QWidget *parent): BaseObjectWidget(parent, ObjectType::Type)
 {
 	try
 	{
 		QGridLayout *grid=nullptr;
 		QFrame *frame=nullptr;
-		QStringList list;
 		unsigned i,i1;
 
 		Ui_TypeWidget::setupUi(this);
-		configureFormLayout(type_grid, OBJ_TYPE);
+		configureFormLayout(type_grid, ObjectType::Type);
 
-		like_type=new PgSQLTypeWidget(this, trUtf8("Like Type"));
-		element_type=new PgSQLTypeWidget(this, trUtf8("Element Type"));
-		range_subtype=new PgSQLTypeWidget(this, trUtf8("Subtype"));
+		like_type=new PgSQLTypeWidget(this, tr("Like Type"));
+		element_type=new PgSQLTypeWidget(this, tr("Element Type"));
+		range_subtype=new PgSQLTypeWidget(this, tr("Subtype"));
 
 		grid=dynamic_cast<QGridLayout *>(base_attribs_twg->widget(1)->layout());
 		grid->addWidget(like_type,6,0,1,0);
@@ -40,31 +39,31 @@ TypeWidget::TypeWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_TYPE)
 		grid->addItem(new QSpacerItem(20, 1, QSizePolicy::Minimum, QSizePolicy::Expanding),8,0);
 
 		grid=dynamic_cast<QGridLayout *>(base_attribs_twg->widget(0)->layout());
-		for(i=Type::INPUT_FUNC; i <= Type::ANALYZE_FUNC; i++)
+		for(i=Type::InputFunc; i <= Type::AnalyzeFunc; i++)
 		{
 			functions_sel[i]=nullptr;
-			functions_sel[i]=new ObjectSelectorWidget(OBJ_FUNCTION, true, this);
+			functions_sel[i]=new ObjectSelectorWidget(ObjectType::Function, true, this);
 			grid->addWidget(functions_sel[i],i,1,1,1);
 		}
 
-		enumerations_tab=new ObjectTableWidget(ObjectTableWidget::ALL_BUTTONS ^
-												 (ObjectTableWidget::EDIT_BUTTON | ObjectTableWidget::DUPLICATE_BUTTON), true, this);
+		enumerations_tab=new ObjectsTableWidget(ObjectsTableWidget::AllButtons ^
+												 (ObjectsTableWidget::EditButton | ObjectsTableWidget::DuplicateButton), true, this);
 		grid=dynamic_cast<QGridLayout *>(enumerations_gb->layout());
 		grid->addWidget(enumerations_tab,1,0,1,2);
 		enumerations_gb->setVisible(false);
 
-		attributes_tab=new ObjectTableWidget(ObjectTableWidget::ALL_BUTTONS ^ ObjectTableWidget::DUPLICATE_BUTTON, true, this);
+		attributes_tab=new ObjectsTableWidget(ObjectsTableWidget::AllButtons ^ ObjectsTableWidget::DuplicateButton, true, this);
 		attributes_tab->setColumnCount(3);
-		attributes_tab->setHeaderLabel(trUtf8("Name"),0);
-		attributes_tab->setHeaderIcon(QPixmap(PgModelerUiNS::getIconPath("uid")),0);
-		attributes_tab->setHeaderLabel(trUtf8("Type"),1);
-		attributes_tab->setHeaderIcon(QPixmap(PgModelerUiNS::getIconPath("usertype")),1);
-		attributes_tab->setHeaderLabel(trUtf8("Collation"),2);
-		attributes_tab->setHeaderIcon(QPixmap(PgModelerUiNS::getIconPath("collation")),2);
+		attributes_tab->setHeaderLabel(tr("Name"),0);
+		attributes_tab->setHeaderIcon(QPixmap(PgModelerUiNs::getIconPath("uid")),0);
+		attributes_tab->setHeaderLabel(tr("Type"),1);
+		attributes_tab->setHeaderIcon(QPixmap(PgModelerUiNs::getIconPath("usertype")),1);
+		attributes_tab->setHeaderLabel(tr("Collation"),2);
+		attributes_tab->setHeaderIcon(QPixmap(PgModelerUiNs::getIconPath("collation")),2);
 
 		grid=dynamic_cast<QGridLayout *>(attributes_gb->layout());
 
-		attrib_collation_sel=new ObjectSelectorWidget(OBJ_COLLATION, true, this);
+		attrib_collation_sel=new ObjectSelectorWidget(ObjectType::Collation, true, this);
 		grid->addWidget(attrib_collation_sel, 1,1,1,2);
 
 		attrib_type_wgt=new PgSQLTypeWidget(this);
@@ -74,94 +73,65 @@ TypeWidget::TypeWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_TYPE)
 		attributes_gb->setVisible(false);
 
 		grid=dynamic_cast<QGridLayout *>(base_attribs_twg->widget(0)->layout());
-		frame=generateInformationFrame(trUtf8("The functions to be assigned to a type should be written in C language and possess, respectively, the following signatures:<br/>  <table>   <tr>    <td><strong>INPUT:</strong> <em>any function(cstring, oid, integer)</em></td>    <td><strong>OUTPUT:</strong> <em>cstring function(any)</em></td>   </tr>   <tr>    <td><strong>SEND:</strong> <em>byta function(any)</em></td>    <td><strong>RECV:</strong> <em>any function(internal, oid, integer)</em></td>   </tr>   <tr>    <td><strong>TPMOD_IN:</strong> <em>integer function(cstring[])</em></td>    <td><strong>TPMOD_OUT:</strong> <em>cstring function(integer)</em></td>   </tr>   <tr>    <td><strong>ANALYZE:</strong> <em>boolean function(internal)</em></td>    <tr>  </table>"));
+		frame=generateInformationFrame(tr("The functions to be assigned to a type should be written in C language and possess, respectively, the following signatures:<br/>  <table>   <tr>    <td><strong>INPUT:</strong> <em>any function(cstring, oid, integer)</em></td>    <td><strong>OUTPUT:</strong> <em>cstring function(any)</em></td>   </tr>   <tr>    <td><strong>SEND:</strong> <em>byta function(any)</em></td>    <td><strong>RECV:</strong> <em>any function(internal, oid, integer)</em></td>   </tr>   <tr>    <td><strong>TPMOD_IN:</strong> <em>integer function(cstring[])</em></td>    <td><strong>TPMOD_OUT:</strong> <em>cstring function(integer)</em></td>   </tr>   <tr>    <td><strong>ANALYZE:</strong> <em>boolean function(internal)</em></td>    <tr>  </table>"));
 
 		grid->addItem(new QSpacerItem(20, 1, QSizePolicy::Minimum, QSizePolicy::Expanding), grid->count()+1,0);
 		grid->addWidget(frame, grid->count()+1, 0, 1, 0);
 		frame->setParent(base_attribs_twg->widget(0));
 
 		grid=dynamic_cast<QGridLayout *>(range_attribs_gb->layout());
-		opclass_sel=new ObjectSelectorWidget(OBJ_OPCLASS, true, this);
+		opclass_sel=new ObjectSelectorWidget(ObjectType::OpClass, true, this);
 		grid->addWidget(opclass_sel,0,1,1,1);
 
-		for(i1=1, i=Type::CANONICAL_FUNC; i <= Type::SUBTYPE_DIFF_FUNC; i++,i1++)
+		for(i1=1, i=Type::CanonicalFunc; i <= Type::SubtypeDiffFunc; i++,i1++)
 		{
 			functions_sel[i]=nullptr;
-			functions_sel[i]=new ObjectSelectorWidget(OBJ_FUNCTION, true, this);
+			functions_sel[i]=new ObjectSelectorWidget(ObjectType::Function, true, this);
 			grid->addWidget(functions_sel[i],i1,1,1,1);
 		}
 
 		grid->addWidget(range_subtype,3,0,1,2);
-		frame=generateInformationFrame(trUtf8("The functions to be assigned to a range type should have the following signatures:<br/><br/><strong>Canonical:</strong> <em>any function(any)</em> <br/><strong>Subtype Diff:</strong> <em>double precision function(subtype, subtype)</em>"));
+		frame=generateInformationFrame(tr("The functions to be assigned to a range type should have the following signatures:<br/><br/><strong>Canonical:</strong> <em>any function(any)</em> <br/><strong>Subtype Diff:</strong> <em>double precision function(subtype, subtype)</em>"));
 		grid->addItem(new QSpacerItem(20, 1, QSizePolicy::Minimum, QSizePolicy::Expanding),4,0);
 		grid->addWidget(frame, 5, 0, 1, 0);
 
 		range_attribs_gb->setVisible(false);
 
-		//connect(parent_form->apply_ok_btn,SIGNAL(clicked(bool)), this, SLOT(applyConfiguration(void)));
-		connect(base_type_rb, SIGNAL(toggled(bool)), this, SLOT(selectTypeConfiguration(void)));
-		connect(composite_rb, SIGNAL(toggled(bool)), this, SLOT(selectTypeConfiguration(void)));
-		connect(enumeration_rb, SIGNAL(toggled(bool)), this, SLOT(selectTypeConfiguration(void)));
+		//connect(parent_form->apply_ok_btn,SIGNAL(clicked(bool)), this, SLOT(applyConfiguration()));
+		connect(base_type_rb, SIGNAL(toggled(bool)), this, SLOT(selectTypeConfiguration()));
+		connect(composite_rb, SIGNAL(toggled(bool)), this, SLOT(selectTypeConfiguration()));
+		connect(enumeration_rb, SIGNAL(toggled(bool)), this, SLOT(selectTypeConfiguration()));
 		connect(enumerations_tab, SIGNAL(s_rowAdded(int)), this, SLOT(handleEnumeration(int)));
 		connect(enumerations_tab, SIGNAL(s_rowUpdated(int)), this, SLOT(handleEnumeration(int)));
 		connect(attributes_tab, SIGNAL(s_rowAdded(int)), this, SLOT(handleAttribute(int)));
 		connect(attributes_tab, SIGNAL(s_rowUpdated(int)), this, SLOT(handleAttribute(int)));
 		connect(attributes_tab, SIGNAL(s_rowEdited(int)), this, SLOT(editAttribute(int)));
 
-		StorageType::getTypes(list);
-		storage_cmb->addItems(list);
-
-		CategoryType::getTypes(list);
-		category_cmb->addItems(list);
+		storage_cmb->addItems(StorageType::getTypes());
+		category_cmb->addItems(CategoryType::getTypes());
 
 		setRequiredField(range_subtype);
 		setRequiredField(input_lbl);
 		setRequiredField(output_lbl);
-		setRequiredField(functions_sel[Type::INPUT_FUNC]);
-		setRequiredField(functions_sel[Type::OUTPUT_FUNC]);
+		setRequiredField(functions_sel[Type::InputFunc]);
+		setRequiredField(functions_sel[Type::OutputFunc]);
 		setRequiredField(enumerations_gb);
 		setRequiredField(attributes_gb);
 
 		configureTabOrder({base_type_rb, enumeration_rb, composite_rb, range_rb,
 						   enum_name_edt, attrib_name_edt, attrib_collation_sel, attrib_type_wgt,
-						   opclass_sel, functions_sel[Type::CANONICAL_FUNC], functions_sel[Type::SUBTYPE_DIFF_FUNC],
+						   opclass_sel, functions_sel[Type::CanonicalFunc], functions_sel[Type::SubtypeDiffFunc],
 						   base_attribs_twg});
 
 		setMinimumSize(620, 750);
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void TypeWidget::hideEvent(QHideEvent *event)
-{
-	enumerations_tab->removeRows();
-	attributes_tab->removeRows();
-
-	for(unsigned i=Type::INPUT_FUNC; i <= Type::SUBTYPE_DIFF_FUNC; i++)
-		functions_sel[i]->clearSelector();
-
-	base_type_rb->setChecked(true);
-	internal_len_sb->setValue(0);
-	by_value_chk->setChecked(false);
-	preferred_chk->setChecked(false);
-	delimiter_edt->clear();
-	default_value_edt->clear();;
-	category_cmb->setCurrentIndex(0);
-	storage_cmb->setCurrentIndex(0);
-	alignment_cmb->setCurrentIndex(0);
-	base_attribs_twg->setCurrentIndex(0);
-	opclass_sel->clearSelector();
-
-	collation_sel->setEnabled(true);
-	collation_lbl->setEnabled(true);
-
-	BaseObjectWidget::hideEvent(event);
-}
-
-void TypeWidget::selectTypeConfiguration(void)
+void TypeWidget::selectTypeConfiguration()
 {
 	base_attribs_twg->setVisible(base_type_rb->isChecked());
 	enumerations_gb->setVisible(enumeration_rb->isChecked());
@@ -226,31 +196,31 @@ void TypeWidget::handleAttribute(int row)
 		if(attributes_tab->getCellText(row,0).isEmpty())
 			attributes_tab->removeRow(row);
 
-		throw Exception(e.getErrorMessage(), e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(), e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
 void TypeWidget::setAttributes(DatabaseModel *model, OperationList *op_list, Schema *schema, Type *type)
 {
-	PgSQLType like_tp, elem_tp;
+	PgSqlType like_tp, elem_tp;
 	unsigned type_conf, i, count;
 
 	BaseObjectWidget::setAttributes(model, op_list, type, schema);
 
 	attrib_collation_sel->setModel(model);
-	attrib_type_wgt->setAttributes(PgSQLType(), model);
-	range_subtype->setAttributes(PgSQLType(), model);
+	attrib_type_wgt->setAttributes(PgSqlType(), model);
+	range_subtype->setAttributes(PgSqlType(), model);
 
 	opclass_sel->setModel(model);
 
-	for(i=Type::INPUT_FUNC; i <= Type::SUBTYPE_DIFF_FUNC; i++)
+	for(i=Type::InputFunc; i <= Type::SubtypeDiffFunc; i++)
 		functions_sel[i]->setModel(model);
 
 	if(type)
 	{
 		type_conf=type->getConfiguration();
 
-		if(type_conf==Type::COMPOSITE_TYPE)
+		if(type_conf==Type::CompositeType)
 		{
 			composite_rb->setChecked(true);
 			attributes_tab->blockSignals(true);
@@ -265,7 +235,7 @@ void TypeWidget::setAttributes(DatabaseModel *model, OperationList *op_list, Sch
 			attributes_tab->blockSignals(false);
 			attributes_tab->clearSelection();
 		}
-		else if(type_conf==Type::ENUMERATION_TYPE)
+		else if(type_conf==Type::EnumerationType)
 		{
 			enumeration_rb->setChecked(true);
 			enumerations_tab->blockSignals(true);
@@ -280,13 +250,13 @@ void TypeWidget::setAttributes(DatabaseModel *model, OperationList *op_list, Sch
 			enumerations_tab->blockSignals(false);
 			enumerations_tab->clearSelection();
 		}
-		else if(type_conf==Type::RANGE_TYPE)
+		else if(type_conf==Type::RangeType)
 		{
 			range_rb->setChecked(true);
 			opclass_sel->setSelectedObject(type->getSubtypeOpClass());
 			range_subtype->setAttributes(type->getSubtype(), model);
-			functions_sel[Type::CANONICAL_FUNC]->setSelectedObject(type->getFunction(Type::CANONICAL_FUNC));
-			functions_sel[Type::SUBTYPE_DIFF_FUNC]->setSelectedObject(type->getFunction(Type::SUBTYPE_DIFF_FUNC));
+			functions_sel[Type::CanonicalFunc]->setSelectedObject(type->getFunction(Type::CanonicalFunc));
+			functions_sel[Type::SubtypeDiffFunc]->setSelectedObject(type->getFunction(Type::SubtypeDiffFunc));
 		}
 		else
 		{
@@ -305,7 +275,7 @@ void TypeWidget::setAttributes(DatabaseModel *model, OperationList *op_list, Sch
 			storage_cmb->setCurrentIndex(storage_cmb->findText(~type->getStorage()));
 			alignment_cmb->setCurrentIndex(alignment_cmb->findText(~type->getAlignment()));
 
-			for(i=Type::INPUT_FUNC; i <= Type::ANALYZE_FUNC; i++)
+			for(i=Type::InputFunc; i <= Type::AnalyzeFunc; i++)
 				functions_sel[i]->setSelectedObject(type->getFunction(i));
 		}
 	}
@@ -316,7 +286,7 @@ void TypeWidget::setAttributes(DatabaseModel *model, OperationList *op_list, Sch
 	element_type->setAttributes(elem_tp, model);
 }
 
-void TypeWidget::applyConfiguration(void)
+void TypeWidget::applyConfiguration()
 {
 	try
 	{
@@ -331,7 +301,7 @@ void TypeWidget::applyConfiguration(void)
 		//Configuring an enumaration type
 		if(enumeration_rb->isChecked())
 		{
-			type->setConfiguration(Type::ENUMERATION_TYPE);
+			type->setConfiguration(Type::EnumerationType);
 
 			count=enumerations_tab->getRowCount();
 			for(i=0; i < count; i++)
@@ -340,7 +310,7 @@ void TypeWidget::applyConfiguration(void)
 		//Configuration a composite type
 		else if(composite_rb->isChecked())
 		{
-			type->setConfiguration(Type::COMPOSITE_TYPE);
+			type->setConfiguration(Type::CompositeType);
 
 			count=attributes_tab->getRowCount();
 			for(i=0; i < count; i++)
@@ -349,17 +319,17 @@ void TypeWidget::applyConfiguration(void)
 		//Configuration a range type
 		else if(range_rb->isChecked())
 		{
-			type->setConfiguration(Type::RANGE_TYPE);
+			type->setConfiguration(Type::RangeType);
 			type->setCollation(collation_sel->getSelectedObject());
 			type->setSubtype(range_subtype->getPgSQLType());
 			type->setSubtypeOpClass(dynamic_cast<OperatorClass *>(opclass_sel->getSelectedObject()));
-			type->setFunction(Type::CANONICAL_FUNC, dynamic_cast<Function *>(functions_sel[Type::CANONICAL_FUNC]->getSelectedObject()));
-			type->setFunction(Type::SUBTYPE_DIFF_FUNC, dynamic_cast<Function *>(functions_sel[Type::SUBTYPE_DIFF_FUNC]->getSelectedObject()));
+			type->setFunction(Type::CanonicalFunc, dynamic_cast<Function *>(functions_sel[Type::CanonicalFunc]->getSelectedObject()));
+			type->setFunction(Type::SubtypeDiffFunc, dynamic_cast<Function *>(functions_sel[Type::SubtypeDiffFunc]->getSelectedObject()));
 		}
 		//Configuring a base type
 		else
 		{
-			type->setConfiguration(Type::BASE_TYPE);
+			type->setConfiguration(Type::BaseType);
 			type->setLikeType(like_type->getPgSQLType());
 			type->setElement(element_type->getPgSQLType());
 			type->setInternalLength(internal_len_sb->value());
@@ -372,10 +342,10 @@ void TypeWidget::applyConfiguration(void)
 
 			type->setDefaultValue(default_value_edt->text());
 			type->setCategory(CategoryType(category_cmb->currentText()));
-			type->setAlignment(PgSQLType(alignment_cmb->currentText()));
+			type->setAlignment(PgSqlType(alignment_cmb->currentText()));
 			type->setStorage(StorageType(storage_cmb->currentText()));
 
-			for(i=Type::INPUT_FUNC; i <= Type::ANALYZE_FUNC; i++)
+			for(i=Type::InputFunc; i <= Type::AnalyzeFunc; i++)
 				type->setFunction(i, dynamic_cast<Function *>(functions_sel[i]->getSelectedObject()));
 		}
 
@@ -384,7 +354,7 @@ void TypeWidget::applyConfiguration(void)
 	catch(Exception &e)
 	{
 		cancelConfiguration();
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 

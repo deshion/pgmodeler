@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 RoundedRectItem::RoundedRectItem(QGraphicsItem *parent) :  QGraphicsRectItem(parent)
 {
 	radius=5;
-	corners=ALL_CORNERS;
+	corners=AllCorners;
 }
 
 void RoundedRectItem::setBorderRadius(double radius)
@@ -30,28 +30,28 @@ void RoundedRectItem::setBorderRadius(double radius)
 	createPolygon();
 }
 
-double RoundedRectItem::getBorderRadius(void)
+double RoundedRectItem::getBorderRadius()
 {
-	return(radius);
+	return radius;
 }
 
 void RoundedRectItem::setRoundedCorners(unsigned corners)
 {
-	if(corners > ALL_CORNERS)
-		corners=ALL_CORNERS;
+	if(corners > AllCorners)
+		corners=AllCorners;
 
 	this->corners=corners;
 	createPolygon();
 }
 
-unsigned RoundedRectItem::getRoundedCorners(void)
+unsigned RoundedRectItem::getRoundedCorners()
 {
-	return(corners);
+	return corners;
 }
 
 bool RoundedRectItem::isCornerRounded(unsigned corner)
 {
-	return((corners & corner)==corner);
+	return (corners & corner)==corner;
 }
 
 void RoundedRectItem::setRect(const QRectF &rect)
@@ -65,38 +65,38 @@ void RoundedRectItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *,
 	painter->setPen(this->pen());
 	painter->setBrush(this->brush());
 
-	if(corners==NO_CORNERS)
+	if(corners==NoCorners)
 		painter->drawRect(this->rect());
-	else if(corners==ALL_CORNERS)
+	else if(corners==AllCorners)
 		painter->drawRoundedRect(this->rect(), radius, radius);
 	else
 		painter->drawPolygon(polygon);
 }
 
-void RoundedRectItem::createPolygon(void)
+void RoundedRectItem::createPolygon()
 {
 	polygon.clear();
 
-	if(corners!=NO_CORNERS && corners!=ALL_CORNERS && this->rect().isValid())
+	if(corners!=NoCorners && corners!=AllCorners && this->rect().isValid())
 	{
 		QRectF rect=this->rect();
 
-		if(isCornerRounded(TOPLEFT_CORNER))
+		if(isCornerRounded(TopLeftCorner))
 			polygon << calculatePoints(rect.topLeft() + QPointF(radius, radius), 180, 90);
 		else
 			polygon.append(this->rect().topLeft());
 
-		if(isCornerRounded(TOPRIGHT_CORNER))
+		if(isCornerRounded(TopRightCorner))
 			polygon << calculatePoints(this->rect().topRight() + QPointF(-radius, radius), 90, 0);
 		else
 			polygon.append(this->rect().topRight());
 
-		if(isCornerRounded(BOTTOMRIGHT_CORNER))
+		if(isCornerRounded(BottomRightCorner))
 			polygon << calculatePoints(this->rect().bottomRight() + QPointF(-radius, -radius), 360, 270);
 		else
 			polygon.append(this->rect().bottomRight());
 
-		if(isCornerRounded(BOTTOMLEFT_CORNER))
+		if(isCornerRounded(BottomLeftCorner))
 			polygon << calculatePoints(this->rect().bottomLeft() + QPointF(radius, -radius), 270, 180);
 		else
 			polygon.append(this->rect().bottomLeft());
@@ -122,5 +122,5 @@ QVector<QPointF> RoundedRectItem::calculatePoints(QPointF start_pnt, double star
 			 (inc < 0 && ang < end_angle));
 	}
 
-	return(points);
+	return points;
 }

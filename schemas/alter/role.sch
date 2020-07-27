@@ -1,5 +1,4 @@
 # SQL definition for role's attributes change
-# PostgreSQL Version: 9.x
 # CAUTION: Do not modify this file unless you know what you are doing.
 #          Code generation can be broken if incorrect changes are made.
 
@@ -44,18 +43,28 @@
     REPLICATION 
   %end
   
-  %if {password} %then
-   $br $tb
-   
-   %if {encrypted} %then
-     %if ({encrypted}=="unset") %then 
-       [UNENCRYPTED ]
-     %else
-       [ENCRYPTED ]
-     %end    
-   %end
-   
-   [PASSWORD ] '{password}'
+  %if {bypassrls} %and ({pgsql-ver} >=f "9.5") %then 
+    $br $tb 
+    %if ({bypassrls}=="unset") %then NO %end
+    BYPASSRLS 
+  %end
+  
+  %if {password} %or {empty-password} %then
+    $br $tb
+    
+    %if {empty-password} %then
+        [PASSWORD ] ''
+    %else
+        %if {encrypted} %then
+            %if ({encrypted}=="unset") %then 
+            [UNENCRYPTED ]
+            %else
+            [ENCRYPTED ]
+            %end    
+        %end
+        
+        [PASSWORD ] '{password}'
+    %end
   %end
 
   %if {connlimit} %then $br $tb [CONNECTION LIMIT ] {connlimit} %end

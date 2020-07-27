@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -46,7 +46,9 @@ class ResultSet {
 	 when this flag is marked as false */
 		bool is_res_copied;
 
-		void destroyResultSet(void);
+		void validateColumnIndex(int column_idx);
+
+		int validateColumnName(const QString &column_name);
 
 	protected:
 		//! \brief Stores the current tuple index, just for navigation
@@ -65,13 +67,13 @@ class ResultSet {
 
 	public:
 		//! \brief Constants used to navigate through the resultset
-		static const unsigned FIRST_TUPLE=0,
-		LAST_TUPLE=1,
-		PREVIOUS_TUPLE=2,
-		NEXT_TUPLE=3;
+		static constexpr unsigned FirstTuple=0,
+		LastTuple=1,
+		PreviousTuple=2,
+		NextTuple=3;
 
-		ResultSet(void);
-		~ResultSet(void);
+		ResultSet();
+		~ResultSet();
 
 		//! \brief Returns the value of a column (searching by name or index)
 		char *getColumnValue(const QString &column_name);
@@ -82,15 +84,15 @@ class ResultSet {
 		int getColumnSize(int column_idx);
 
 		//! \brief Returns all the column names / values for the current tuple.
-		attribs_map getTupleValues(void);
+		attribs_map getTupleValues();
 
 		/*! \brief Returns the number of rows affected by the command that generated
 	 the result if it is an INSERT, DELETE, UPDATE or the number of
 	 tuples returned if the command was a SELECT */
-		int getTupleCount(void);
+		int getTupleCount();
 
 		//! \brief Returns the column count present in one tuple
-		int getColumnCount(void);
+		int getColumnCount();
 
 		//! \brief Returns the name of the column specified by it's index
 		QString getColumnName(int column_idx);
@@ -102,17 +104,26 @@ class ResultSet {
 		int getColumnIndex(const QString &column_name);
 
 		//! \brief Returns the current tuple where the navigation is
-		int getCurrentTuple(void);
+		int getCurrentTuple();
 
 		//! \brief Informs if the column is in binary format
 		bool isColumnBinaryFormat(const QString &column_name);
 		bool isColumnBinaryFormat(int column_idx);
 
+		//! \brief Informs if the column has a null value. In PostgreSQL null =/= empty
+		bool isColumnValueNull(int column_idx);
+		bool isColumnValueNull(const QString &column_name);
+
 		//! \brief Access on tuple on result set via navigation constants
 		bool accessTuple(unsigned tuple_type);
 
 		//! \brief Returns if the result set is empty due a DML command that does not returned any data
-		bool isEmpty(void);
+		bool isEmpty();
+
+		//! \brief Returns if the result set is valid (created from a valid result set)
+		bool isValid();
+
+		void clearResultSet();
 
 		//! \brief Make a copy between two resultsets
 		void operator = (ResultSet &res);

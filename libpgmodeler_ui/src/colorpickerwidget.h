@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -53,13 +53,13 @@ class ColorPickerWidget: public QWidget, public Ui::ColorPickerWidget {
 		bool eventFilter(QObject *object, QEvent *event);
 		
 	public:
-		static const int MAX_COLOR_BUTTONS=20;
+		static constexpr int MaxColorButtons=20;
 		
-		explicit ColorPickerWidget(int color_count, QWidget * parent = 0);
+		explicit ColorPickerWidget(int color_count, QWidget * parent = nullptr);
 		
 		void setColor(int color_idx, const QColor &color);
 		QColor getColor(int color_idx);
-		unsigned getColorCount(void);
+		unsigned getColorCount();
 		bool isButtonVisible(unsigned idx);
 		
 		void setButtonToolTip(unsigned button_idx, const QString &tooltip);
@@ -67,12 +67,12 @@ class ColorPickerWidget: public QWidget, public Ui::ColorPickerWidget {
 	public slots:
 		void setEnabled(bool value);
 		void setButtonVisible(unsigned idx, bool value);
-		void selectColor(void);
-		void generateRandomColors(void);
+		void selectColor();
+		void generateRandomColors();
 		
 	signals:
 		void s_colorChanged(unsigned, QColor);
-		void s_colorsChanged(void);
+		void s_colorsChanged();
 };
 
 #endif

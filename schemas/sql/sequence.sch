@@ -1,5 +1,4 @@
 # SQL definition for sequences
-# PostgreSQL Version: 9.x
 # CAUTION: Do not modify this file unless you know what you are doing.
 #          Code generation can be broken if incorrect changes are made.
 
@@ -45,7 +44,7 @@ $tb [OWNED BY ]
 %if {owner-col} %then {owner-col} %else NONE %end
 ; $br
 
-%if {owner-col} %then
+%if {owner-col} %and %not {col-is-identity} %then
 $br
 [ALTER TABLE ] {table} [ ALTER COLUMN ] {column} $br
 [      SET DEFAULT nextval('] {name} ['::regclass);] $br

@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,8 +25,12 @@
 #include "numberedtexteditor.h"
 #include "linenumberswidget.h"
 #include "sqlexecutionwidget.h"
+#include "modeldatabasediffform.h"
+#include "databaseimportform.h"
+#include "modelexportform.h"
 
 map<QString, attribs_map> GeneralConfigWidget::config_params;
+map<QString, GeneralConfigWidget::WidgetState> GeneralConfigWidget::widgets_geom;
 
 GeneralConfigWidget::GeneralConfigWidget(QWidget * parent) : BaseConfigWidget(parent)
 {
@@ -40,18 +44,34 @@ GeneralConfigWidget::GeneralConfigWidget(QWidget * parent) : BaseConfigWidget(pa
 
 	Ui_GeneralConfigWidget::setupUi(this);
 
+	confs_dir_sel = new FileSelectorWidget(this);
+	confs_dir_sel->setToolTip(tr("pgModeler configurations directory for the current user"));
+	confs_dir_sel->setReadOnly(true);
+	confs_dir_sel->setFileMode(QFileDialog::Directory);
+	confs_dir_sel->setSelectedFile(GlobalAttributes::getConfigurationsDir());
+	general_grid->addWidget(confs_dir_sel, 1, 2, 1, 2);
+
+	source_editor_sel = new FileSelectorWidget(this);
+	source_editor_sel->setToolTip(tr("pgModeler configurations directory for the current user"));
+	source_editor_sel->setAllowFilenameInput(true);
+	source_editor_sel->setFileMode(QFileDialog::ExistingFile);
+	source_editor_sel->setAcceptMode(QFileDialog::AcceptOpen);
+	source_editor_sel->setWindowTitle(tr("Select application"));
+	source_editor_sel->setToolTip(tr("External source code editor application"));
+	general_grid->addWidget(source_editor_sel, 2, 2, 1, 2);
+
 	line_numbers_cp=new ColorPickerWidget(1, this);
-	line_numbers_cp->setButtonToolTip(0, trUtf8("Line numbers' font color"));
+	line_numbers_cp->setButtonToolTip(0, tr("Line numbers' font color"));
 
 	line_numbers_bg_cp=new ColorPickerWidget(1, this);
-	line_numbers_bg_cp->setButtonToolTip(0, trUtf8("Line numbers' background color"));
+	line_numbers_bg_cp->setButtonToolTip(0, tr("Line numbers' background color"));
 
 	line_highlight_cp=new ColorPickerWidget(1, this);
-	line_highlight_cp->setButtonToolTip(0, trUtf8("Highlighted line color"));
+	line_highlight_cp->setButtonToolTip(0, tr("Highlighted line color"));
 
 	font_preview_txt=new NumberedTextEditor(this);
 	font_preview_txt->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-	font_preview_txt->setPlainText(trUtf8("The little brown fox jumps over the lazy dog") + QString("\n\ttext with tab «") + QString("\n0123456789\n.()[]{};"));
+	font_preview_txt->setPlainText(tr("The little brown fox jumps over the lazy dog") + QString("\n\ttext with tab «") + QString("\n0123456789\n.()[]{};"));
 
 	QBoxLayout *layout=new QBoxLayout(QBoxLayout::LeftToRight);
 	QGridLayout *grid=dynamic_cast<QGridLayout *>(code_font_gb->layout());
@@ -65,20 +85,20 @@ GeneralConfigWidget::GeneralConfigWidget(QWidget * parent) : BaseConfigWidget(pa
 	for(int i=0; i < count; i++)
 		paper_cmb->setItemData(i, QVariant(paper_ids[i]));
 
-	connect(unity_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(convertMarginUnity(void)));
+	connect(unity_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(convertMarginUnity()));
 	connect(autosave_interv_chk, SIGNAL(toggled(bool)), autosave_interv_spb, SLOT(setEnabled(bool)));
-	connect(paper_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(selectPaperSize(void)));
+	connect(paper_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(selectPaperSize()));
 	connect(font_size_spb, SIGNAL(valueChanged(double)), this, SLOT(updateFontPreview()));
 	connect(font_cmb, SIGNAL(currentFontChanged(QFont)), this, SLOT(updateFontPreview()));
 
 	connect(line_numbers_cp, SIGNAL(s_colorChanged(unsigned, QColor)), this, SLOT(updateFontPreview()));
-	connect(line_numbers_cp, SIGNAL(s_colorsChanged(void)), this, SLOT(updateFontPreview()));
+	connect(line_numbers_cp, SIGNAL(s_colorsChanged()), this, SLOT(updateFontPreview()));
 
 	connect(line_numbers_bg_cp, SIGNAL(s_colorChanged(unsigned, QColor)), this, SLOT(updateFontPreview()));
-	connect(line_numbers_bg_cp, SIGNAL(s_colorsChanged(void)), this, SLOT(updateFontPreview()));
+	connect(line_numbers_bg_cp, SIGNAL(s_colorsChanged()), this, SLOT(updateFontPreview()));
 
 	connect(line_highlight_cp, SIGNAL(s_colorChanged(unsigned, QColor)), this, SLOT(updateFontPreview()));
-	connect(line_highlight_cp, SIGNAL(s_colorsChanged(void)), this, SLOT(updateFontPreview()));
+	connect(line_highlight_cp, SIGNAL(s_colorsChanged()), this, SLOT(updateFontPreview()));
 
 	connect(disp_line_numbers_chk, SIGNAL(toggled(bool)), this, SLOT(updateFontPreview()));
 	connect(hightlight_lines_chk, SIGNAL(toggled(bool)), this, SLOT(updateFontPreview()));
@@ -87,80 +107,51 @@ GeneralConfigWidget::GeneralConfigWidget(QWidget * parent) : BaseConfigWidget(pa
 	connect(tab_width_chk, SIGNAL(toggled(bool)), this, SLOT(updateFontPreview()));
 
 	connect(font_preview_txt, SIGNAL(cursorPositionChanged()), this, SLOT(updateFontPreview()));
-	connect(select_editor_btn, SIGNAL(clicked(bool)), this, SLOT(selectSourceEditor()));
+	connect(save_restore_geometry_chk, SIGNAL(toggled(bool)), reset_sizes_tb, SLOT(setEnabled(bool)));
+	connect(reset_sizes_tb, SIGNAL(clicked(bool)), this, SLOT(resetDialogsSizes()));
 
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::GRID_SIZE]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::OP_LIST_SIZE]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::AUTOSAVE_INTERVAL]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PAPER_TYPE]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PAPER_ORIENTATION]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PAPER_MARGIN]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PAPER_CUSTOM_SIZE]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::_FILE_]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::RECENT_MODELS]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PRINT_PG_NUM]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PRINT_GRID]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::HIDE_REL_NAME]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::HIDE_EXT_ATTRIBS]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::HIDE_TABLE_TAGS]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::FILE_ASSOCIATED]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CODE_FONT]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CODE_FONT_SIZE]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CANVAS_CORNER_MOVE]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::INVERT_RANGESEL_TRIGGER]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CHECK_UPDATE]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SAVE_LAST_POSITION]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SHOW_MAIN_MENU]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::DISABLE_SMOOTHNESS]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SIMPLIFIED_OBJ_CREATION]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CONFIRM_VALIDATION]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SHOW_MAIN_MENU]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CODE_COMPLETION]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::DISPLAY_LINE_NUMBERS]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::LINE_NUMBERS_COLOR]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::LINE_NUMBERS_BG_COLOR]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::LINE_HIGHLIGHT_COLOR]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::HIGHLIGHT_LINES]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::USE_PLACEHOLDERS]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::MIN_OBJECT_OPACITY]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::HISTORY_MAX_LENGTH]=QString();
-	config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SOURCE_EDITOR_APP]=QString();
-
-	simp_obj_creation_ht=new HintTextWidget(simp_obj_creation_hint, this);
-	simp_obj_creation_ht->setText(simple_obj_creation_chk->statusTip());
-
-	confirm_validation_ht=new HintTextWidget(confirm_validation_hint, this);
-	confirm_validation_ht->setText(confirm_validation_chk->statusTip());
-
-	corner_move_ht=new HintTextWidget(corner_move_hint, this);
-	corner_move_ht->setText(corner_move_chk->statusTip());
-
-	save_last_pos_ht=new HintTextWidget(save_last_pos_hint, this);
-	save_last_pos_ht->setText(save_last_pos_chk->statusTip());
-
-	invert_rangesel_ht=new HintTextWidget(invert_rangesel_hint, this);
-	invert_rangesel_ht->setText(invert_rangesel_chk->statusTip());
-
-	disable_smooth_ht=new HintTextWidget(disable_smooth_hint, this);
-	disable_smooth_ht->setText(disable_smooth_chk->statusTip());
-
-	hide_ext_attribs_ht=new HintTextWidget(hide_ext_attribs_hint, this);
-	hide_ext_attribs_ht->setText(hide_ext_attribs_chk->statusTip());
-
-	hide_table_tags_ht=new HintTextWidget(hide_table_tags_hint, this);
-	hide_table_tags_ht->setText(hide_table_tags_chk->statusTip());
-
-	hide_rel_name_ht=new HintTextWidget(hide_rel_name_hint, this);
-	hide_rel_name_ht->setText(hide_rel_name_chk->statusTip());
-
-	code_completion_ht=new HintTextWidget(code_completion_hint, this);
-	code_completion_ht->setText(code_completion_chk->statusTip());
-
-	use_placeholders_ht=new HintTextWidget(use_placeholders_hint, this);
-	use_placeholders_ht->setText(use_placeholders_chk->statusTip());
-
-	min_obj_opacity_ht=new HintTextWidget(min_obj_opacity_hint, this);
-	min_obj_opacity_ht->setText(min_obj_opacity_spb->statusTip());
+	config_params[Attributes::Configuration][Attributes::GridSize]="";
+	config_params[Attributes::Configuration][Attributes::OpListSize]="";
+	config_params[Attributes::Configuration][Attributes::AutoSaveInterval]="";
+	config_params[Attributes::Configuration][Attributes::PaperType]="";
+	config_params[Attributes::Configuration][Attributes::PaperOrientation]="";
+	config_params[Attributes::Configuration][Attributes::PaperMargin]="";
+	config_params[Attributes::Configuration][Attributes::PaperCustomSize]="";
+	config_params[Attributes::Configuration][Attributes::File]="";
+	config_params[Attributes::Configuration][Attributes::RecentModels]="";
+	config_params[Attributes::Configuration][Attributes::PrintPgNum]="";
+	config_params[Attributes::Configuration][Attributes::PrintGrid]="";
+	config_params[Attributes::Configuration][Attributes::HideRelName]="";
+	config_params[Attributes::Configuration][Attributes::HideExtAttribs]="";
+	config_params[Attributes::Configuration][Attributes::HideTableTags]="";
+	config_params[Attributes::Configuration][Attributes::FileAssociated]="";
+	config_params[Attributes::Configuration][Attributes::CodeFont]="";
+	config_params[Attributes::Configuration][Attributes::CodeFontSize]="";
+	config_params[Attributes::Configuration][Attributes::CanvasCornerMove]="";
+	config_params[Attributes::Configuration][Attributes::InvertRangeSelTrigger]="";
+	config_params[Attributes::Configuration][Attributes::CheckUpdate]="";
+	config_params[Attributes::Configuration][Attributes::SaveLastPosition]="";
+	config_params[Attributes::Configuration][Attributes::ShowMainMenu]="";
+	config_params[Attributes::Configuration][Attributes::DisableSmoothness]="";
+	config_params[Attributes::Configuration][Attributes::SimplifiedObjCreation]="";
+	config_params[Attributes::Configuration][Attributes::ConfirmValidation]="";
+	config_params[Attributes::Configuration][Attributes::ShowMainMenu]="";
+	config_params[Attributes::Configuration][Attributes::CodeCompletion]="";
+	config_params[Attributes::Configuration][Attributes::DisplayLineNumbers]="";
+	config_params[Attributes::Configuration][Attributes::LineNumbersColor]="";
+	config_params[Attributes::Configuration][Attributes::LineNumbersBgColor]="";
+	config_params[Attributes::Configuration][Attributes::LineHighlightColor]="";
+	config_params[Attributes::Configuration][Attributes::HighlightLines]="";
+	config_params[Attributes::Configuration][Attributes::UsePlaceholders]="";
+	config_params[Attributes::Configuration][Attributes::MinObjectOpacity]="";
+	config_params[Attributes::Configuration][Attributes::HistoryMaxLength]="";
+	config_params[Attributes::Configuration][Attributes::SourceEditorApp]="";
+	config_params[Attributes::Configuration][Attributes::UiLanguage]="";
+	config_params[Attributes::Configuration][Attributes::UseCurvedLines]="";
+	config_params[Attributes::Configuration][Attributes::SaveRestoreGeometry]="";
+	config_params[Attributes::Configuration][Attributes::AttribsPerPage]="";
+	config_params[Attributes::Configuration][Attributes::ExtAttribsPerPage]="";
+	config_params[Attributes::Configuration][Attributes::LowVerbosity]="";
 
 	selectPaperSize();
 
@@ -200,12 +191,6 @@ GeneralConfigWidget::GeneralConfigWidget(QWidget * parent) : BaseConfigWidget(pa
 		connect(radio, SIGNAL(clicked()), this, SLOT(setConfigurationChanged()));
 	}
 
-	confs_dir_edt->setText(GlobalAttributes::CONFIGURATIONS_DIR);
-
-	connect(open_dir_tb, &QToolButton::clicked, [&](){
-		QDesktopServices::openUrl(QUrl(QString("file://") + confs_dir_edt->text()));
-	});
-
 	connect(clear_sql_history_tb, &QToolButton::clicked, [](){
 		SQLExecutionWidget::destroySQLHistory();
 	});
@@ -214,29 +199,48 @@ GeneralConfigWidget::GeneralConfigWidget(QWidget * parent) : BaseConfigWidget(pa
 	check_upd_chk->setChecked(false);
 	check_upd_chk->setVisible(false);
 #endif
+
+	//Retrieving the available UI dictionaries
+	QStringList langs = QDir(GlobalAttributes::getLanguagesDir() +
+													 GlobalAttributes::DirSeparator,
+													 QString("*.qm"), QDir::Name, QDir::AllEntries | QDir::NoDotAndDotDot).entryList();
+
+	langs.replaceInStrings(QString(".qm"), "");
+	ui_language_cmb->addItem(tr("System default"));
+	QString native_lang;
+
+	for(QString lang : langs)
+	{
+		native_lang = QLocale(lang).nativeLanguageName();
+		native_lang[0] = native_lang[0].toUpper();
+		ui_language_cmb->addItem(QString("%1 (%2 : %3)")
+														 .arg(native_lang)
+														 .arg(QLocale::languageToString(QLocale(lang).language()))
+														 .arg(lang), lang);
+	}
 }
 
-void GeneralConfigWidget::loadConfiguration(void)
+void GeneralConfigWidget::loadConfiguration()
 {
 	try
 	{
 		QStringList margin, custom_size;
 		vector<QString> key_attribs;
 		unsigned interv=0;
-		int tab_width=0;
+		int tab_width=0, x=0, y=0, w=0, h=0;
 
 		for(QWidget *wgt : child_wgts)
 			wgt->blockSignals(true);
 
-		key_attribs.push_back(ParsersAttributes::ID);
-		BaseConfigWidget::loadConfiguration(GlobalAttributes::GENERAL_CONF, config_params, key_attribs);
+		key_attribs.push_back(Attributes::Id);
+		BaseConfigWidget::loadConfiguration(GlobalAttributes::GeneralConf, config_params, key_attribs);
 
-		grid_size_spb->setValue((config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::GRID_SIZE]).toUInt());
-		oplist_size_spb->setValue((config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::OP_LIST_SIZE]).toUInt());
-		history_max_length_spb->setValue(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::HISTORY_MAX_LENGTH].toUInt());
+		grid_size_spb->setValue((config_params[Attributes::Configuration][Attributes::GridSize]).toUInt());
+		oplist_size_spb->setValue((config_params[Attributes::Configuration][Attributes::OpListSize]).toUInt());
+		history_max_length_spb->setValue(config_params[Attributes::Configuration][Attributes::HistoryMaxLength].toUInt());
 
-		interv=(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::AUTOSAVE_INTERVAL]).toUInt();
-		tab_width=(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CODE_TAB_WIDTH]).toInt();
+		interv=(config_params[Attributes::Configuration][Attributes::AutoSaveInterval]).toUInt();
+		tab_width=(config_params[Attributes::Configuration][Attributes::CodeTabWidth]).toInt();
 
 		autosave_interv_chk->setChecked(interv > 0);
 		autosave_interv_spb->setValue(interv);
@@ -246,27 +250,30 @@ void GeneralConfigWidget::loadConfiguration(void)
 		tab_width_spb->setEnabled(tab_width_chk->isChecked());
 		tab_width_spb->setValue(tab_width);
 
-		corner_move_chk->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CANVAS_CORNER_MOVE]==ParsersAttributes::_TRUE_);
-		invert_rangesel_chk->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::INVERT_RANGESEL_TRIGGER]==ParsersAttributes::_TRUE_);
-		check_upd_chk->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CHECK_UPDATE]==ParsersAttributes::_TRUE_);
-		save_last_pos_chk->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SAVE_LAST_POSITION]==ParsersAttributes::_TRUE_);
-		disable_smooth_chk->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::DISABLE_SMOOTHNESS]==ParsersAttributes::_TRUE_);
-		simple_obj_creation_chk->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SIMPLIFIED_OBJ_CREATION]==ParsersAttributes::_TRUE_);
-		confirm_validation_chk->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CONFIRM_VALIDATION]==ParsersAttributes::_TRUE_);
-		code_completion_chk->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CODE_COMPLETION]==ParsersAttributes::_TRUE_);
-		use_placeholders_chk->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::USE_PLACEHOLDERS]==ParsersAttributes::_TRUE_);
+		corner_move_chk->setChecked(config_params[Attributes::Configuration][Attributes::CanvasCornerMove]==Attributes::True);
+		invert_rangesel_chk->setChecked(config_params[Attributes::Configuration][Attributes::InvertRangeSelTrigger]==Attributes::True);
+		check_upd_chk->setChecked(config_params[Attributes::Configuration][Attributes::CheckUpdate]==Attributes::True);
+		save_last_pos_chk->setChecked(config_params[Attributes::Configuration][Attributes::SaveLastPosition]==Attributes::True);
+		disable_smooth_chk->setChecked(config_params[Attributes::Configuration][Attributes::DisableSmoothness]==Attributes::True);
+		simple_obj_creation_chk->setChecked(config_params[Attributes::Configuration][Attributes::SimplifiedObjCreation]==Attributes::True);
+		confirm_validation_chk->setChecked(config_params[Attributes::Configuration][Attributes::ConfirmValidation]==Attributes::True);
+		code_completion_chk->setChecked(config_params[Attributes::Configuration][Attributes::CodeCompletion]==Attributes::True);
+		use_placeholders_chk->setChecked(config_params[Attributes::Configuration][Attributes::UsePlaceholders]==Attributes::True);
+		use_curved_lines_chk->setChecked(config_params[Attributes::Configuration][Attributes::UseCurvedLines]==Attributes::True);
 
-		print_grid_chk->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PRINT_GRID]==ParsersAttributes::_TRUE_);
-		print_pg_num_chk->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PRINT_PG_NUM]==ParsersAttributes::_TRUE_);
+		print_grid_chk->setChecked(config_params[Attributes::Configuration][Attributes::PrintGrid]==Attributes::True);
+		print_pg_num_chk->setChecked(config_params[Attributes::Configuration][Attributes::PrintPgNum]==Attributes::True);
 
-		paper_cmb->setCurrentIndex((config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PAPER_TYPE]).toUInt());
-		portrait_rb->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PAPER_ORIENTATION]==ParsersAttributes::PORTRAIT);
-		landscape_rb->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PAPER_ORIENTATION]==ParsersAttributes::LANDSCAPE);
+		paper_cmb->setCurrentIndex((config_params[Attributes::Configuration][Attributes::PaperType]).toUInt());
+		portrait_rb->setChecked(config_params[Attributes::Configuration][Attributes::PaperOrientation]==Attributes::Portrait);
+		landscape_rb->setChecked(config_params[Attributes::Configuration][Attributes::PaperOrientation]==Attributes::Landscape);
 
-		min_obj_opacity_spb->setValue(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::MIN_OBJECT_OPACITY].toUInt());
+		min_obj_opacity_spb->setValue(config_params[Attributes::Configuration][Attributes::MinObjectOpacity].toUInt());
+		attribs_per_page_spb->setValue(config_params[Attributes::Configuration][Attributes::AttribsPerPage].toUInt());
+		ext_attribs_per_page_spb->setValue(config_params[Attributes::Configuration][Attributes::ExtAttribsPerPage].toUInt());
 
-		margin=config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PAPER_MARGIN].split(',');
-		custom_size=config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PAPER_CUSTOM_SIZE].split(',');
+		margin=config_params[Attributes::Configuration][Attributes::PaperMargin].split(',');
+		custom_size=config_params[Attributes::Configuration][Attributes::PaperCustomSize].split(',');
 
 		left_marg->setValue((margin.count() >= 4 ? margin[0].toDouble() : 2));
 		top_marg->setValue((margin.count()>= 4 ? margin[1].toDouble() : 2));
@@ -276,30 +283,52 @@ void GeneralConfigWidget::loadConfiguration(void)
 		width_spb->setValue((custom_size.count() >= 2 ? custom_size[0].toDouble() : 500));
 		height_spb->setValue((custom_size.count() >= 2 ? custom_size[1].toDouble() : 500));
 
-		hide_ext_attribs_chk->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::HIDE_EXT_ATTRIBS]==ParsersAttributes::_TRUE_);
-		hide_rel_name_chk->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::HIDE_REL_NAME]==ParsersAttributes::_TRUE_);
-		hide_table_tags_chk->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::HIDE_TABLE_TAGS]==ParsersAttributes::_TRUE_);
+		hide_ext_attribs_chk->setChecked(config_params[Attributes::Configuration][Attributes::HideExtAttribs]==Attributes::True);
+		hide_rel_name_chk->setChecked(config_params[Attributes::Configuration][Attributes::HideRelName]==Attributes::True);
+		hide_table_tags_chk->setChecked(config_params[Attributes::Configuration][Attributes::HideTableTags]==Attributes::True);
 
-		font_cmb->setCurrentFont(QFont(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CODE_FONT]));
-		font_size_spb->setValue(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CODE_FONT_SIZE].toDouble());
-		disp_line_numbers_chk->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::DISPLAY_LINE_NUMBERS]==ParsersAttributes::_TRUE_);
-		hightlight_lines_chk->setChecked(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::HIGHLIGHT_LINES]==ParsersAttributes::_TRUE_);
-		line_numbers_cp->setColor(0, config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::LINE_NUMBERS_COLOR]);
-		line_numbers_bg_cp->setColor(0, config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::LINE_NUMBERS_BG_COLOR]);
-		line_highlight_cp->setColor(0, config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::LINE_HIGHLIGHT_COLOR]);
+		font_cmb->setCurrentFont(QFont(config_params[Attributes::Configuration][Attributes::CodeFont]));
+		font_size_spb->setValue(config_params[Attributes::Configuration][Attributes::CodeFontSize].toDouble());
+		disp_line_numbers_chk->setChecked(config_params[Attributes::Configuration][Attributes::DisplayLineNumbers]==Attributes::True);
+		hightlight_lines_chk->setChecked(config_params[Attributes::Configuration][Attributes::HighlightLines]==Attributes::True);
+		line_numbers_cp->setColor(0, config_params[Attributes::Configuration][Attributes::LineNumbersColor]);
+		line_numbers_bg_cp->setColor(0, config_params[Attributes::Configuration][Attributes::LineNumbersBgColor]);
+		line_highlight_cp->setColor(0, config_params[Attributes::Configuration][Attributes::LineHighlightColor]);
 
-		source_editor_edt->setText(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SOURCE_EDITOR_APP]);
-		source_editor_args_edt->setText(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SOURCE_EDITOR_ARGS]);
+		source_editor_sel->setSelectedFile(config_params[Attributes::Configuration][Attributes::SourceEditorApp]);
+		source_editor_args_edt->setText(config_params[Attributes::Configuration][Attributes::SourceEditorArgs]);
+
+		save_restore_geometry_chk->setChecked(config_params[Attributes::Configuration][Attributes::SaveRestoreGeometry]==Attributes::True);
+		reset_sizes_tb->setEnabled(save_restore_geometry_chk->isChecked());
+		low_verbosity_chk->setChecked(config_params[Attributes::Configuration][Attributes::LowVerbosity]==Attributes::True);
+		escape_comments_chk->setChecked(config_params[Attributes::Configuration][Attributes::EscapeComment]==Attributes::True);
+
+		int ui_idx = ui_language_cmb->findData(config_params[Attributes::Configuration][Attributes::UiLanguage]);
+		ui_language_cmb->setCurrentIndex(ui_idx >= 0 ? ui_idx : 0);
 
 		for(QWidget *wgt : child_wgts)
 			wgt->blockSignals(false);
+
+		widgets_geom.clear();
+		for(auto itr : config_params)
+		{
+			if(itr.second.count(Attributes::XPos))
+			{
+				x = itr.second[Attributes::XPos].toInt();
+				y = itr.second[Attributes::YPos].toInt();
+				w = itr.second[Attributes::Width].toInt();
+				h = itr.second[Attributes::Height].toInt();
+				widgets_geom[itr.first].geometry = QRect(QPoint(x,y), QSize(w, h));
+				widgets_geom[itr.first].maximized = itr.second[Attributes::Maximized] == Attributes::True;
+			}
+		}
 
 		updateFontPreview();
 		this->applyConfiguration();
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(), e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e, e.getExtraInfo());
+		throw Exception(e.getErrorMessage(), e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e, e.getExtraInfo());
 	}
 }
 
@@ -328,150 +357,245 @@ void GeneralConfigWidget::removeConfigurationParam(const QRegExp &param_reg)
 	}
 }
 
-map<QString, attribs_map> GeneralConfigWidget::getConfigurationParams(void)
+map<QString, attribs_map> GeneralConfigWidget::getConfigurationParams()
 {
-	return(config_params);
+	return config_params;
 }
 
 QString GeneralConfigWidget::getConfigurationParam(const QString &section_id, const QString &param_name)
 {
-	if(config_params.count(section_id) &&
-			config_params[section_id].count(param_name))
-		return(config_params[section_id][param_name]);
-	else
-		return(QString());
+  if(config_params.count(section_id) &&
+	 config_params[section_id].count(param_name))
+	return config_params[section_id][param_name];
+  else
+	return "";
 }
 
-void GeneralConfigWidget::saveConfiguration(void)
+void GeneralConfigWidget::saveWidgetGeometry(QWidget *widget, const QString &custom_wgt_name)
+{
+	if(!widget ||
+		 config_params[Attributes::Configuration][Attributes::SaveRestoreGeometry] != Attributes::True)
+		return;
+
+	QString dlg_name = custom_wgt_name.isEmpty() ? widget->metaObject()->className() : custom_wgt_name;
+
+	widgets_geom[dlg_name.toLower()].geometry = widget->geometry();
+	widgets_geom[dlg_name.toLower()].maximized = widget->isMaximized();
+}
+
+bool GeneralConfigWidget::restoreWidgetGeometry(QWidget *widget, const QString &custom_wgt_name)
+{
+	if(!widget ||
+		 config_params[Attributes::Configuration][Attributes::SaveRestoreGeometry] != Attributes::True)
+		return false;
+
+	QString dlg_name = custom_wgt_name.isEmpty() ? widget->metaObject()->className() : custom_wgt_name;
+	dlg_name = dlg_name.toLower();
+
+	if(widgets_geom.count(dlg_name) &&
+		 (widgets_geom[dlg_name].maximized ||
+			(widgets_geom[dlg_name].geometry.width() > 0 && widgets_geom[dlg_name].geometry.height() > 0)))
+	{
+		QList<QScreen *> screens = qApp->screens();
+		WidgetState wgt_st = widgets_geom[dlg_name];
+		bool scr_contains_geom = false;
+		QRect scr_geom;
+
+		// Validating the widget geometry against the available screens sizes
+		for(auto &scr : screens)
+		{
+			scr_geom = scr->geometry();
+			scr_contains_geom = ((wgt_st.maximized && scr_geom.contains(wgt_st.geometry.topLeft())) ||
+													 (scr_geom.contains(wgt_st.geometry)));
+			if(scr_contains_geom) break;
+		}
+
+		/* If the current window geometry doesn't fit the screen(s) geometry
+		 * the default geometry of the window is used */
+		if(!scr_contains_geom)
+			return false;
+
+		if(wgt_st.maximized)
+		{
+			widget->move(wgt_st.geometry.topLeft());
+			widget->setWindowState(Qt::WindowMaximized);
+		}
+		else
+			widget->setGeometry(wgt_st.geometry);
+
+		return true;
+	}
+
+	return false;
+}
+
+void GeneralConfigWidget::saveConfiguration()
 {
 	try
 	{
+		attribs_map attribs;
 		map<QString, attribs_map >::iterator itr, itr_end;
-		QString file_sch, root_dir, widget_sch;
-		bool show_grid=false, show_delim=false, align_grid=false;
+		QString file_sch, widget_sch;
+		int recent_mdl_idx = 0;
 
-		root_dir=GlobalAttributes::TMPL_CONFIGURATIONS_DIR +
-				 GlobalAttributes::DIR_SEPARATOR;
+		file_sch = GlobalAttributes::getTmplConfigurationFilePath(GlobalAttributes::SchemasDir,
+																														 Attributes::File +
+																														 GlobalAttributes::SchemaExt);
 
-		file_sch=root_dir +
-				 GlobalAttributes::SCHEMAS_DIR +
-				 GlobalAttributes::DIR_SEPARATOR +
-				 ParsersAttributes::_FILE_ +
-				 GlobalAttributes::SCHEMA_EXT;
+		widget_sch = GlobalAttributes::getTmplConfigurationFilePath(GlobalAttributes::SchemasDir,
+																															Attributes::Widget +
+																															GlobalAttributes::SchemaExt);
 
-		widget_sch=root_dir +
-				   GlobalAttributes::SCHEMAS_DIR +
-				   GlobalAttributes::DIR_SEPARATOR +
-				   ParsersAttributes::WIDGET +
-				   GlobalAttributes::SCHEMA_EXT;
+		config_params[Attributes::Configuration][Attributes::GridSize]=QString::number(grid_size_spb->value());
+		config_params[Attributes::Configuration][Attributes::OpListSize]=QString::number(oplist_size_spb->value());
+		config_params[Attributes::Configuration][Attributes::AutoSaveInterval]=QString::number(autosave_interv_chk->isChecked() ? autosave_interv_spb->value() : 0);
+		config_params[Attributes::Configuration][Attributes::PaperType]=QString::number(paper_cmb->currentIndex());
+		config_params[Attributes::Configuration][Attributes::PaperOrientation]=(portrait_rb->isChecked() ? Attributes::Portrait : Attributes::Landscape);
+		config_params[Attributes::Configuration][Attributes::CanvasCornerMove]=(corner_move_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::InvertRangeSelTrigger]=(invert_rangesel_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::CheckUpdate]=(check_upd_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::SaveLastPosition]=(save_last_pos_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::DisableSmoothness]=(disable_smooth_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::SimplifiedObjCreation]=(simple_obj_creation_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::ConfirmValidation]=(confirm_validation_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::CodeCompletion]=(code_completion_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::CodeTabWidth]=QString::number(tab_width_chk->isChecked() ? tab_width_spb->value() : 0);
+		config_params[Attributes::Configuration][Attributes::MinObjectOpacity]=QString::number(min_obj_opacity_spb->value());
+		config_params[Attributes::Configuration][Attributes::UsePlaceholders]=(use_placeholders_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::HistoryMaxLength]=QString::number(history_max_length_spb->value());
+		config_params[Attributes::Configuration][Attributes::UseCurvedLines]=(use_curved_lines_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::AttribsPerPage]=QString::number(attribs_per_page_spb->value());
+		config_params[Attributes::Configuration][Attributes::ExtAttribsPerPage]=QString::number(ext_attribs_per_page_spb->value());
 
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::GRID_SIZE]=QString::number(grid_size_spb->value());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::OP_LIST_SIZE]=QString::number(oplist_size_spb->value());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::AUTOSAVE_INTERVAL]=QString::number(autosave_interv_chk->isChecked() ? autosave_interv_spb->value() : 0);
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PAPER_TYPE]=QString::number(paper_cmb->currentIndex());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PAPER_ORIENTATION]=(portrait_rb->isChecked() ? ParsersAttributes::PORTRAIT : ParsersAttributes::LANDSCAPE);
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CANVAS_CORNER_MOVE]=(corner_move_chk->isChecked() ? ParsersAttributes::_TRUE_ : QString());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::INVERT_RANGESEL_TRIGGER]=(invert_rangesel_chk->isChecked() ? ParsersAttributes::_TRUE_ : QString());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CHECK_UPDATE]=(check_upd_chk->isChecked() ? ParsersAttributes::_TRUE_ : QString());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SAVE_LAST_POSITION]=(save_last_pos_chk->isChecked() ? ParsersAttributes::_TRUE_ : QString());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::DISABLE_SMOOTHNESS]=(disable_smooth_chk->isChecked() ? ParsersAttributes::_TRUE_ : QString());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SIMPLIFIED_OBJ_CREATION]=(simple_obj_creation_chk->isChecked() ? ParsersAttributes::_TRUE_ : QString());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CONFIRM_VALIDATION]=(confirm_validation_chk->isChecked() ? ParsersAttributes::_TRUE_ : QString());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CODE_COMPLETION]=(code_completion_chk->isChecked() ? ParsersAttributes::_TRUE_ : QString());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CODE_TAB_WIDTH]=QString::number(tab_width_chk->isChecked() ? tab_width_spb->value() : 0);
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::MIN_OBJECT_OPACITY]=QString::number(min_obj_opacity_spb->value());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::USE_PLACEHOLDERS]=(use_placeholders_chk->isChecked() ? ParsersAttributes::_TRUE_ : QString());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::HISTORY_MAX_LENGTH]=QString::number(history_max_length_spb->value());
+		config_params[Attributes::Configuration][Attributes::ShowCanvasGrid]=(ObjectsScene::isShowGrid() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::ShowPageDelimiters]=(ObjectsScene::isShowPageDelimiters() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::AlignObjsToGrid]=(ObjectsScene::isAlignObjectsToGrid() ? Attributes::True : "");
 
-		ObjectsScene::getGridOptions(show_grid, align_grid, show_delim);
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SHOW_CANVAS_GRID]=(show_grid ? ParsersAttributes::_TRUE_ : QString());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SHOW_PAGE_DELIMITERS]=(show_delim ? ParsersAttributes::_TRUE_ : QString());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::ALIGN_OBJS_TO_GRID]=(align_grid ? ParsersAttributes::_TRUE_ : QString());
-
-		unity_cmb->setCurrentIndex(UNIT_MILIMETERS);
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PAPER_MARGIN]=QString("%1,%2,%3,%4").arg(left_marg->value())
+		unity_cmb->setCurrentIndex(UnitMilimeters);
+		config_params[Attributes::Configuration][Attributes::PaperMargin]=QString("%1,%2,%3,%4").arg(left_marg->value())
 																						 .arg(top_marg->value())
 																						 .arg(right_marg->value())
 																						 .arg(bottom_marg->value());
 
 		if(paper_cmb->currentIndex()!=paper_cmb->count()-1)
-			config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PAPER_CUSTOM_SIZE]=QString();
+			config_params[Attributes::Configuration][Attributes::PaperCustomSize]="";
 		else
-			config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PAPER_CUSTOM_SIZE]=QString("%1,%2").arg(width_spb->value()).arg(height_spb->value());
+			config_params[Attributes::Configuration][Attributes::PaperCustomSize]=QString("%1,%2").arg(width_spb->value()).arg(height_spb->value());
 
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PRINT_PG_NUM]=(print_pg_num_chk->isChecked() ? ParsersAttributes::_TRUE_ : QString());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::PRINT_GRID]=(print_grid_chk->isChecked() ? ParsersAttributes::_TRUE_ : QString());
+		config_params[Attributes::Configuration][Attributes::PrintPgNum]=(print_pg_num_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::PrintGrid]=(print_grid_chk->isChecked() ? Attributes::True : "");
 
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::HIDE_EXT_ATTRIBS]=(hide_ext_attribs_chk->isChecked() ? ParsersAttributes::_TRUE_ : QString());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::HIDE_REL_NAME]=(hide_rel_name_chk->isChecked() ? ParsersAttributes::_TRUE_ : QString());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::HIDE_TABLE_TAGS]=(hide_table_tags_chk->isChecked() ? ParsersAttributes::_TRUE_ : QString());
+		config_params[Attributes::Configuration][Attributes::HideExtAttribs]=(hide_ext_attribs_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::HideRelName]=(hide_rel_name_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::HideTableTags]=(hide_table_tags_chk->isChecked() ? Attributes::True : "");
 
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CODE_FONT]=font_cmb->currentText();
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CODE_FONT_SIZE]=QString::number(font_size_spb->value());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::DISPLAY_LINE_NUMBERS]=(disp_line_numbers_chk->isChecked() ? ParsersAttributes::_TRUE_ : QString());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::HIGHLIGHT_LINES]=(hightlight_lines_chk->isChecked() ? ParsersAttributes::_TRUE_ : QString());
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::LINE_NUMBERS_COLOR]=line_numbers_cp->getColor(0).name();
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::LINE_NUMBERS_BG_COLOR]=line_numbers_bg_cp->getColor(0).name();
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::LINE_HIGHLIGHT_COLOR]=line_highlight_cp->getColor(0).name();
+		config_params[Attributes::Configuration][Attributes::CodeFont]=font_cmb->currentText();
+		config_params[Attributes::Configuration][Attributes::CodeFontSize]=QString::number(font_size_spb->value());
+		config_params[Attributes::Configuration][Attributes::DisplayLineNumbers]=(disp_line_numbers_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::HighlightLines]=(hightlight_lines_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::LineNumbersColor]=line_numbers_cp->getColor(0).name();
+		config_params[Attributes::Configuration][Attributes::LineNumbersBgColor]=line_numbers_bg_cp->getColor(0).name();
+		config_params[Attributes::Configuration][Attributes::LineHighlightColor]=line_highlight_cp->getColor(0).name();
 
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SOURCE_EDITOR_APP]=source_editor_edt->text();
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SOURCE_EDITOR_ARGS]=source_editor_args_edt->text();
+		config_params[Attributes::Configuration][Attributes::SourceEditorApp]=source_editor_sel->getSelectedFile();
+		config_params[Attributes::Configuration][Attributes::SourceEditorArgs]=source_editor_args_edt->text();
+		config_params[Attributes::Configuration][Attributes::UiLanguage]=ui_language_cmb->currentData().toString();
 
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::_FILE_]=QString();
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::RECENT_MODELS]=QString();
+		config_params[Attributes::Configuration][Attributes::CompactView]=(BaseObjectView::isCompactViewEnabled() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::SaveRestoreGeometry]=(save_restore_geometry_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::LowVerbosity]=(low_verbosity_chk->isChecked() ? Attributes::True : "");
+		config_params[Attributes::Configuration][Attributes::EscapeComment]=(escape_comments_chk->isChecked() ? Attributes::True : "");
+
+		config_params[Attributes::Configuration][Attributes::File]="";
+		config_params[Attributes::Configuration][Attributes::RecentModels]="";
 
 		itr=config_params.begin();
 		itr_end=config_params.end();
 
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::DOCK_WIDGETS]=QString();
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::RECENT_MODELS]=QString();
-		config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::_FILE_]=QString();
+		config_params[Attributes::Configuration][Attributes::DockWidgets]="";
+		config_params[Attributes::Configuration][Attributes::WidgetsGeometry]="";
+		config_params[Attributes::Configuration][Attributes::RecentModels]="";
+		config_params[Attributes::Configuration][Attributes::File]="";
 
 		while(itr!=itr_end)
 		{
 			//Checking if the current attribute is a file to be stored in a <session> tag
-			if((itr->first).contains(QRegExp(QString("(") + ParsersAttributes::_FILE_ + QString(")([0-9]+)"))))
+			if((itr->first).contains(QRegExp(QString("(") + Attributes::File + QString(")([0-9]+)"))))
 			{
-				config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::_FILE_]+=
-						schparser.convertCharsToXMLEntities(schparser.getCodeDefinition(file_sch, itr->second));
+				config_params[Attributes::Configuration][Attributes::File]+=
+						XmlParser::convertCharsToXMLEntities(schparser.getCodeDefinition(file_sch, itr->second));
 			}
 			//Checking if the current attribute is a file to be stored in a <recent-models> tag
-			else if((itr->first).contains(QRegExp(QString("(") + ParsersAttributes::RECENT + QString(")([0-9]+)"))))
+			else if(recent_mdl_idx < MaxRecentModels && (itr->first).contains(QRegExp(QString("(") + Attributes::Recent + QString(")([0-9]+)"))))
 			{
-				config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::RECENT_MODELS]+=
-						schparser.convertCharsToXMLEntities(schparser.getCodeDefinition(file_sch, itr->second));
+				config_params[Attributes::Configuration][Attributes::RecentModels]+=
+						XmlParser::convertCharsToXMLEntities(schparser.getCodeDefinition(file_sch, itr->second));
+
+				recent_mdl_idx++;
 			}
-			else if(itr->first==ParsersAttributes::VALIDATOR ||
-							itr->first==ParsersAttributes::OBJECT_FINDER ||
-							itr->first==ParsersAttributes::SQL_TOOL)
+			else if(itr->first==Attributes::Validator ||
+							itr->first==Attributes::ObjectFinder ||
+							itr->first==Attributes::SqlTool)
 			{
 				schparser.ignoreUnkownAttributes(true);
-				config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::DOCK_WIDGETS]+=
+				schparser.ignoreEmptyAttributes(true);
+				config_params[Attributes::Configuration][Attributes::DockWidgets]+=
 						schparser.getCodeDefinition(widget_sch, itr->second);
 				schparser.ignoreUnkownAttributes(false);
+				schparser.ignoreEmptyAttributes(false);
 			}
 
 			itr++;
 		}
 
-		BaseConfigWidget::saveConfiguration(GlobalAttributes::GENERAL_CONF, config_params);
+		if(save_restore_geometry_chk->isChecked())
+		{
+			for(auto &itr : widgets_geom)
+			{
+				/* Ignoring the validator, objectfinder and sqltool widget ids
+				 * In order to avoid the saving of widget geometry of that objects */
+				if(itr.first==Attributes::Validator ||
+					 itr.first==Attributes::ObjectFinder ||
+					 itr.first==Attributes::SqlTool)
+					continue;
+
+				attribs[Attributes::Id] = itr.first;
+				attribs[Attributes::XPos] = QString::number(itr.second.geometry.left());
+				attribs[Attributes::YPos] = QString::number(itr.second.geometry.top());
+				attribs[Attributes::Width] = QString::number(itr.second.geometry.width());
+				attribs[Attributes::Height] = QString::number(itr.second.geometry.height());
+				attribs[Attributes::Maximized] = itr.second.maximized ? Attributes::True : "";
+
+				schparser.ignoreUnkownAttributes(true);
+				config_params[Attributes::Configuration][Attributes::WidgetsGeometry]+=
+						schparser.getCodeDefinition(widget_sch, attribs);
+				schparser.ignoreUnkownAttributes(false);
+			}
+		}
+
+		BaseConfigWidget::saveConfiguration(GlobalAttributes::GeneralConf, config_params);
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void GeneralConfigWidget::applyConfiguration(void)
+void GeneralConfigWidget::applyConfiguration()
 {
 	int unit=unity_cmb->currentIndex();
 	QFont fnt;
-	double fnt_size=config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CODE_FONT_SIZE].toDouble();
+	double fnt_size=config_params[Attributes::Configuration][Attributes::CodeFontSize].toDouble();
 
-	if(fnt_size < 5.0f)
-		fnt_size=5.0f;
+	if(fnt_size < 5.0)
+		fnt_size=5.0;
 
-	unity_cmb->setCurrentIndex(UNIT_POINT);
+	if(!save_restore_geometry_chk->isChecked())
+	  widgets_geom.clear();
+
+	BaseObject::setEscapeComments(escape_comments_chk->isChecked());
+
+	unity_cmb->setCurrentIndex(UnitPoint);
 	ObjectsScene::setPaperConfiguration(static_cast<QPrinter::PaperSize>(paper_cmb->itemData(paper_cmb->currentIndex()).toInt()),
 										(portrait_rb->isChecked() ? QPrinter::Portrait : QPrinter::Landscape),
 										QRectF(left_marg->value(), top_marg->value(), right_marg->value(), bottom_marg->value()),
@@ -482,14 +606,17 @@ void GeneralConfigWidget::applyConfiguration(void)
 	ObjectsScene::setInvertRangeSelectionTrigger(invert_rangesel_chk->isChecked());
 	ObjectsScene::setGridSize(grid_size_spb->value());
 
-	ObjectsScene::setGridOptions(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SHOW_CANVAS_GRID]!=ParsersAttributes::_FALSE_,
-															 config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::ALIGN_OBJS_TO_GRID]!=ParsersAttributes::_FALSE_,
-															 config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::SHOW_PAGE_DELIMITERS]!=ParsersAttributes::_FALSE_);
+	ObjectsScene::setGridOptions(config_params[Attributes::Configuration][Attributes::ShowCanvasGrid]==Attributes::True,
+															 config_params[Attributes::Configuration][Attributes::AlignObjsToGrid]==Attributes::True,
+															 config_params[Attributes::Configuration][Attributes::ShowPageDelimiters]==Attributes::True);
 
 	OperationList::setMaximumSize(oplist_size_spb->value());
 	BaseTableView::setHideExtAttributes(hide_ext_attribs_chk->isChecked());
 	BaseTableView::setHideTags(hide_table_tags_chk->isChecked());
+	BaseTableView::setAttributesPerPage(BaseTable::AttribsSection, attribs_per_page_spb->value());
+	BaseTableView::setAttributesPerPage(BaseTable::ExtAttribsSection, ext_attribs_per_page_spb->value());
 	RelationshipView::setHideNameLabel(hide_rel_name_chk->isChecked());
+	RelationshipView::setCurvedLines(use_curved_lines_chk->isChecked());
 	ModelWidget::setSaveLastCanvasPosition(save_last_pos_chk->isChecked());
 	ModelWidget::setRenderSmoothnessDisabled(disable_smooth_chk->isChecked());
 	ModelWidget::setSimplifiedObjectCreation(simple_obj_creation_chk->isChecked());
@@ -498,37 +625,44 @@ void GeneralConfigWidget::applyConfiguration(void)
 	BaseObjectView::setPlaceholderEnabled(use_placeholders_chk->isChecked());
 	SQLExecutionWidget::setSQLHistoryMaxLength(history_max_length_spb->value());
 
-	fnt.setFamily(config_params[ParsersAttributes::CONFIGURATION][ParsersAttributes::CODE_FONT]);
-	fnt.setPointSize(fnt_size);
+	fnt.setFamily(config_params[Attributes::Configuration][Attributes::CodeFont]);
+	fnt.setPointSizeF(fnt_size);
 	NumberedTextEditor::setLineNumbersVisible(disp_line_numbers_chk->isChecked());
 	NumberedTextEditor::setLineHighlightColor(line_highlight_cp->getColor(0));
 	NumberedTextEditor::setHighlightLines(hightlight_lines_chk->isChecked());
 	NumberedTextEditor::setDefaultFont(fnt);
-	NumberedTextEditor::setSourceEditorApp(source_editor_edt->text());
+	NumberedTextEditor::setSourceEditorApp(source_editor_sel->getSelectedFile());
 	NumberedTextEditor::setSourceEditorAppArgs(source_editor_args_edt->text());
 	LineNumbersWidget::setColors(line_numbers_cp->getColor(0), line_numbers_bg_cp->getColor(0));
 	SyntaxHighlighter::setDefaultFont(fnt);
+
+	ModelDatabaseDiffForm::setLowVerbosity(low_verbosity_chk->isChecked());
+	DatabaseImportForm::setLowVerbosity(low_verbosity_chk->isChecked());
+	ModelExportForm::setLowVerbosity(low_verbosity_chk->isChecked());
 }
 
-void GeneralConfigWidget::restoreDefaults(void)
+void GeneralConfigWidget::restoreDefaults()
 {
 	try
 	{
-		BaseConfigWidget::restoreDefaults(GlobalAttributes::GENERAL_CONF);
+		BaseConfigWidget::restoreDefaults(GlobalAttributes::GeneralConf, false);
+		BaseConfigWidget::restoreDefaults(GlobalAttributes::XMLHighlightConf, true);
+		BaseConfigWidget::restoreDefaults(GlobalAttributes::SQLHighlightConf, true);
+		BaseConfigWidget::restoreDefaults(GlobalAttributes::UiStyleConf, true);
 		this->loadConfiguration();
 		this->applyConfiguration();
 		setConfigurationChanged(true);
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void GeneralConfigWidget::convertMarginUnity(void)
+void GeneralConfigWidget::convertMarginUnity()
 {
-	static int prev_unity=UNIT_MILIMETERS;
-	double conv_factor[]={1.0f, 2.83f, 0.04f, 0.1f},
+	static int prev_unity=UnitMilimeters;
+	double conv_factor[]={1.0, 2.83, 0.04, 0.1},
 			left, right, top, bottom, width, height;
 
 	left=left_marg->value() / conv_factor[prev_unity];
@@ -548,7 +682,7 @@ void GeneralConfigWidget::convertMarginUnity(void)
 	prev_unity=unity_cmb->currentIndex();
 }
 
-void GeneralConfigWidget::updateFontPreview(void)
+void GeneralConfigWidget::updateFontPreview()
 {
 	QFont fnt;
 
@@ -559,7 +693,7 @@ void GeneralConfigWidget::updateFontPreview(void)
 	NumberedTextEditor::setLineNumbersVisible(disp_line_numbers_chk->isChecked());
 	NumberedTextEditor::setLineHighlightColor(line_highlight_cp->getColor(0));
 	NumberedTextEditor::setHighlightLines(hightlight_lines_chk->isChecked());
-	NumberedTextEditor::setTabWidth(tab_width_chk->isChecked() ? tab_width_spb->value() : 0);
+	NumberedTextEditor::setTabDistance(tab_width_chk->isChecked() ? tab_width_spb->value() : 0);
 	LineNumbersWidget::setColors(line_numbers_cp->getColor(0), line_numbers_bg_cp->getColor(0));
 
 	font_preview_txt->setReadOnly(false);
@@ -571,7 +705,7 @@ void GeneralConfigWidget::updateFontPreview(void)
 	setConfigurationChanged(true);
 }
 
-void GeneralConfigWidget::selectPaperSize(void)
+void GeneralConfigWidget::selectPaperSize()
 {
 	bool visible=paper_cmb->currentIndex()==paper_cmb->count()-1;
 
@@ -582,22 +716,12 @@ void GeneralConfigWidget::selectPaperSize(void)
 	height_spb->setVisible(visible);
 }
 
-void GeneralConfigWidget::selectSourceEditor(void)
+void GeneralConfigWidget::resetDialogsSizes()
 {
-	QFileDialog sel_editor_dlg;
+	Messagebox msg_box;
+	msg_box.show(tr("This action will reset all dialogs to their default size and positions on the screen! Do you really want to proceed?"),
+						Messagebox::ConfirmIcon, Messagebox::YesNoButtons);
 
-	sel_editor_dlg.setFileMode(QFileDialog::ExistingFile);
-	sel_editor_dlg.setNameFilter(trUtf8("All files (*.*)"));
-	sel_editor_dlg.setModal(true);
-	sel_editor_dlg.setWindowTitle(trUtf8("Load file"));
-	sel_editor_dlg.setAcceptMode(QFileDialog::AcceptOpen);
-	sel_editor_dlg.exec();
-
-	if(sel_editor_dlg.result()==QDialog::Accepted)
-		source_editor_edt->setText(sel_editor_dlg.selectedFiles().at(0));
-}
-
-void GeneralConfigWidget::hideEvent(QHideEvent *)
-{
-	settings_twg->setCurrentIndex(0);
+	if(msg_box.result() == QDialog::Accepted)
+	  widgets_geom.clear();
 }

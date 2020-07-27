@@ -3,12 +3,20 @@
 #          Code generation can be broken if incorrect changes are made.
 
 %if {list} %then
-  [SELECT tg.oid, tgname AS name FROM pg_trigger AS tg
-    LEFT JOIN pg_class AS tb ON tg.tgrelid = tb.oid AND relkind IN ('r','v') ]
+
+    %set {parent-name} [ ns.nspname || '.' || tb.relname ]
+
+    %if {use-signature} %then
+        %set {signature} {parent-name} [ || '.' || ]
+    %end
+
+ [SELECT tg.oid, tgname AS name, ] {parent-name} [ AS parent, 'table' AS parent_type
+    FROM pg_trigger AS tg
+    LEFT JOIN pg_class AS tb ON tg.tgrelid = tb.oid AND relkind IN ('r','v','m','f') 
+    LEFT JOIN pg_namespace AS ns ON ns.oid = tb.relnamespace ]
 
   %if {schema} %then
-    [  LEFT JOIN pg_namespace AS ns ON ns.oid = tb.relnamespace
-       WHERE ns.nspname= ] '{schema}'
+    [  WHERE ns.nspname= ] '{schema}'
 
     %if {table} %then
      [ AND tb.relname=]'{table}'
@@ -28,7 +36,15 @@
   %if {not-ext-object} %then
     [ AND ]( {not-ext-object} )
   %end
-
+  
+  %if {name-filter} %then
+    [ AND ] ( {signature} [ tgname ~* ] E'{name-filter}' )
+  %end
+  
+  %if {extra-condition} %then
+    [ AND ] ( {extra-condition} )
+  %end  
+  
 %else
     %if {attribs} %then
     # pg_trigger.tgtype datails:
@@ -43,6 +59,7 @@
       
         CASE 
             WHEN tb.relkind = 'r' THEN 'table'
+            WHEN tb.relkind = 'f' THEN 'foreigntable'
             WHEN tb.relkind = 'v' THEN 'view'
             WHEN tb.relkind = 'm' THEN 'view'
         END AS table_type, 
@@ -57,7 +74,7 @@
 	       (B'0010000'::integer & tgtype = 16) AS upd_event_bool,
 	       (B'0100000'::integer & tgtype = 32) AS trunc_event_bool,
 	       tg.tgdeferrable AS deferrable_bool,
-	       (tg.tgconstraint > 0) AS constraint_bool, ds.description AS comment,
+	       (tg.tgconstraint > 0) AS constraint_bool,
 
 	    CASE
 	      WHEN B'0000010'::integer & tgtype = 2 THEN 'BEFORE'
@@ -74,13 +91,21 @@
 	      WHEN (tg.tgconstraint > 0) THEN
                 regexp_replace(regexp_replace(pg_get_triggerdef(tg.oid), '(.)+((INSERT|DELETE|UPDATE)|( OF))', ''), '( ON)(.)*','')
 	      ELSE NULL
-	    END AS columns
+	    END AS columns, ]
+	    
+	    
+     %if ({pgsql-ver} >=f "10.0") %then
+        [ tgoldtable AS old_table_name, tgnewtable AS new_table_name, ]
+     %else
+        [ NULL AS old_table_name, NULL AS new_table_name, ]
+     %end
 
-	 FROM pg_trigger AS tg
+         ({comment}) [ AS comment ] 
+	    
+	 [ FROM pg_trigger AS tg
 	 LEFT JOIN pg_constraint AS cs ON tg.tgconstraint = cs.oid
 	 LEFT JOIN pg_class AS tb ON tg.tgrelid = tb.oid
 	 LEFT JOIN pg_namespace AS ns ON ns.oid = tb.relnamespace
-	 LEFT JOIN pg_description ds ON ds.objoid = tg.oid
 	 LEFT JOIN information_schema.triggers AS it ON
 		   it.trigger_schema=ns.nspname AND
 		   it.trigger_name=tg.tgname AND

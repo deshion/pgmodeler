@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,23 +27,26 @@
 
 #include "baseobjectwidget.h"
 #include "ui_relationshipwidget.h"
-#include "objecttablewidget.h"
+#include "objectstablewidget.h"
 #include "colorpickerwidget.h"
-#include "hinttextwidget.h"
 
 class RelationshipWidget: public BaseObjectWidget, public Ui::RelationshipWidget {
 	private:
 		Q_OBJECT
 
-		static const unsigned GENERAL_TAB=0,
-		ATTRIBUTES_TAB=1,
-		CONSTRAINTS_TAB=2,
-		SPECIAL_PK_TAB=3,
-		ADVANCED_TAB=4;
-
-		HintTextWidget *gen_tab_name_ht, *ref_table_ht, *recv_table_ht, *identifier_ht, *single_pk_ht;
+		static constexpr unsigned GeneralTab=0,
+		SettingsTab=1,
+		AttributesTab=2,
+		ConstraintsTab=3,
+		SpecialPkTab=4,
+		AdvancedTab=5;
 
 		ColorPickerWidget *color_picker;
+
+		NumberedTextEditor *part_bound_expr_txt;
+
+		//! \brief Indicates if the current relationship can use the name pattern fields
+		bool use_name_patterns;
 
 		//! \brief Stores the tab objects to change the configuration of the form depending on the type of the relationship
 		QWidgetList tabs;
@@ -53,10 +56,11 @@ class RelationshipWidget: public BaseObjectWidget, public Ui::RelationshipWidget
 
 		SyntaxHighlighter *table1_hl,
 		*table2_hl,
-		*patterns_hl[7];
+		*patterns_hl[7],
+		*part_bound_expr_hl;
 
 		//! \brief Table widgets that stores the attributes, constraint and advanced objects of relationship
-		ObjectTableWidget *attributes_tab,
+		ObjectsTableWidget *attributes_tab,
 		*constraints_tab,
 		*advanced_objs_tab;
 
@@ -64,7 +68,7 @@ class RelationshipWidget: public BaseObjectWidget, public Ui::RelationshipWidget
 		void listObjects(ObjectType obj_type);
 
 		//! \brief Lists the advanced objects in the repective table widget
-		void listAdvancedObjects(void);
+		void listAdvancedObjects();
 
 		/*! \brief Shows the object data in the specified table row. The table widget is idenfied by
 		 the current object type */
@@ -76,32 +80,30 @@ class RelationshipWidget: public BaseObjectWidget, public Ui::RelationshipWidget
 		int openEditingForm(TableObject *object, BaseObject *parent = nullptr);
 
 	protected:
-		void setAttributes(DatabaseModel *model, OperationList *op_list, Table *src_tab, Table *dst_tab, unsigned rel_type);
+		void setAttributes(DatabaseModel *model, OperationList *op_list, PhysicalTable *src_tab, PhysicalTable *dst_tab, unsigned rel_type);
 
 	public:
-		RelationshipWidget(QWidget * parent = 0);
+		RelationshipWidget(QWidget * parent = nullptr);
 		void setAttributes(DatabaseModel *model, OperationList *op_list, BaseRelationship *base_rel);
 
-		QSize getIdealSize(void);
+		QSize getIdealSize();
 
 	private slots:
-		void hideEvent(QHideEvent *event);
-
-		void addObject(void);
+		void addObject();
 		void editObject(int row);
 		void removeObject(int row);
-		void removeObjects(void);
+		void removeObjects();
 		void showAdvancedObject(int row);
-		void selectCopyOptions(void);
-		void listSpecialPkColumns(void);
+		void selectCopyOptions();
+		void listSpecialPkColumns();
 		void duplicateObject(int curr_row, int new_row);
-
 		void useFKGlobalSettings(bool value);
 		void usePatternGlobalSettings(bool value);
+		void generateBoundingExpr();
 
 	public slots:
-		void applyConfiguration(void);
-		void cancelConfiguration(void);
+		void applyConfiguration();
+		void cancelConfiguration();
 
 		friend class ModelWidget;
 };

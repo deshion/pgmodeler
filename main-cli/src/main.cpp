@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,38 +18,39 @@
 
 #include <QTranslator>
 #include "pgmodelercli.h"
+#include "qtcompat/qtextstreamcompat.h"
 
 int main(int argc, char **argv)
 {
 	QTextStream out(stdout);
 
 #ifdef DEMO_VERSION
-	out << endl;
-	out << QString("pgModeler ") << GlobalAttributes::PGMODELER_VERSION << QT_TR_NOOP(" command line interface.") << endl;
-	out << QT_TR_NOOP("PostgreSQL Database Modeler Project - pgmodeler.com.br") << endl;
-	out << QT_TR_NOOP("Copyright 2006-2015 Raphael A. Silva <raphael@pgmodeler.com.br>") << endl;
-	out << QT_TR_NOOP("\n** CLI disabled in demonstration version! **") << endl << endl;
+	out << QtCompat::endl;
+	out << QString("pgModeler ") << GlobalAttributes::PgModelerVersion << QT_TR_NOOP(" command line interface.") << QtCompat::endl;
+	out << QT_TR_NOOP("PostgreSQL Database Modeler Project - pgmodeler.io") << QtCompat::endl;
+	out << QT_TR_NOOP("Copyright 2006-2020 Raphael A. Silva <raphael@pgmodeler.io>") << QtCompat::endl;
+	out << QT_TR_NOOP("\n** CLI disabled in demonstration version! **") << QtCompat::endl << QtCompat::endl;
 #else
 	try
 	{
-		QTranslator translator;
-		PgModelerCLI pgmodeler_cli(argc, argv);
+		PgModelerCliApp pgmodeler_cli(argc, argv);
+		QTranslator translator(&pgmodeler_cli);
 
 		//Tries to load the ui translation according to the system's locale
-		translator.load(QLocale::system().name(), GlobalAttributes::LANGUAGES_DIR);
+		translator.load(QLocale::system().name(), GlobalAttributes::getLanguagesDir());
 
 		//Installs the translator on the application
 		pgmodeler_cli.installTranslator(&translator);
 
 		//Executes the cli
-		return(pgmodeler_cli.exec());
+		return pgmodeler_cli.exec();
 	}
 	catch(Exception &e)
 	{
-		out << endl;
+		out << QtCompat::endl;
 		out << e.getExceptionsText();
-		out << QString("** pgmodeler-cli aborted due to critical error(s). **") << endl << endl;
-		return(e.getErrorType()==ERR_CUSTOM ? -1 : e.getErrorType());
+		out << QString("** pgmodeler-cli aborted due to critical error(s). **") << QtCompat::endl << QtCompat::endl;
+		return (e.getErrorCode()==ErrorCode::Custom ? -1 : enum_cast(e.getErrorCode()));
 	}
 #endif
 }

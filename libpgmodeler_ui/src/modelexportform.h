@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,12 +29,16 @@
 #include "schemaparser.h"
 #include "modelwidget.h"
 #include "modelexporthelper.h"
-#include "hinttextwidget.h"
 #include "htmlitemdelegate.h"
+#include "fileselectorwidget.h"
 
 class ModelExportForm: public QDialog, public Ui::ModelExportForm {
 	private:
 		Q_OBJECT
+
+		/*! \brief Indicates if the full output generated during the process should be displayed
+		 * When this attribute is true, only errors and some key info messages are displayed. */
+		static bool low_verbosity;
 
 		//! \brief Custom delegate used to paint html texts in output tree
 		HtmlItemDelegate *htmlitem_del;
@@ -51,35 +55,42 @@ class ModelExportForm: public QDialog, public Ui::ModelExportForm {
 		//! \brief Auxiliary viewport passed to export helper when dealing with PNG export
 		QGraphicsView *viewp;
 
-		HintTextWidget *pgsqlvers_ht, *drop_ht, *ignore_dup_ht, *page_by_page_ht, *ignore_error_codes_ht;
+		FileSelectorWidget *sql_file_sel,
+		*img_file_sel,
+		*dict_file_sel;
 
 		void finishExport(const QString &msg);
 		void enableExportModes(bool value);
 		void closeEvent(QCloseEvent *event);
-		int exec(void){ return(QDialog::Rejected); }
+		int exec(void){ return QDialog::Rejected; }
 
 	public:
-		ModelExportForm(QWidget * parent = 0, Qt::WindowFlags f = 0);
+		ModelExportForm(QWidget * parent = nullptr, Qt::WindowFlags f = Qt::Widget);
+
+		//! \brief Defines if all the output generated during the import process should be displayed
+		static void setLowVerbosity(bool value);
 
 	public slots:
 		void exec(ModelWidget *model);
 
 	private slots:
-		void selectExportMode(void);
-		void exportModel(void);
-		void selectOutputFile(void);
+		void selectExportMode();
+		void exportModel();
 		void updateProgress(int progress, QString msg, ObjectType obj_type, QString cmd, bool is_code_gen);
 		void captureThreadError(Exception e);
-		void cancelExport(void);
-		void handleExportFinished(void);
-		void handleExportCanceled(void);
+		void cancelExport();
+		void handleExportFinished();
+		void handleExportCanceled();
 		void handleErrorIgnored(QString err_code, QString err_msg, QString cmd);
-		void editConnections(void);
+		void editConnections();
+		void enableExport();
+		void selectImageFormat();
+		void selectDataDictType();
 
 	signals:
 		/*! \brief This signal is emitted whenever the user changes the connections settings
 		within this widget without use the main configurations dialog */
-		void s_connectionsUpdateRequest(void);
+		void s_connectionsUpdateRequest();
 };
 
 #endif

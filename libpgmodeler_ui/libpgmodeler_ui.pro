@@ -16,6 +16,8 @@ windows:RCC_DIR += src
 windows:DESTDIR = $$PWD
 
 SOURCES += src/mainwindow.cpp \
+	src/changelogwidget.cpp \
+	src/fileselectorwidget.cpp \
 	   src/modelwidget.cpp \
 	   src/messagebox.cpp \
 	   src/textboxwidget.cpp \
@@ -25,9 +27,8 @@ SOURCES += src/mainwindow.cpp \
 	   src/baseform.cpp \
 	   src/sourcecodewidget.cpp \
 	   src/syntaxhighlighter.cpp \
-		 src/databasewidget.cpp \
+	   src/databasewidget.cpp \
 	   src/schemawidget.cpp \
-	   src/objecttablewidget.cpp \
 	   src/rolewidget.cpp \
 	   src/permissionwidget.cpp \
 	   src/tablespacewidget.cpp \
@@ -67,7 +68,6 @@ SOURCES += src/mainwindow.cpp \
 	   src/pgmodelerplugin.cpp \
 	   src/pluginsconfigwidget.cpp \
 	   src/collationwidget.cpp \
-	   src/elementswidget.cpp \
 	   src/modelexporthelper.cpp \
 	   src/modelvalidationwidget.cpp \
 	   src/modelvalidationhelper.cpp \
@@ -94,7 +94,6 @@ SOURCES += src/mainwindow.cpp \
            src/modeldatabasediffform.cpp \
            src/modelsdiffhelper.cpp \
            src/objectsdiffinfo.cpp \
-           src/hinttextwidget.cpp \
            src/databaseexplorerwidget.cpp \
            src/snippetsconfigwidget.cpp \
            src/pgmodeleruins.cpp \
@@ -110,10 +109,25 @@ SOURCES += src/mainwindow.cpp \
 		src/plaintextitemdelegate.cpp \
 		src/csvloadwidget.cpp \
 		src/genericsqlwidget.cpp \
-    src/sceneinfowidget.cpp
+    src/sceneinfowidget.cpp \
+    src/bulkdataeditwidget.cpp \
+    src/policywidget.cpp \
+    src/objectstablewidget.cpp \
+    src/resultsetmodel.cpp \
+    src/referencewidget.cpp \
+    src/sqlexecutionhelper.cpp \
+    src/elementstablewidget.cpp \
+    src/elementwidget.cpp \
+    src/layerswidget.cpp \
+    src/foreigndatawrapperwidget.cpp \
+    src/foreignserverwidget.cpp \
+	src/usermappingwidget.cpp \
+	src/objectsfilterwidget.cpp
 
 
 HEADERS += src/mainwindow.h \
+	src/changelogwidget.h \
+	src/fileselectorwidget.h \
 	   src/modelwidget.h \
 	   src/messagebox.h \
 	   src/baseobjectwidget.h \
@@ -125,7 +139,6 @@ HEADERS += src/mainwindow.h \
 	   src/syntaxhighlighter.h \
            src/databasewidget.h \
 	   src/schemawidget.h \
-	   src/objecttablewidget.h \
 	   src/rolewidget.h \
 	   src/permissionwidget.h \
 	   src/tablespacewidget.h \
@@ -165,7 +178,6 @@ HEADERS += src/mainwindow.h \
 	   src/objectrenamewidget.h \
 	   src/pluginsconfigwidget.h \
 	   src/collationwidget.h \
-	   src/elementswidget.h \
 	   src/modelexporthelper.h \
 	   src/modelvalidationwidget.h \
 	   src/modelvalidationhelper.h \
@@ -192,7 +204,6 @@ HEADERS += src/mainwindow.h \
            src/modeldatabasediffform.h \
            src/modelsdiffhelper.h \
            src/objectsdiffinfo.h \
-           src/hinttextwidget.h \
            src/databaseexplorerwidget.h \
            src/snippetsconfigwidget.h \
            src/pgmodeleruins.h \
@@ -208,9 +219,25 @@ HEADERS += src/mainwindow.h \
 		src/plaintextitemdelegate.h \
 		src/csvloadwidget.h \
 		src/genericsqlwidget.h \
-    src/sceneinfowidget.h
+    src/sceneinfowidget.h \
+    src/bulkdataeditwidget.h \
+    src/policywidget.h \
+    src/objectstablewidget.h \
+    src/resultsetmodel.h \
+    src/referencewidget.h \
+    src/sqlexecutionhelper.h \
+    src/elementstablewidget.h \
+    src/elementwidget.h \
+    src/layerswidget.h \
+    src/foreigndatawrapperwidget.h \
+    src/foreignserverwidget.h \
+	src/usermappingwidget.h \
+	src/objectsfilterwidget.h
 
 FORMS += ui/mainwindow.ui \
+	ui/changelogwidget.ui \
+	ui/fileselectorwidget.ui \
+	ui/objectsfilterwidget.ui \
 	 ui/textboxwidget.ui \
 	 ui/messagebox.ui \
 	 ui/operationlistwidget.ui \
@@ -219,7 +246,6 @@ FORMS += ui/mainwindow.ui \
 	 ui/sourcecodewidget.ui \
 	 ui/databasewidget.ui \
 	 ui/baseobjectwidget.ui \
-	 ui/objecttablewidget.ui \
 	 ui/rolewidget.ui \
 	 ui/permissionwidget.ui \
 	 ui/tablespacewidget.ui \
@@ -258,7 +284,6 @@ FORMS += ui/mainwindow.ui \
 	 ui/pluginsconfigwidget.ui \
 	 ui/schemawidget.ui \
 	 ui/collationwidget.ui \
-	 ui/elementswidget.ui \
 	 ui/modelvalidationwidget.ui \
 	 ui/extensionwidget.ui \
 	 ui/objectfinderwidget.ui \
@@ -289,7 +314,16 @@ FORMS += ui/mainwindow.ui \
     ui/tabledatawidget.ui \
     ui/csvloadwidget.ui \
     ui/genericsqlwidget.ui \
-    ui/sceneinfowidget.ui
+    ui/sceneinfowidget.ui \
+    ui/bulkdataeditwidget.ui \
+    ui/policywidget.ui \
+    ui/objectstablewidget.ui \
+    ui/referencewidget.ui \
+    ui/elementwidget.ui \
+    ui/layerswidget.ui \
+    ui/foreigndatawrapperwidget.ui \
+    ui/foreignserverwidget.ui \
+    ui/usermappingwidget.ui
 
 unix|windows: LIBS += -L$$OUT_PWD/../libobjrenderer/ -lobjrenderer \
                       -L$$OUT_PWD/../libpgconnector/ -lpgconnector \

@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,8 +27,9 @@
 
 #include "baseconfigwidget.h"
 #include "ui_pluginsconfigwidget.h"
-#include "objecttablewidget.h"
+#include "objectstablewidget.h"
 #include "pgmodelerplugin.h"
+#include "fileselectorwidget.h"
 
 class PluginsConfigWidget: public BaseConfigWidget, public Ui::PluginsConfigWidget {
 	private:
@@ -41,7 +42,9 @@ class PluginsConfigWidget: public BaseConfigWidget, public Ui::PluginsConfigWidg
 		vector<QAction *> plugins_actions;
 
 		//! \brief Table used to show the loaded plugins
-		ObjectTableWidget *plugins_tab;
+		ObjectsTableWidget *plugins_tab;
+
+		FileSelectorWidget *root_dir_sel;
 
 		/* Disabled methods */
 		void applyConfiguration(void){}
@@ -50,19 +53,21 @@ class PluginsConfigWidget: public BaseConfigWidget, public Ui::PluginsConfigWidg
 		void addConfigurationParam(const QString &, const attribs_map &){}
 
 	public:
-		PluginsConfigWidget(QWidget *parent = 0);
-		~PluginsConfigWidget(void);
+		PluginsConfigWidget(QWidget *parent = nullptr);
+		virtual ~PluginsConfigWidget();
 
 		//! \brief Since plugins has its own configurations this method load all plugins instead
-		void loadConfiguration(void);
+		void loadConfiguration();
 
-		/*! \brief Install the created actions on menu and toolbars. Additionally the user must specify the
+		/*! \brief Install the created actions on menu. Additionally the user must specify the
 		 receiver object and slot executed when the actions is activated */
-		void installPluginsActions(QToolBar *toolbar, QMenu *menu, QObject *recv, const char *slot);
+		void installPluginsActions(QMenu *menu, QObject *recv, const char *slot);
+
+		//! \brief Performs the initialization of all loaded plugins (see PgModelerPlugin::initPlugin())
+		void initPlugins(MainWindow *main_window);
 
 	private slots:
 		void showPluginInfo(int idx);
-		void openRootPluginDiretory(void);
 };
 
 #endif

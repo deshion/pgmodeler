@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,14 +26,14 @@ OperationListWidget::OperationListWidget(QWidget *parent) : QWidget(parent)
 	setModel(nullptr);
 
 	operations_tw->headerItem()->setHidden(true);
-	connect(undo_tb,SIGNAL(clicked()),this,SLOT(undoOperation(void)));
-	connect(redo_tb,SIGNAL(clicked()),this,SLOT(redoOperation(void)));
-	connect(rem_operations_tb,SIGNAL(clicked()),this,SLOT(removeOperations(void)));
+	connect(undo_tb,SIGNAL(clicked()),this,SLOT(undoOperation()));
+	connect(redo_tb,SIGNAL(clicked()),this,SLOT(redoOperation()));
+	connect(rem_operations_tb,SIGNAL(clicked()),this,SLOT(removeOperations()));
 	connect(operations_tw,SIGNAL(itemClicked(QTreeWidgetItem *, int)),this,SLOT(selectItem(QTreeWidgetItem *, int)));
-	connect(hide_tb, SIGNAL(clicked(bool)), this, SLOT(hide(void)));
+	connect(hide_tb, SIGNAL(clicked(bool)), this, SLOT(hide()));
 }
 
-void OperationListWidget::hide(void)
+void OperationListWidget::hide()
 {
 	QWidget::hide();
 	emit s_visibilityChanged(false);
@@ -53,7 +53,7 @@ void OperationListWidget::selectItem(QTreeWidgetItem *item, int)
 	}
 }
 
-void OperationListWidget::updateOperationList(void)
+void OperationListWidget::updateOperationList()
 {
 	content_wgt->setEnabled(this->model_wgt!=nullptr);
 
@@ -68,10 +68,11 @@ void OperationListWidget::updateOperationList(void)
 		unsigned count, i, op_type;
 		ObjectType obj_type;
 		QString obj_name, str_aux, op_name, op_icon;
-		QTreeWidgetItem *item=nullptr,*item1=nullptr, *item2=nullptr;
+		QTreeWidgetItem *item=nullptr,*item1=nullptr;
 		QFont font=this->font();
 		bool value=false;
 
+		operations_tw->setUpdatesEnabled(false);
 		op_count_lbl->setText(QString("%1").arg(model_wgt->op_list->getCurrentSize()));
 		current_pos_lbl->setText(QString("%1").arg(model_wgt->op_list->getCurrentIndex()));
 		redo_tb->setEnabled(model_wgt->op_list->isRedoAvailable());
@@ -92,53 +93,50 @@ void OperationListWidget::updateOperationList(void)
 
 			item=new QTreeWidgetItem;
 			str_aux=QString(BaseObject::getSchemaName(obj_type));
-			item->setData(0, Qt::UserRole, QVariant(obj_type));
+			item->setData(0, Qt::UserRole, QVariant(enum_cast(obj_type)));
 
-			if(obj_type==BASE_RELATIONSHIP)
+			if(obj_type==ObjectType::BaseRelationship)
 				str_aux+=QString("tv");
 
-			item->setIcon(0,QPixmap(PgModelerUiNS::getIconPath(str_aux)));
+			item->setIcon(0,QPixmap(PgModelerUiNs::getIconPath(str_aux)));
 
 			operations_tw->insertTopLevelItem(i,item);
 			item->setFont(0,font);
-			item->setText(0,trUtf8("Object: %1").arg(BaseObject::getTypeName(obj_type)));
+			item->setText(0, QString("%1 (%2)").arg(obj_name).arg(BaseObject::getTypeName(obj_type)));
 
-			item2=new QTreeWidgetItem(item);
-			item2->setIcon(0,QPixmap(PgModelerUiNS::getIconPath("uid")));
-			item2->setFont(0,font);
-			item2->setText(0,trUtf8("Name: %1").arg(obj_name));
-
-			if(op_type==Operation::OBJECT_CREATED)
+			if(op_type==Operation::ObjectCreated)
 			{
 				op_icon=QString("criado");
-				op_name=trUtf8("created");
+				op_name=tr("created");
 			}
-			else if(op_type==Operation::OBJECT_REMOVED)
+			else if(op_type==Operation::ObjectRemoved)
 			{
 				op_icon=QString("removido");
-				op_name=trUtf8("removed");
+				op_name=tr("removed");
 			}
-			else if(op_type==Operation::OBJECT_MODIFIED)
+			else if(op_type==Operation::ObjectModified)
 			{
 				op_icon=QString("modificado");
-				op_name=trUtf8("modified");
+				op_name=tr("modified");
 			}
-			else if(op_type==Operation::OBJECT_MOVED)
+			else if(op_type==Operation::ObjectMoved)
 			{
 				op_icon=QString("movimentado");
-				op_name=trUtf8("moved");
+				op_name=tr("moved");
 			}
 
 			item1=new QTreeWidgetItem(item);
-			item1->setIcon(0,QPixmap(PgModelerUiNS::getIconPath(op_icon)));
+			item1->setIcon(0,QPixmap(PgModelerUiNs::getIconPath(op_icon)));
 			item1->setFont(0,font);
-			item1->setText(0,trUtf8("Operation: %1").arg(op_name));
+			item1->setText(0,op_name);
 
 			operations_tw->expandItem(item);
 
 			if(value)
 				operations_tw->scrollToItem(item1);
 		}
+
+		operations_tw->setUpdatesEnabled(true);
 	}
 
 	emit s_operationListUpdated();
@@ -151,7 +149,7 @@ void OperationListWidget::setModel(ModelWidget *model)
 	updateOperationList();
 }
 
-void OperationListWidget::undoOperation(void)
+void OperationListWidget::undoOperation()
 {
 	try
 	{
@@ -166,17 +164,17 @@ void OperationListWidget::undoOperation(void)
 		QApplication::restoreOverrideCursor();
 		this->updateOperationList();
 
-		if(e.getErrorType()==ERR_UNDO_REDO_OPR_INV_OBJECT)
+		if(e.getErrorCode()==ErrorCode::UndoRedoOperationInvalidObject)
 		{
 			Messagebox msg_box;
-			msg_box.show(e, "", Messagebox::ALERT_ICON);
+			msg_box.show(e, "", Messagebox::AlertIcon);
 		}
 		else
-			throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+			throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void OperationListWidget::redoOperation(void)
+void OperationListWidget::redoOperation()
 {
 	try
 	{
@@ -190,24 +188,24 @@ void OperationListWidget::redoOperation(void)
 	{
 		QApplication::restoreOverrideCursor();
 
-		if(e.getErrorType()==ERR_UNDO_REDO_OPR_INV_OBJECT)
+		if(e.getErrorCode()==ErrorCode::UndoRedoOperationInvalidObject)
 		{
 			Messagebox msg_box;
-			msg_box.show(e, "", Messagebox::ALERT_ICON);
+			msg_box.show(e, "", Messagebox::AlertIcon);
 		}
 		else
-			throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+			throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void OperationListWidget::removeOperations(void)
+void OperationListWidget::removeOperations()
 {
 	Messagebox msg_box;
 
-	msg_box.show(trUtf8("Operation history exclusion"),
-				 trUtf8("Delete the executed operations history is an irreversible action, do you want to continue?"),
-				 Messagebox::CONFIRM_ICON,
-				 Messagebox::YES_NO_BUTTONS);
+	msg_box.show(tr("Operation history exclusion"),
+				 tr("Delete the executed operations history is an irreversible action, do you want to continue?"),
+				 Messagebox::ConfirmIcon,
+				 Messagebox::YesNoButtons);
 
 	if(msg_box.result()==QDialog::Accepted)
 	{
@@ -217,7 +215,7 @@ void OperationListWidget::removeOperations(void)
 	}
 }
 
-void OperationListWidget::notifyUpdateOnModel(void)
+void OperationListWidget::notifyUpdateOnModel()
 {
 	updateOperationList();
 	emit s_operationExecuted();

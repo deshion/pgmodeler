@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -34,7 +34,7 @@
 #include <iostream>
 #include "attribsmap.h"
 
-class XMLParser {
+class XmlParser {
 	private:
 		/*! \brief Stores the name of the file that generated the xml buffer when
 		 loadXMLFile() method is called */
@@ -43,8 +43,12 @@ class XMLParser {
 		//! \brief Stores the xml document (element tree) generated after the buffer reading
 		xmlDoc *xml_doc;
 
+		//! \brief Stores the approximated line position on the current parsed buffer
+		int curr_line;
+
 		//! \brief Stores the reference to the root element of the element tree
 		xmlNode	*root_elem,
+
 		//! \brief Stores the current element that parser is analyzing
 		*curr_elem;
 
@@ -64,29 +68,33 @@ class XMLParser {
 
 		/*! \brief Remove the original DTD from the document. This is done to evit that
 		 the user insert some external dtd in the model file that is not valid for pgModeler */
-		void removeDTD(void);
+		void removeDTD();
 
 		/*! \brief Makes the interpretation of XML inside the buffer validating it according to
 		 DTD defined configured (by the parser) to the buffer. Initializes
 		 the necessary attributes to make possible the navigation through the element tree
 		 generated from the XML document read. */
-		void readBuffer(void);
+		void readBuffer();
 
 	public:
 		//! \brief Constants used to referência the elements on the element tree
-		static const unsigned ROOT_ELEMENT=0,
-		CHILD_ELEMENT=1,
-		NEXT_ELEMENT=2,
-		PREVIOUS_ELEMENT=3;
+		static constexpr unsigned RootElement=0,
+		ChildElement=1,
+		NextElement=2,
+		PreviousElement=3;
 
-		static const QString CHAR_AMP; //! \brief & = &amp;
-		static const QString CHAR_LT; //! \brief  < = &lt;
-		static const QString CHAR_GT; //! \brief  < = &gt;
-		static const QString CHAR_QUOT; //! \brief  < = &quot;
-		static const QString CHAR_APOS; //! \brief  < = &apos;
+		static const QString CharAmp, //! \brief & = &amp;
+		CharLt, //! \brief  < = &lt;
+		CharGt, //! \brief  < = &gt;
+		CharQuot, //! \brief  < = &quot;
+		CharApos, //! \brief  < = &apos;
+		CdataStart, //! \brief Constant that indicates <![CDATA instruction start
+		CdataEnd, //! \brief Constant that indicates <![CDATA instruction end (]]>)
+		CommentStart, //! \brief Constant that indicates xml comments start
+		CommentEnd; //! \brief Constant that indicates xml comments end
 
-		XMLParser(void);
-		~XMLParser(void);
+		XmlParser();
+		~XmlParser();
 
 		//! \brief Loads the XML buffer from a file
 		void loadXMLFile(const QString &filename);
@@ -98,10 +106,10 @@ class XMLParser {
 		void setDTDFile(const QString &dtd_file, const QString &dtd_name);
 
 		//! \brief Saves to stack the current navigation position on the element tree
-		void savePosition(void);
+		void savePosition();
 
 		//! \brief Restores the previous navigation position oh the element tree
-		void restorePosition(void);
+		void restorePosition();
 
 		/*! \brief Restores the position of the navigation on a specific
 		 element on the document. The navigation stack is always
@@ -117,42 +125,46 @@ class XMLParser {
 		bool hasElement(unsigned elem_type, xmlElementType xml_node_type=static_cast<xmlElementType>(0));
 
 		//! \brief Retorns if an element has attributes
-		bool hasAttributes(void);
+		bool hasAttributes();
 
 		//! \brief Stores on a map the atrributes (names and values) of the current element
 		void getElementAttributes(attribs_map &attributes);
 
 		/*! \brief Returns the content text of the element, used only for elements which do not have children
 		 and that are filled by simple texts */
-		QString getElementContent(void);
+		QString getElementContent();
 
 		//! \brief Returns the current element type
-		xmlElementType getElementType(void);
+		xmlElementType getElementType();
 
 		//! \brief Returns the constant reference to the current element on the tree
-		const xmlNode *getCurrentElement(void);
+		const xmlNode *getCurrentElement();
 
 		//! \brief Returns the current line number on the buffer that is being processed
-		int getCurrentBufferLine(void);
+		int getCurrentBufferLine();
 
 		//! \brief Returns the total line amount of the buffer
-		int getBufferLineCount(void);
+		int getBufferLineCount();
 
 		//! \brief Returns the tag name that defines the current element
-		QString getElementName(void);
+		QString getElementName();
 
 		//! \brief Returns the filename that generated XML buffer
-		QString getLoadedFilename(void);
+		QString getLoadedFilename();
 
 		//! \brief Returns the full parser buffer
-		QString getXMLBuffer(void);
+		QString getXMLBuffer();
 
 		//! \brief Reset all the elements resposible to the navigation through the element tree
-		void restartNavigation(void);
+		void restartNavigation();
 
 		/*! \brief Reset all the parser attributes, deallocating the element tree. The user have to
 		 reload the file to analyze it again */
-		void restartParser(void);
+		void restartParser();
+
+		/*! \brief Converts any chars (operators) < > " to the respective XML entities.
+		 * It will not convert chars between XML comments <!-- --> as well <![CDATA ]]> entity */
+		static QString convertCharsToXMLEntities(QString buf);
 };
 
 #endif

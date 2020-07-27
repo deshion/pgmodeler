@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,28 +18,28 @@
 
 #include "operatorclass.h"
 
-OperatorClass::OperatorClass(void)
+OperatorClass::OperatorClass()
 {
-	obj_type=OBJ_OPCLASS;
+	obj_type=ObjectType::OpClass;
 	family=nullptr;
 	is_default=false;
-	attributes[ParsersAttributes::FAMILY]=QString();
-	attributes[ParsersAttributes::ELEMENTS]=QString();
-	attributes[ParsersAttributes::INDEX_TYPE]=QString();
-	attributes[ParsersAttributes::TYPE]=QString();
-	attributes[ParsersAttributes::DEFAULT]=QString();
+	attributes[Attributes::Family]="";
+	attributes[Attributes::Elements]="";
+	attributes[Attributes::IndexType]="";
+	attributes[Attributes::Type]="";
+	attributes[Attributes::Default]="";
 }
 
-OperatorClass::~OperatorClass(void)
+OperatorClass::~OperatorClass()
 {
 	elements.clear();
 }
 
-void OperatorClass::setDataType(PgSQLType data_type)
+void OperatorClass::setDataType(PgSqlType data_type)
 {
 	//A null datatype is not accepted by the operator class
-	if(data_type==PgSQLType::null)
-		throw Exception(ERR_ASG_INV_TYPE_OBJECT,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+	if(data_type==PgSqlType::Null)
+		throw Exception(ErrorCode::AsgInvalidTypeObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
 	setCodeInvalidated(this->data_type != data_type);
 	this->data_type=data_type;
@@ -74,11 +74,11 @@ void OperatorClass::setElementsAttribute(unsigned def_type)
 	for(i=0; i < count; i++)
 	{
 		str_elems+=elements[i].getCodeDefinition(def_type);
-		if(def_type==SchemaParser::SQL_DEFINITION &&
+		if(def_type==SchemaParser::SqlDefinition &&
 				i < count-1) str_elems+=QString(",\n");
 	}
 
-	attributes[ParsersAttributes::ELEMENTS]=str_elems;
+	attributes[Attributes::Elements]=str_elems;
 }
 
 void OperatorClass::addElement(OperatorClassElement elem)
@@ -94,14 +94,14 @@ void OperatorClass::removeElement(unsigned elem_idx)
 {
 	//Raises an error in case the element index is out of bound
 	if(elem_idx >= elements.size())
-		throw Exception(ERR_REF_ELEM_INV_INDEX,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+		throw Exception(ErrorCode::RefElementInvalidIndex,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
 	//Removes the item from the elements list
 	elements.erase(elements.begin() + elem_idx);
 	setCodeInvalidated(true);
 }
 
-void OperatorClass::removeElements(void)
+void OperatorClass::removeElements()
 {
 	elements.clear();
 	setCodeInvalidated(true);
@@ -111,10 +111,10 @@ OperatorClassElement OperatorClass::getElement(unsigned elem_idx)
 {
 	//Raises an error in case the element index is out of bound
 	if(elem_idx >= elements.size())
-		throw Exception(ERR_REF_ELEM_INV_INDEX,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+		throw Exception(ErrorCode::RefElementInvalidIndex,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
 	//Returns the element on the specified index
-	return(elements[elem_idx]);
+	return elements[elem_idx];
 }
 
 bool OperatorClass::isElementExists(OperatorClassElement elem)
@@ -133,66 +133,66 @@ bool OperatorClass::isElementExists(OperatorClassElement elem)
 		itr++;
 	}
 
-	return(exists);
+	return exists;
 }
 
-unsigned OperatorClass::getElementCount(void)
+unsigned OperatorClass::getElementCount()
 {
-	return(elements.size());
+	return elements.size();
 }
 
-PgSQLType OperatorClass::getDataType(void)
+PgSqlType OperatorClass::getDataType()
 {
-	return(data_type);
+	return data_type;
 }
 
-OperatorFamily *OperatorClass::getFamily(void)
+OperatorFamily *OperatorClass::getFamily()
 {
-	return(family);
+	return family;
 }
 
-IndexingType OperatorClass::getIndexingType(void)
+IndexingType OperatorClass::getIndexingType()
 {
-	return(indexing_type);
+	return indexing_type;
 }
 
-bool OperatorClass::isDefault(void)
+bool OperatorClass::isDefault()
 {
-	return(is_default);
+	return is_default;
 }
 
 QString OperatorClass::getCodeDefinition(unsigned def_type)
 {
-	return(this->getCodeDefinition(def_type, false));
+	return this->getCodeDefinition(def_type, false);
 }
 
 QString OperatorClass::getCodeDefinition(unsigned def_type, bool reduced_form)
 {
 	QString code_def=getCachedCode(def_type, reduced_form);
-	if(!code_def.isEmpty()) return(code_def);
+	if(!code_def.isEmpty()) return code_def;
 
 	setElementsAttribute(def_type);
-	attributes[ParsersAttributes::INDEX_TYPE]=(~indexing_type);
-	attributes[ParsersAttributes::DEFAULT]=(is_default ? ParsersAttributes::_TRUE_ : QString());
+	attributes[Attributes::IndexType]=(~indexing_type);
+	attributes[Attributes::Default]=(is_default ? Attributes::True : "");
 
-	if(def_type==SchemaParser::SQL_DEFINITION)
-		attributes[ParsersAttributes::TYPE]=(*data_type);
+	if(def_type==SchemaParser::SqlDefinition)
+		attributes[Attributes::Type]=(*data_type);
 	else
-		attributes[ParsersAttributes::TYPE]=data_type.getCodeDefinition(def_type);
+		attributes[Attributes::Type]=data_type.getCodeDefinition(def_type);
 
 	if(family)
 	{
-		if(def_type==SchemaParser::SQL_DEFINITION)
-			attributes[ParsersAttributes::FAMILY]=family->getName(true);
+		if(def_type==SchemaParser::SqlDefinition)
+			attributes[Attributes::Family]=family->getName(true);
 		else
-			attributes[ParsersAttributes::FAMILY]=family->getSignature();
+			attributes[Attributes::Family]=family->getSignature();
 	}
 
-	attributes[ParsersAttributes::SIGNATURE]=getSignature();
-	return(BaseObject::getCodeDefinition(def_type, reduced_form));
+	attributes[Attributes::Signature]=getSignature();
+	return BaseObject::getCodeDefinition(def_type, reduced_form);
 }
 
 QString OperatorClass::getSignature(bool format)
 {
-	return(BaseObject::getSignature(format) + QString(" USING %1").arg(~indexing_type));
+	return BaseObject::getSignature(format) + QString(" USING %1").arg(~indexing_type);
 }

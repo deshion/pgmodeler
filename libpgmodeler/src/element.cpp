@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,12 +18,12 @@
 
 #include "element.h"
 
-Element::Element(void)
+Element::Element()
 {
 	column=nullptr;
 	operator_class=nullptr;
-	sorting_attibs[NULLS_FIRST]=false;
-	sorting_attibs[ASC_ORDER]=true;
+	sorting_attibs[NullsFirst]=false;
+	sorting_attibs[AscOrder]=true;
 	sorting_enabled=false;
 }
 
@@ -32,7 +32,7 @@ void Element::setColumn(Column *column)
 	if(column)
 	{
 		this->column=column;
-		this->expression=QString();
+		this->expression="";
 	}
 }
 
@@ -52,8 +52,8 @@ void Element::setOperatorClass(OperatorClass *oper_class)
 
 void Element::setSortingAttribute(unsigned attrib, bool value)
 {
-	if(attrib > NULLS_FIRST)
-		throw Exception(ERR_REF_ATTRIB_INV_INDEX,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+	if(attrib > NullsFirst)
+		throw Exception(ErrorCode::RefAttributeInvalidIndex,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
 	sorting_attibs[attrib]=value;
 }
@@ -63,64 +63,74 @@ void Element::setSortingEnabled(bool value)
 	sorting_enabled=value;
 }
 
-bool Element::isSortingEnabled(void)
+bool Element::isSortingEnabled()
 {
-	return(sorting_enabled);
+	return sorting_enabled;
 }
 
 bool Element::getSortingAttribute(unsigned attrib)
 {
-	if(attrib > NULLS_FIRST)
-		throw Exception(ERR_REF_ATTRIB_INV_INDEX,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+	if(attrib > NullsFirst)
+		throw Exception(ErrorCode::RefAttributeInvalidIndex,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
-	return(sorting_attibs[attrib]);
+	return sorting_attibs[attrib];
 }
 
-Column *Element::getColumn(void)
+Column *Element::getColumn()
 {
-	return(column);
+	return column;
 }
 
-QString Element::getExpression(void)
+QString Element::getExpression()
 {
-	return(expression);
+	return expression;
 }
 
-OperatorClass *Element::getOperatorClass(void)
+OperatorClass *Element::getOperatorClass()
 {
-	return(operator_class);
+	return operator_class;
 }
 
 void Element::configureAttributes(attribs_map &attributes, unsigned def_type)
 {
-	attributes[ParsersAttributes::COLUMN]=QString();
-	attributes[ParsersAttributes::EXPRESSION]=QString();
-	attributes[ParsersAttributes::OP_CLASS]=QString();
-	attributes[ParsersAttributes::USE_SORTING]=(this->sorting_enabled ? ParsersAttributes::_TRUE_ : QString());
-	attributes[ParsersAttributes::NULLS_FIRST]=(this->sorting_enabled && this->sorting_attibs[NULLS_FIRST] ? ParsersAttributes::_TRUE_ : QString());
-	attributes[ParsersAttributes::ASC_ORDER]=(this->sorting_enabled && this->sorting_attibs[ASC_ORDER] ? ParsersAttributes::_TRUE_ : QString());
+	attributes[Attributes::Column]="";
+	attributes[Attributes::Expression]="";
+	attributes[Attributes::OpClass]="";
+	attributes[Attributes::UseSorting]=(this->sorting_enabled ? Attributes::True : "");
+	attributes[Attributes::NullsFirst]=(this->sorting_enabled && this->sorting_attibs[NullsFirst] ? Attributes::True : "");
+	attributes[Attributes::AscOrder]=(this->sorting_enabled && this->sorting_attibs[AscOrder] ? Attributes::True : "");
 
 
 	if(column)
-		attributes[ParsersAttributes::COLUMN]=column->getName(true);
+		attributes[Attributes::Column]=column->getName(true);
 	else
-		attributes[ParsersAttributes::EXPRESSION]=expression;
+		attributes[Attributes::Expression]=expression;
 
 	if(operator_class)
 	{
-		if(def_type==SchemaParser::SQL_DEFINITION)
-			attributes[ParsersAttributes::OP_CLASS]=operator_class->getName(true);
+		if(def_type==SchemaParser::SqlDefinition)
+			attributes[Attributes::OpClass]=operator_class->getName(true);
 		else
-			attributes[ParsersAttributes::OP_CLASS]=operator_class->getCodeDefinition(def_type, true);
+			attributes[Attributes::OpClass]=operator_class->getCodeDefinition(def_type, true);
 	}
+}
+
+bool Element::isEqualsTo(Element &elem)
+{
+  return (this->column == elem.column &&
+		 this->expression == elem.expression &&
+		 this->operator_class == elem.operator_class &&
+		 this->sorting_enabled == elem.sorting_enabled &&
+		 this->sorting_attibs[AscOrder] == elem.sorting_attibs[AscOrder] &&
+		 this->sorting_attibs[NullsFirst] == elem.sorting_attibs[NullsFirst]);
 }
 
 bool Element::operator == (Element &elem)
 {
-	return(this->column == elem.column &&
-		   this->expression == elem.expression &&
-		   this->operator_class == elem.operator_class &&
-		   this->sorting_enabled == elem.sorting_enabled &&
-		   this->sorting_attibs[ASC_ORDER] == elem.sorting_attibs[ASC_ORDER] &&
-		   this->sorting_attibs[NULLS_FIRST] == elem.sorting_attibs[NULLS_FIRST]);
+	return isEqualsTo(elem);
+}
+
+bool Element::operator == (const Element &elem)
+{
+	return isEqualsTo(const_cast<Element &>(elem));
 }

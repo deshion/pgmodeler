@@ -24,7 +24,10 @@ HEADERS +=  src/baseobjectview.h \
 	    src/objectsscene.h \
             src/schemaview.h \
             src/roundedrectitem.h \
-            src/styledtextboxview.h
+            src/styledtextboxview.h \
+	    src/beziercurveitem.h \
+	    src/textpolygonitem.h \
+    src/attributestoggleritem.h
 
 SOURCES +=  src/baseobjectview.cpp \
 	    src/textboxview.cpp \
@@ -37,7 +40,10 @@ SOURCES +=  src/baseobjectview.cpp \
 	    src/objectsscene.cpp \
 	    src/schemaview.cpp \
             src/roundedrectitem.cpp \
-            src/styledtextboxview.cpp
+            src/styledtextboxview.cpp \
+	    src/beziercurveitem.cpp \
+	    src/textpolygonitem.cpp \
+    src/attributestoggleritem.cpp
 
 unix|windows: LIBS += -L$$OUT_PWD/../libpgmodeler/ -lpgmodeler \
                     -L$$OUT_PWD/../libparsers/ -lparsers \

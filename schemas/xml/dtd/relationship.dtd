@@ -5,11 +5,13 @@
 <!ENTITY % label SYSTEM "label.dtd">
 %label;
 
-<!ELEMENT relationship (line*,label*,column*,constraint*,special-pk-cols?)>
+<!ELEMENT relationship (line*,label*,column*,constraint*,special-pk-cols?,expression?)>
 <!ATTLIST relationship name CDATA #REQUIRED>
+<!ATTLIST relationship layer CDATA #IMPLIED>
+<!ATTLIST relationship alias CDATA #IMPLIED>
 <!ATTLIST relationship src-required (false|true) "false">
 <!ATTLIST relationship dst-required (false|true) "false">
-<!ATTLIST relationship type (rel11|rel1n|relnn|relgen|reldep|reltv|relfk) "rel11">
+<!ATTLIST relationship type (rel11|rel1n|relnn|relgen|reldep|reltv|relfk|relpart) "rel11">
 <!ATTLIST relationship protected (false|true) "false">
 <!ATTLIST relationship src-table CDATA #REQUIRED>
 <!ATTLIST relationship dst-table CDATA #REQUIRED>
@@ -31,6 +33,7 @@
 <!ATTLIST relationship del-action CDATA #IMPLIED>
 <!ATTLIST relationship custom-color CDATA #IMPLIED>
 <!ATTLIST relationship single-pk-col CDATA #IMPLIED>
+<!ATTLIST relationship reference-fk CDATA #IMPLIED>
 <!ATTLIST relationship faded-out (false|true) "false">
 
 <!ELEMENT line (position+)>

@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,30 +18,15 @@
 
 #include "textboxwidget.h"
 
-TextboxWidget::TextboxWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_TEXTBOX)
+TextboxWidget::TextboxWidget(QWidget *parent): BaseObjectWidget(parent, ObjectType::Textbox)
 {
 	Ui_TextboxWidget::setupUi(this);
-	configureFormLayout(textbox_grid, OBJ_TEXTBOX);
+	configureFormLayout(textbox_grid, ObjectType::Textbox);
 
 	text_txt->removeEventFilter(this);
-	connect(color_select_tb, SIGNAL(clicked(void)), this, SLOT(selectTextColor(void)));
+	connect(color_select_tb, SIGNAL(clicked()), this, SLOT(selectTextColor()));
 
 	setMinimumSize(500, 200);
-}
-
-void TextboxWidget::hideEvent(QHideEvent *event)
-{
-	QPalette palette;
-
-	text_txt->clear();
-	bold_chk->setChecked(false);
-	italic_chk->setChecked(false);
-	underline_chk->setChecked(false);
-
-	palette.setColor(QPalette::Button, QColor(0,0,0));
-	color_select_tb->setPalette(palette);
-
-	BaseObjectWidget::hideEvent(event);
 }
 
 void TextboxWidget::setAttributes(DatabaseModel *model, OperationList *op_list, Textbox *txtbox, double obj_px, double obj_py)
@@ -53,21 +38,21 @@ void TextboxWidget::setAttributes(DatabaseModel *model, OperationList *op_list, 
 		color_select_tb->setPalette(palette);
 
 		text_txt->setPlainText(txtbox->getComment());
-		bold_chk->setChecked(txtbox->getTextAttribute(Textbox::BOLD_TXT));
-		italic_chk->setChecked(txtbox->getTextAttribute(Textbox::ITALIC_TXT));
-		underline_chk->setChecked(txtbox->getTextAttribute(Textbox::UNDERLINE_TXT));
+		bold_chk->setChecked(txtbox->getTextAttribute(Textbox::BoldText));
+		italic_chk->setChecked(txtbox->getTextAttribute(Textbox::ItalicText));
+		underline_chk->setChecked(txtbox->getTextAttribute(Textbox::UnderlineText));
 		font_size_sb->setValue(txtbox->getFontSize());
 	}
 
 	BaseObjectWidget::setAttributes(model, op_list, txtbox, nullptr, obj_px, obj_py);
 }
 
-void TextboxWidget::selectTextColor(void)
+void TextboxWidget::selectTextColor()
 {
 	QColorDialog color_dlg;
 	QPalette palette;
 
-	color_dlg.setWindowTitle(trUtf8("Select text color"));
+	color_dlg.setWindowTitle(tr("Select text color"));
 	color_dlg.setCurrentColor(color_select_tb->palette().color(QPalette::Button));
 	color_dlg.exec();
 
@@ -78,7 +63,7 @@ void TextboxWidget::selectTextColor(void)
 	}
 }
 
-void TextboxWidget::applyConfiguration(void)
+void TextboxWidget::applyConfiguration()
 {
 	try
 	{
@@ -88,9 +73,9 @@ void TextboxWidget::applyConfiguration(void)
 
 		txtbox=dynamic_cast<Textbox *>(this->object);
 		txtbox->setComment(text_txt->toPlainText().toUtf8());
-		txtbox->setTextAttribute(Textbox::ITALIC_TXT, italic_chk->isChecked());
-		txtbox->setTextAttribute(Textbox::BOLD_TXT, bold_chk->isChecked());
-		txtbox->setTextAttribute(Textbox::UNDERLINE_TXT, underline_chk->isChecked());
+		txtbox->setTextAttribute(Textbox::ItalicText, italic_chk->isChecked());
+		txtbox->setTextAttribute(Textbox::BoldText, bold_chk->isChecked());
+		txtbox->setTextAttribute(Textbox::UnderlineText, underline_chk->isChecked());
 		txtbox->setTextColor(color_select_tb->palette().color(QPalette::Button));
 		txtbox->setFontSize(font_size_sb->value());
 
@@ -100,7 +85,7 @@ void TextboxWidget::applyConfiguration(void)
 	catch(Exception &e)
 	{
 		cancelConfiguration();
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 

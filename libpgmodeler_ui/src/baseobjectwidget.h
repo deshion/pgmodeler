@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -37,18 +37,19 @@
 /* Declaring the PgSQLType class as a Qt metatype in order to permit
 	 that instances of the class be used as data of QVariant and QMetaType */
 #include <QMetaType>
-Q_DECLARE_METATYPE(PgSQLType)
+Q_DECLARE_METATYPE(PgSqlType)
 
 class BaseObjectWidget: public QWidget, public Ui::BaseObjectWidget {
 	private:
 		Q_OBJECT
 		
 	protected:
-		static const int MAX_OBJECT_SIZE=16777215;
-		static const QColor PROT_LINE_BGCOLOR,
-		PROT_LINE_FGCOLOR,
-		RELINC_LINE_BGCOLOR,
-		RELINC_LINE_FGCOLOR;
+		static constexpr int MaxObjectSize=16777215;
+
+		static const QColor ProtRowBgColor,
+		ProtRowFgColor,
+		RelAddedRowBgColor,
+		RelAddedRowFgColor;
 
 		bool object_protected;
 
@@ -102,56 +103,50 @@ class BaseObjectWidget: public QWidget, public Ui::BaseObjectWidget {
 		
 		/*! \brief Merges the specified grid layout with the 'baseobject_grid' creating a single form.
 			The obj_type parameter must be specified to show the object type icon */
-		void configureFormLayout(QGridLayout *grid=nullptr, ObjectType obj_type=BASE_OBJECT);
+		void configureFormLayout(QGridLayout *grid=nullptr, ObjectType obj_type=ObjectType::BaseObject);
 		
 		/*! \brief Starts a object configuration, alocating a new one if necessary, registering
 			the object on the operation list. This method doens't applies to database model edition */
 		template<class Class>
-		void startConfiguration(void);
+		void startConfiguration();
 		
 		/*! \brief Finishes the edition / creation of object, registering it on the operation list
 			and inserts is on the parent object */
-		void finishConfiguration(void);
-		
-		/*! \brief Aborts the object configuration, deallocation it if necessary or restoring it to
-			its previous configuration */
-		virtual void cancelConfiguration(void);
-		
+		void finishConfiguration();
+			
 		//! \brief Apply the basic configurations to the object (name, schema, comment, owner, tablespace)
-		virtual void applyConfiguration(void);
+		virtual void applyConfiguration();
 		
-		void hideEvent(QHideEvent *);
 		void showEvent(QShowEvent *);
 		
 		void setAttributes(DatabaseModel *model, OperationList *op_list,
 						   BaseObject *object, BaseObject *parent_obj=nullptr,
-						   double obj_px=NAN, double obj_py=NAN, bool uses_op_list=true);
+						   double obj_px=DNaN, double obj_py=DNaN, bool uses_op_list=true);
 		
 		/*! \brief This method is a simplification of the original setAttributes. This method must be used
 		only on forms that does not make use of operaton list and not treat graphical objects, since it calls
-		this original one whit the op_list=nullptr and obj_px=NAN, obj_py=NAN */
+		this original one whit the op_list=nullptr and obj_px=DoubleNaN, obj_py=DoubleNaN */
 		void setAttributes(DatabaseModel *model, BaseObject *object, BaseObject *parent_obj);
 		
 		//! \brief Disable the object's refereces SQL code
 		void disableReferencesSQL(BaseObject *object);
 		
 		void configureTabOrder(vector<QWidget *> widgets={});
-		
-		//! \brief Executes the proper actions to cancel chained operations.
-		void cancelChainedOperation(void);
-		
+
+		BaseObject *getHandledObject();
+			
 	public:
 		//! \brief Constants used to generate version intervals for version alert frame
-		static const unsigned UNTIL_VERSION=0,
-		VERSIONS_INTERVAL=1,
-		AFTER_VERSION=2;
+		static constexpr unsigned UntilVersion=0,
+		VersionsInterval=1,
+		AfterVersion=2;
 		
-		BaseObjectWidget(QWidget * parent = 0, ObjectType obj_type=BASE_OBJECT);
+		BaseObjectWidget(QWidget * parent = nullptr, ObjectType obj_type=ObjectType::BaseObject);
 		
-		virtual ~BaseObjectWidget(void);
+		virtual ~BaseObjectWidget();
 		
 		//! \brief Generates a string containing the specified version interval
-		static QString generateVersionsInterval(unsigned ver_interv_id, const QString &ini_ver, const QString &end_ver=QString());
+		static QString generateVersionsInterval(unsigned ver_interv_id, const QString &ini_ver, const QString &end_ver="");
 		
 		/*! \brief Generates a alert frame highlighting the fields of exclusive use on the specified
 			PostgreSQL versions. On the first map (fields) the key is the PostgreSQL versions and
@@ -161,31 +156,43 @@ class BaseObjectWidget: public QWidget, public Ui::BaseObjectWidget {
 		
 		//! \brief Generates a informative frame containing the specified message
 		static QFrame *generateInformationFrame(const QString &msg);
+
+		static void highlightVersionSpecificFields(map<QString, vector<QWidget *> > &fields, map<QWidget *, vector<QString> > *values=nullptr);
 		
 		//! \brief Highlights the specified widget as a required field
 		static void setRequiredField(QWidget *widget);
 		
 		//! \brief Filters the ENTER/RETURN key press forcing the button "Apply" to be clicked
-		bool eventFilter(QObject *object, QEvent *event);
+		bool eventFilter(QObject *obj, QEvent *event);
 
 		//! \brief Returns the kind of database object handled
-		ObjectType getHandledObjectType(void);
+		ObjectType getHandledObjectType();
 
-		virtual bool isHandledObjectProtected(void);
+		virtual bool isHandledObjectProtected();
 		
 	protected slots:
-		void editPermissions(void);
-		void editCustomSQL(void);
+		void editPermissions();
+		void editCustomSQL();
 		
 		//! \brief Register the new object in the operation history if it is not registered already
-		void registerNewObject(void);
+		void registerNewObject();
+
+		/*! \brief Aborts the object configuration, deallocation it if necessary or restoring it to
+			its previous configuration */
+		virtual void cancelConfiguration();
+
+		//! \brief Executes the proper actions to cancel chained operations.
+		virtual void cancelChainedOperation();
 		
 	signals:
 		//! \brief Signal emitted whenever a object is created / edited using the form
-		void s_objectManipulated(void);
+		void s_objectManipulated();
 
 		//! \brief Signal emitted whenever the object editing was successful and the form need to be closed
-		void s_closeRequested(void);
+		void s_closeRequested();
+
+	friend class BaseForm;
+	friend class ModelWidget;
 };
 
 template<class Class>
@@ -197,12 +204,12 @@ void BaseObjectWidget::startConfiguration(void)
 		
 		//! \brief If the object is already allocated
 		if(this->object && op_list &&
-				this->object->getObjectType()!=OBJ_DATABASE)
+				this->object->getObjectType()!=ObjectType::Database)
 		{
 			if(this->table)
-				op_list->registerObject(this->object, Operation::OBJECT_MODIFIED, -1, this->table);
+				op_list->registerObject(this->object, Operation::ObjectModified, -1, this->table);
 			else
-				op_list->registerObject(this->object, Operation::OBJECT_MODIFIED, -1, this->relationship);
+				op_list->registerObject(this->object, Operation::ObjectModified, -1, this->relationship);
 			new_object=false;
 		}
 		//! \brief If there is need to allocate the object
@@ -215,7 +222,7 @@ void BaseObjectWidget::startConfiguration(void)
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 

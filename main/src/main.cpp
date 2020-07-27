@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 # Also, you can get the complete GNU General Public License at <http://www.gnu.org/licenses/>
 */
 
-#include "application.h"
+#include "pgmodelerapp.h"
 #include "mainwindow.h"
 
 #ifndef Q_OS_WIN
@@ -38,12 +38,10 @@ void startCrashHandler(int signal)
 	symbols = backtrace_symbols(stack, stack_size);
 #endif
 
-	cmd=QString("\"%1\"").arg(GlobalAttributes::PGMODELER_CHANDLER_PATH) + QString(" -style ") + GlobalAttributes::DEFAULT_QT_STYLE;
+	cmd=QString("\"%1\"").arg(GlobalAttributes::getPgModelerCHandlerPath()) + QString(" -style ") + GlobalAttributes::DefaultQtStyle;
 
 	//Creates the stacktrace file
-	output.setFileName(GlobalAttributes::TEMPORARY_DIR +
-					   GlobalAttributes::DIR_SEPARATOR +
-					   GlobalAttributes::STACKTRACE_FILE);
+	output.setFileName(GlobalAttributes::getTemporaryFilePath(GlobalAttributes::StacktraceFile));
 	output.open(QFile::WriteOnly);
 
 	if(output.isOpen())
@@ -51,8 +49,8 @@ void startCrashHandler(int signal)
 		lin=QString("** pgModeler crashed after receive signal: %1 **\n\nDate/Time: %2 \nVersion: %3 \nBuild: %4 \n")
 			.arg(signal)
 			.arg(QDateTime::currentDateTime().toString(QString("yyyy-MM-dd hh:mm:ss")))
-			.arg(GlobalAttributes::PGMODELER_VERSION)
-			.arg(GlobalAttributes::PGMODELER_BUILD_NUMBER);
+			.arg(GlobalAttributes::PgModelerVersion)
+			.arg(GlobalAttributes::PgModelerBuildNumber);
 
 		lin+=QString("Compilation Qt version: %1\nRunning Qt version: %2\n\n")
 			 .arg(QT_VERSION_STR)
@@ -88,7 +86,7 @@ int main(int argc, char **argv)
 	try
 	{
 		/* Registering the below classes as metatypes in order to make
-	them liable to be sent through signal parameters. */
+		 * them liable to be sent through signal parameters. */
 		qRegisterMetaType<ObjectType>("ObjectType");
 		qRegisterMetaType<Exception>("Exception");
 		qRegisterMetaType<ValidationInfo>("ValidationInfo");
@@ -104,19 +102,15 @@ int main(int argc, char **argv)
 		for(int i=0; i < argc && !using_style; i++)
 			using_style=QString(argv[i]).contains("-style");
 
-		Application::setAttribute(Qt::AA_UseHighDpiPixmaps);
+		PgModelerApp::setAttribute(Qt::AA_UseHighDpiPixmaps);
+		Application::setAttribute(Qt::AA_EnableHighDpiScaling);
 
-		//High DPI suport via application attributes is available only from Qt 5.6.0
-		#if (QT_VERSION >= QT_VERSION_CHECK(5, 6, 0))
-			Application::setAttribute(Qt::AA_EnableHighDpiScaling);
-		#endif
-
-		Application app(argc,argv);
+		PgModelerApp app(argc,argv);
 		int res=0;
 
 		//If no custom style is specified we force the usage of Fusion (the default for Qt and pgModeler)
 		if(!using_style)
-			app.setStyle(GlobalAttributes::DEFAULT_QT_STYLE);
+			app.setStyle(GlobalAttributes::DefaultQtStyle);
 
 		//Loading the application splash screen
 		QSplashScreen splash;
@@ -129,6 +123,9 @@ int main(int argc, char **argv)
 		//Creates the main form
 		MainWindow fmain;
 
+		fmain.show();
+		splash.finish(&fmain);
+
 		//Loading models via command line on MacOSX are disabled until the file association work correclty on that system
 #ifndef Q_OS_MAC
 		QStringList params=app.arguments();
@@ -139,17 +136,15 @@ int main(int argc, char **argv)
 			fmain.loadModels(params);
 #endif
 
-		fmain.showMaximized();
-		splash.finish(&fmain);
-		res=app.exec();
+		res = app.exec();
 		app.closeAllWindows();
 
-		return(res);
+		return res;
 	}
 	catch(Exception &e)
 	{
 		QTextStream ts(stdout);
 		ts << e.getExceptionsText();
-		return(e.getErrorType());
+		return enum_cast(e.getErrorCode());
 	}
 }

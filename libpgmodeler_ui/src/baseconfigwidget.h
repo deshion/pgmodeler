@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@
 
 #include "exception.h"
 #include "xmlparser.h"
-#include "parsersattributes.h"
+#include "attributes.h"
 #include <algorithm>
 #include <QWidget>
 
@@ -40,7 +40,7 @@ class BaseConfigWidget: public QWidget {
 		bool config_changed;
 		
 	protected:
-		XMLParser xmlparser;
+		XmlParser xmlparser;
 		SchemaParser schparser;
 		
 		/*! \brief Saves the configuration params on file. The conf_id param indicates the type of
@@ -55,8 +55,9 @@ class BaseConfigWidget: public QWidget {
 		//! \brief Get a configuratoin key from the xml parser
 		void getConfigurationParams(map<QString, attribs_map> &config_params, const vector<QString> &key_attribs);
 		
-		//! \brief Restore the configuration specified by conf_in loading them from the original file (conf/defaults)
-		void restoreDefaults(const QString &conf_id);
+		/*! \brief Restore the configuration specified by conf_in loading them from the original file (conf/defaults)
+		 * The silent parameter indicates that the restoration should not emit a message box informing the restoration sucess */
+		void restoreDefaults(const QString &conf_id, bool silent);
 		
 		//! \brief Adds a parameter to the specified configuration parameters set
 		static void addConfigurationParam(map<QString, attribs_map> &config_params, const QString &param, const attribs_map &attribs);
@@ -64,10 +65,10 @@ class BaseConfigWidget: public QWidget {
 		void showEvent(QShowEvent *);
 		
 	public:
-		BaseConfigWidget(QWidget *parent = 0);
+		BaseConfigWidget(QWidget *parent = nullptr);
 		~BaseConfigWidget(void){}
 		
-		bool isConfigurationChanged(void);
+		bool isConfigurationChanged();
 		
 		//! \brief Applies the configuration to object
 		virtual void applyConfiguration(void)=0;

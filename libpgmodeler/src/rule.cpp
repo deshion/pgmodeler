@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,18 +18,18 @@
 
 #include "rule.h"
 
-Rule::Rule(void)
+Rule::Rule()
 {
-	execution_type=BaseType::null;
-	obj_type=OBJ_RULE;
-	attributes[ParsersAttributes::EVENT_TYPE]=QString();
-	attributes[ParsersAttributes::TABLE]=QString();
-	attributes[ParsersAttributes::CONDITION]=QString();
-	attributes[ParsersAttributes::EXEC_TYPE]=QString();
-	attributes[ParsersAttributes::COMMANDS]=QString();
+	execution_type=BaseType::Null;
+	obj_type=ObjectType::Rule;
+	attributes[Attributes::EventType]="";
+	attributes[Attributes::Table]="";
+	attributes[Attributes::Condition]="";
+	attributes[Attributes::ExecType]="";
+	attributes[Attributes::Commands]="";
 }
 
-void Rule::setCommandsAttribute(void)
+void Rule::setCommandsAttribute()
 {
 	QString str_cmds;
 	unsigned i, qtd;
@@ -41,7 +41,7 @@ void Rule::setCommandsAttribute(void)
 		if(i < (qtd-1)) str_cmds+=QString(";");
 	}
 
-	attributes[ParsersAttributes::COMMANDS]=str_cmds;
+	attributes[Attributes::Commands]=str_cmds;
 }
 
 void Rule::setEventType(EventType type)
@@ -66,7 +66,7 @@ void Rule::addCommand(const QString &cmd)
 {
 	//Raises an error if the command is empty
 	if(cmd.isEmpty())
-		throw Exception(ERR_INS_EMPTY_RULE_COMMAND,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+		throw Exception(ErrorCode::InsEmptyRuleCommand,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 	else
 	{
 		QString cmd_aux=cmd;
@@ -76,46 +76,46 @@ void Rule::addCommand(const QString &cmd)
 	}
 }
 
-EventType Rule::getEventType(void)
+EventType Rule::getEventType()
 {
-	return(event_type);
+	return event_type;
 }
 
-ExecutionType Rule::getExecutionType(void)
+ExecutionType Rule::getExecutionType()
 {
-	return(execution_type);
+	return execution_type;
 }
 
-QString Rule::getConditionalExpression(void)
+QString Rule::getConditionalExpression()
 {
-	return(conditional_expr);
+	return conditional_expr;
 }
 
 QString Rule::getCommand(unsigned cmd_idx)
 {
 	//Raises an error if the command index is out of bound
 	if(cmd_idx >= commands.size())
-		throw Exception(ERR_REF_RULE_CMD_INV_INDEX,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+		throw Exception(ErrorCode::RefRuleCommandInvalidIndex,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
-	return(commands[cmd_idx]);
+	return commands[cmd_idx];
 }
 
-unsigned Rule::getCommandCount(void)
+unsigned Rule::getCommandCount()
 {
-	return(commands.size());
+	return commands.size();
 }
 
 void Rule::removeCommand(unsigned cmd_idx)
 {
 	//Raises an error if the command index is out of bound
 	if(cmd_idx>=commands.size())
-		throw Exception(ERR_REF_RULE_CMD_INV_INDEX,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+		throw Exception(ErrorCode::RefRuleCommandInvalidIndex,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
 	commands.erase(commands.begin() + cmd_idx);
 	setCodeInvalidated(true);
 }
 
-void Rule::removeCommands(void)
+void Rule::removeCommands()
 {
 	commands.clear();
 	setCodeInvalidated(true);
@@ -124,23 +124,23 @@ void Rule::removeCommands(void)
 QString Rule::getCodeDefinition(unsigned def_type)
 {
 	QString code_def=getCachedCode(def_type, false);
-	if(!code_def.isEmpty()) return(code_def);
+	if(!code_def.isEmpty()) return code_def;
 
 	setCommandsAttribute();
-	attributes[ParsersAttributes::CONDITION]=conditional_expr;
-	attributes[ParsersAttributes::EXEC_TYPE]=(~execution_type);
-	attributes[ParsersAttributes::EVENT_TYPE]=(~event_type);
+	attributes[Attributes::Condition]=conditional_expr;
+	attributes[Attributes::ExecType]=(~execution_type);
+	attributes[Attributes::EventType]=(~event_type);
 
 	if(getParentTable())
-		attributes[ParsersAttributes::TABLE]=getParentTable()->getName(true);
+		attributes[Attributes::Table]=getParentTable()->getName(true);
 
-	return(BaseObject::__getCodeDefinition(def_type));
+	return BaseObject::__getCodeDefinition(def_type);
 }
 
 QString Rule::getSignature(bool format)
 {
 	if(!getParentTable())
-		return(BaseObject::getSignature(format));
+		return BaseObject::getSignature(format);
 
-	return(QString("%1 ON %2").arg(this->getName(format)).arg(getParentTable()->getSignature(true)));
+	return QString("%1 ON %2").arg(this->getName(format)).arg(getParentTable()->getSignature(true));
 }

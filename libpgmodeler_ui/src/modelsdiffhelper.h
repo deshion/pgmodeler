@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,6 +33,15 @@ class ModelsDiffHelper: public QObject {
 	private:
 		Q_OBJECT
 
+		//! \brief List of attributes ignored when comparing XML code of table children objects
+		static const vector<QString> TableObjsIgnoredAttribs,
+
+		//! \brief List of attributes ignored when comparing XML code of database objects
+		ObjectsIgnoredAttribs,
+
+		//! \brief List of tags ignored when comparing XML code of database objects
+		ObjectsIgnoredTags;
+
 		//! \brief Stores the SQL code that represents the diff between model and database
 		QString diff_def,
 
@@ -43,7 +52,7 @@ class ModelsDiffHelper: public QObject {
 		bool diff_canceled,
 
 		//!brief Diff options. See OPT_??? constants
-		diff_opts[9];
+		diff_opts[10];
 
 		//! \brief Stores the count of objects to be dropped, changed or created
 		unsigned diffs_counter[4];
@@ -60,11 +69,13 @@ class ModelsDiffHelper: public QObject {
 		//! \brief Stores all temporary objects created during the diff process
 		vector<BaseObject *> tmp_objects;
 
+		map<unsigned, BaseObject *> filtered_objs;
+
 		/*! note The parameter diff_type in any methods below is one of the values in
-		ObjectsDiffInfo::CREATE_OBJECT|ALTER_OBJECT|DROP_OBJECT */
+		ObjectsDiffInfo::CreateObject|AlterObject|DropObject */
 
 		//! \brief Compares two tables storing the diff between them in the diff_infos vector.
-		void diffTables(Table *src_table, Table *imp_table, unsigned diff_type);
+		void diffTables(PhysicalTable *src_table, PhysicalTable *imp_table, unsigned diff_type);
 
 		//! \brief Compares the two models storing the diff between them in the diff_infos vector.
 		void diffModels(unsigned diff_type);
@@ -73,12 +84,18 @@ class ModelsDiffHelper: public QObject {
 		model depending on the diff_type parameter. */
 		void diffTableObject(TableObject *tab_obj, unsigned diff_type);
 
+		/*! \brief Compares the two tables' columns and if needed generates the CREATE statments for the missing ones in child_tab.
+		 * This is used when a new inheritance relationship is detected between two tables that previously were not parent and child.
+		 * In that case, PostgreSQL obligates that the child has at least the same columns as the parent so the inheritance can be
+		 * created correctly. */
+		void diffColsInheritance(PhysicalTable *parent_tab, PhysicalTable *child_tab);
+
 		//! \brief Creates a diff info instance storing in o diff_infos vector
 		void generateDiffInfo(unsigned diff_type, BaseObject *object, BaseObject *old_object=nullptr);
 
 		/*! \brief Processes the generated diff infos resulting in a SQL buffer with the needed commands
 		to synchronize both model and database */
-		void processDiffInfos(void);
+		void processDiffInfos();
 
 		/*! \brief Generates the proper DROP and CREATE for the specified object and its references. This method
 		is used when the force_recreation is true and the object in the parameter is marked with an ALTER_OBJECT */
@@ -94,50 +111,67 @@ class ModelsDiffHelper: public QObject {
 		QString getCodeDefinition(BaseObject *object, bool drop_cmd);
 
 		//! \brief Destroy the temporary objects and clears the diff info list
-		void destroyTempObjects(void);
+		void destroyTempObjects();
 
 		BaseObject *getRelNNTable(const QString &obj_name, DatabaseModel *model);
 
 	public:
-		static const unsigned OPT_KEEP_CLUSTER_OBJS=0,
+		static constexpr unsigned OptKeepClusterObjs=0,
 
 		//! \brief Indicates if any DROP/TRUNCATE generated must be in cascade mode
-		OPT_CASCADE_MODE=1,
+		OptCascadeMode=1,
 
 		//! \brief Forces the recreation of any object maked as ALTER in the output
-		OPT_FORCE_RECREATION=2,
+		OptForceRecreation=2,
 
 		//! \brief Recreates only objects that can't be modified using ALTER commands
-		OPT_RECREATE_UNCHANGEBLE=3,
+		OptRecreateUnmodifiable=3,
 
 		//! \brief Generate a TRUNCATE command for every table which columns was modified in their data types
-		OPT_TRUCANTE_TABLES=4,
+		OptTruncateTables=4,
 
 		//! \brief Indicates if permissions must be preserved on database
-		OPT_KEEP_OBJ_PERMS=5,
+		OptKeepObjectPerms=5,
 
 		/*! \brief Indicates that existing sequences must be reused in serial columns. Since serial columns are converted
 		into integer and a new sequence created and assigned as nextval(sequence) default value for those columns,
 		if reuse is enabled, new sequences will not be created instead the ones which name matches the column's default
 		value will be reused */
-		OPT_REUSE_SEQUENCES=6,
+		OptReuseSequences=6,
 
 		//! \brief Indicates to not generate and execute commands to rename the destination database
-		OPT_PRESERVE_DB_NAME=7,
+		OptPreserveDbName=7,
 
 		/*! \brief Indicates to not generate and execute commands to drop missing objects. For instance, if user
 		try to diff a partial model against the original database DROP commands will be generated, this option
 		will avoid this situation and preserve the missing (not imported) objects. */
-		OPT_KEEP_NOT_IMPORTED_OBJS=8;
+		OptDontDropMissingObjs=8,
 
+		/*! \brief Indicates to generate and execute commands to drop missing columns and constraints. For instance, if user
+		try to diff a partial model against the original database and the OPT_DONT_DROP_MISSING_OBJS is set, DROP commands will not be generated,
+		except for columns and constraints. This option is only considered in the process when OPT_DONT_DROP_MISSING_OBJS is enabled. */
+		OptDropMissingColsConstr=9;
 
-		ModelsDiffHelper(void);
-		~ModelsDiffHelper(void);
+		ModelsDiffHelper();
+		virtual ~ModelsDiffHelper();
 
 		/*! \brief Configures the models to be compared. It is assumed that src_model is the reference model
 		from which all changes must be collected and applied to the database. The imp_model is the
 		database model that represents the current arrange of the database. */
 		void setModels(DatabaseModel *src_model, DatabaseModel *imp_model);
+
+		/*! \brief Specifies a list of filtered objects to be used in the partial diff
+		 * This is only useful when performing a partial diff between a model and a database.
+		 * This method makes extra treatment in the provided objects list in order to specify to the
+		 * diff process their correct creation order */
+		void setFilteredObjects(const vector<BaseObject *> &objects);
+
+		/*! \brief This utility method scans the provided list of filtered objects and produces filters
+		 * for peer tables related to inheritance/partitioning or the generated tables of many-to-many
+		 * relationships. The parameter use_signature indicates that the filter pattern should be constructed
+		 * based on the object's signatures instead their names. This is used by the diff form and cli to
+		 * perform partial diffs between a database model and a database. */
+		static QStringList getRelationshipFilters(const vector<BaseObject *> &objects, bool use_signature);
 
 		//! \brief Toggles a diff option throught the OPT_xxx constants
 		void setDiffOption(unsigned opt_id, bool value);
@@ -149,24 +183,24 @@ class ModelsDiffHelper: public QObject {
 		unsigned getDiffTypeCount(unsigned diff_type);
 
 		//! \brief Reset all the diff info counters in order to restart the diff process
-		void resetDiffCounter(void);
+		void resetDiffCounter();
 
 		//! \brief Returns the diff containing all the SQL commands needed to synchronize the model and database
-		QString getDiffDefinition(void);
+		QString getDiffDefinition();
 
 	public slots:
-		void diffModels(void);
-		void cancelDiff(void);
+		void diffModels();
+		void cancelDiff();
 
 	signals:
 		//! \brief This singal is emitted whenever the diff progress changes
-		void s_progressUpdated(int progress, QString msg, ObjectType obj_type=BASE_OBJECT);
+		void s_progressUpdated(int progress, QString msg, ObjectType obj_type=ObjectType::BaseObject);
 
 		//! \brief This signal is emited when the diff has finished
-		void s_diffFinished(void);
+		void s_diffFinished();
 
 		//! \brief This signal is emited when the diff has been canceled
-		void s_diffCanceled(void);
+		void s_diffCanceled();
 
 		//! \brief This signal is emited when the diffhas encountered a critical error (only in thread mode)
 		void s_diffAborted(Exception e);

@@ -1,5 +1,4 @@
 # SQL definition for domains
-# PostgreSQL Version: 9.x
 # CAUTION: Do not modify this file unless you know what you are doing.
 #          Code generation can be broken if incorrect changes are made.
 
@@ -26,15 +25,8 @@
  $br $tb [NOT NULL]
 %end
 
-%if {expression} %then
-
- $br $tb
-
- %if {constraint} %then
-   [CONSTRAINT ] {constraint} $sp
- %end
-
- [CHECK ] ({expression})
+%if {constraints} %then
+  {constraints}
 %end
 
 ;$br

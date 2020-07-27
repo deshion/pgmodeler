@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -38,7 +38,7 @@ class ModelObjectsWidget: public QWidget, public Ui::ModelObjectsWidget {
 		/*! \brief Indicates if the widget must be used as a simplified view (without the most interactions).
 		The purpose to use it as simplified view is to be serve as a object pick commonly used on the
 		object selectors. See ObjectSelectorWidget for details. */
-		bool	simplified_view,
+		bool simplified_view,
 
 		/*! \brief Indicates if the object tree state must be saved, this means, that the current item
 					expansion is memorized and can be restored at any moment via restoreTreeState() method */
@@ -49,8 +49,8 @@ class ModelObjectsWidget: public QWidget, public Ui::ModelObjectsWidget {
 		of the widget is to allow the object management */
 		enable_obj_creation;
 
-		//! \brief Stores the reference to the object currently selected on the tree/list
-		BaseObject *selected_object;
+		//! \brief Stores the objects currently selected on the tree/list
+		vector<BaseObject *> selected_objs;
 
 		/*! \brief Stores the  initial splitter size to be used in conjunction with the
 		object type visualization buttons */
@@ -68,8 +68,9 @@ class ModelObjectsWidget: public QWidget, public Ui::ModelObjectsWidget {
 		//! \brief Updates only a schema tree starting from the 'root' item
 		void updateSchemaTree(QTreeWidgetItem *root);
 
-		//! \brief Updates only a table tree starting from the 'root' item
-		void updateTableTree(QTreeWidgetItem *root, BaseObject *schema);
+		/*! \brief Updates only a table / foreign table tree starting from the 'root' item.
+		 * table_type must be ObjectType::Table or ObjectType::ForeignTable */
+		void updateTableTree(QTreeWidgetItem *root, BaseObject *schema, ObjectType table_type);
 
 		//! \brief Updates only a view tree starting from the 'root' item
 		void updateViewTree(QTreeWidgetItem *root, BaseObject *schema);
@@ -78,10 +79,10 @@ class ModelObjectsWidget: public QWidget, public Ui::ModelObjectsWidget {
 		void updatePermissionTree(QTreeWidgetItem *root, BaseObject *object);
 
 		//! \brief Updates the whole database object tree
-		void updateDatabaseTree(void);
+		void updateDatabaseTree();
 
 		//! \brief Updates the whole object list
-		void updateObjectsList(void);
+		void updateObjectsList();
 
 		//! \brief Returns an item from the tree related to the specified object reference
 		QTreeWidgetItem *getTreeItem(BaseObject *object);
@@ -98,9 +99,9 @@ class ModelObjectsWidget: public QWidget, public Ui::ModelObjectsWidget {
 		bool eventFilter(QObject *object, QEvent *event);
 
 	public:
-		ModelObjectsWidget(bool simplified_view=false, QWidget * parent = 0);
+		ModelObjectsWidget(bool simplified_view=false, QWidget * parent = nullptr);
 
-		BaseObject *getSelectedObject(void);
+		BaseObject *getSelectedObject();
 
 		//! \brief Enables the object creation in simplified view by exposing the popup menu "New [object]"
 		void enableObjectCreation(bool value);
@@ -115,23 +116,25 @@ class ModelObjectsWidget: public QWidget, public Ui::ModelObjectsWidget {
 		//! \brief Defines if the widget must save/restore the tree state automaticaly
 		void saveTreeState(bool value);
 
+		void clearSelectedObject();
+
 	public slots:
 		void setModel(ModelWidget *model_wgt);
 		void setModel(DatabaseModel *db_model);
-		void changeObjectsView(void);
-		void updateObjectsView(void);
+		void changeObjectsView();
+		void updateObjectsView();
 		void setObjectVisible(ObjectType obj_type, bool visible);
-		void close(void);
-		void hide(void);
+		void close();
+		void hide();
 
 	private slots:
 		void setObjectVisible(QListWidgetItem *item);
 		void setAllObjectsVisible(bool value);
-		void selectObject(void);
-		void showObjectMenu(void);
-		void editObject(void);
-		void collapseAll(void);
-		void filterObjects(void);
+		void selectObject();
+		void showObjectMenu();
+		void editObject();
+		void collapseAll();
+		void filterObjects();
 		void selectCreatedObject(BaseObject *obj);
 
 	signals:

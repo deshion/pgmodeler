@@ -1,5 +1,4 @@
 # SQL definition for extensions
-# PostgreSQL Version: 9.x
 # CAUTION: Do not modify this file unless you know what you are doing.
 #          Code generation can be broken if incorrect changes are made.
 
@@ -15,14 +14,17 @@
  %end
 
   [CREATE EXTENSION ] {name} $br
-  [      WITH SCHEMA ] {schema}
+  
+  %if {schema} %then
+   [WITH SCHEMA ] {schema}
+  %end
     
   %if {cur-version} %then
-    $br [      VERSION ] '{cur-version}'
+    $br [VERSION ] '{cur-version}'
   %end
   
   %if {old-version} %then
-    $br [      FROM ] '{old-version}'
+    $br [FROM ] '{old-version}'
   %end
 
   ; $br

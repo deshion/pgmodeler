@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,48 +19,59 @@
 #include "connection.h"
 #include <QTextStream>
 #include <iostream>
-#include "parsersattributes.h"
+#include "attributes.h"
+#include "globalattributes.h"
+#include "qtcompat/qtextstreamcompat.h"
 
-const QString Connection::SSL_DESABLE=QString("disable");
-const QString Connection::SSL_ALLOW=QString("allow");
-const QString Connection::SSL_PREFER=QString("prefer");
-const QString Connection::SSL_REQUIRE=QString("require");
-const QString Connection::SSL_CA_VERIF=QString("verify-ca");
-const QString Connection::SSL_FULL_VERIF=QString("verify-full");
-const QString Connection::PARAM_ALIAS=QString("alias");
-const QString Connection::PARAM_SERVER_FQDN=QString("host");
-const QString Connection::PARAM_SERVER_IP=QString("hostaddr");
-const QString Connection::PARAM_PORT=QString("port");
-const QString Connection::PARAM_DB_NAME=QString("dbname");
-const QString Connection::PARAM_USER=QString("user");
-const QString Connection::PARAM_PASSWORD=QString("password");
-const QString Connection::PARAM_CONN_TIMEOUT=QString("connect_timeout");
-const QString Connection::PARAM_OTHERS=QString("options");
-const QString Connection::PARAM_SSL_MODE=QString("sslmode");
-const QString Connection::PARAM_SSL_CERT=QString("sslcert");
-const QString Connection::PARAM_SSL_KEY=QString("sslkey");
-const QString Connection::PARAM_SSL_ROOT_CERT=QString("sslrootcert");
-const QString Connection::PARAM_SSL_CRL=QString("sslcrl");
-const QString Connection::PARAM_KERBEROS_SERVER=QString("krbsrvname");
-const QString Connection::PARAM_LIB_GSSAPI=QString("gsslib");
+const QString Connection::SslDisable=QString("disable");
+const QString Connection::SslAllow=QString("allow");
+const QString Connection::SslPrefer=QString("prefer");
+const QString Connection::SslRequire=QString("require");
+const QString Connection::SslCaVerify=QString("verify-ca");
+const QString Connection::SslFullVerify=QString("verify-full");
 
-const QString Connection::SERVER_PID=QString("server-pid");
-const QString Connection::SERVER_PROTOCOL=QString("server-protocol");
-const QString Connection::SERVER_VERSION=QString("server-version");
+const QString Connection::ParamAlias=QString("alias");
+const QString Connection::ParamApplicationName=QString("application_name");
+const QString Connection::ParamServerFqdn=QString("host");
+const QString Connection::ParamServerIp=QString("hostaddr");
+const QString Connection::ParamPort=QString("port");
+const QString Connection::ParamDbName=QString("dbname");
+const QString Connection::ParamUser=QString("user");
+const QString Connection::ParamPassword=QString("password");
+const QString Connection::ParamConnTimeout=QString("connect_timeout");
+const QString Connection::ParamOthers=QString("options");
+const QString Connection::ParamSslMode=QString("sslmode");
+const QString Connection::ParamSslCert=QString("sslcert");
+const QString Connection::ParamSslKey=QString("sslkey");
+const QString Connection::ParamSslRootCert=QString("sslrootcert");
+const QString Connection::ParamSslCrl=QString("sslcrl");
+const QString Connection::ParamKerberosServer=QString("krbsrvname");
+const QString Connection::ParamLibGssapi=QString("gsslib");
+
+const QString Connection::ServerPid=QString("server-pid");
+const QString Connection::ServerProtocol=QString("server-protocol");
+const QString Connection::ServerVersion=QString("server-version");
 
 bool Connection::notice_enabled=false;
 bool Connection::print_sql=false;
 bool Connection::silence_conn_err=true;
 QStringList Connection::notices;
 
-Connection::Connection(void)
+Connection::Connection()
 {
 	connection=nullptr;
 	auto_browse_db=false;	
 	cmd_exec_timeout=0;
 
-	for(unsigned idx=OP_VALIDATION; idx <= OP_DIFF; idx++)
+	for(unsigned idx=OpValidation; idx <= OpDiff; idx++)
 		default_for_oper[idx]=false;
+
+	setConnectionParam(ParamApplicationName, GlobalAttributes::PgModelerAppName);
+}
+
+Connection::Connection(const Connection &conn) : Connection()
+{
+   setConnectionParams(conn.getConnectionParams());
 }
 
 Connection::Connection(const attribs_map &params) : Connection()
@@ -68,7 +79,7 @@ Connection::Connection(const attribs_map &params) : Connection()
 	setConnectionParams(params);
 }
 
-Connection::~Connection(void)
+Connection::~Connection()
 {
 	if(connection)
 	{
@@ -89,16 +100,16 @@ void Connection::setConnectionParam(const QString &param, const QString &value)
 
 	//Raise an error in case the param name is empty
 	if(param.isEmpty())
-		throw Exception(ERR_ASG_INV_CONN_PARAM, __PRETTY_FUNCTION__, __FILE__, __LINE__);
+		throw Exception(ErrorCode::AsgInvalidConnParameter, __PRETTY_FUNCTION__, __FILE__, __LINE__);
 
 	/* Set the value to the specified param on the map.
 
 	One special case is treated here, if user use the parameter SERVER_FQDN and the value
 	is a IP address, the method will assign the value to the SERVER_IP parameter */
-	if(param==PARAM_SERVER_FQDN && ip_regexp.exactMatch(value))
+	if(param==ParamServerFqdn && ip_regexp.exactMatch(value))
 	{
-		connection_params[Connection::PARAM_SERVER_IP]=value;
-		connection_params[Connection::PARAM_SERVER_FQDN]=QString();
+		connection_params[Connection::ParamServerIp]=value;
+		connection_params[Connection::ParamServerFqdn]="";
 	}
 	else
 		connection_params[param]=value;
@@ -118,38 +129,41 @@ void Connection::setAutoBrowseDB(bool value)
 	auto_browse_db=value;
 }
 
-void Connection::generateConnectionString(void)
+void Connection::generateConnectionString()
 {
-	attribs_map::iterator itr;
-	QString value;
-
-	itr=connection_params.begin();
+	QString value, param_str = QString("%1=%2 ");
 
 	//Scans the parameter map concatening the params (itr->first) / values (itr->second)
-	connection_str=QString();
-	while(itr!=connection_params.end())
+	connection_str.clear();
+
+	for(auto &itr : connection_params)
 	{
-		if(itr->first!=PARAM_ALIAS)
+		if(itr.first!=ParamAlias)
 		{
-			value=itr->second;
+			value=itr.second;
 
 			value.replace("\\","\\\\");
 			value.replace("'","\\'");
 
-			if(itr->first==PARAM_PASSWORD && (value.contains(' ') || value.isEmpty()))
+			if(itr.first==ParamPassword && (value.contains(' ') || value.isEmpty()))
 				value=QString("'%1'").arg(value);
 
 			if(!value.isEmpty())
 			{
-				if(itr->first!=PARAM_OTHERS)
-					connection_str+=itr->first + "=" + value + " ";
+				if(itr.first==ParamDbName)
+					connection_str.prepend(param_str.arg(itr.first).arg(value));
+				else if(itr.first!=ParamOthers)
+					connection_str+=param_str.arg(itr.first).arg(value);
 				else
 					connection_str+=value;
 			}
 		}
-
-		itr++;
 	}
+
+	if(!connection_str.contains(ParamDbName) ||
+		 (!connection_str.contains(ParamServerFqdn) &&
+			!connection_str.contains(ParamServerIp)))
+		connection_str.clear();
 }
 
 void Connection::noticeProcessor(void *, const char *message)
@@ -157,7 +171,7 @@ void Connection::noticeProcessor(void *, const char *message)
 	notices.push_back(QString(message));
 }
 
-void Connection::validateConnectionStatus(void)
+void Connection::validateConnectionStatus()
 {
 	if(cmd_exec_timeout > 0)
 	{
@@ -167,15 +181,15 @@ void Connection::validateConnectionStatus(void)
 		if(dt >= cmd_exec_timeout)
 		{
 			close();
-			throw Exception(ERR_CONNECTION_TIMEOUT, __PRETTY_FUNCTION__, __FILE__, __LINE__);
+			throw Exception(ErrorCode::ConnectionTimeout, __PRETTY_FUNCTION__, __FILE__, __LINE__);
 		}
 	}
 
 	if(PQstatus(connection)==CONNECTION_BAD)
-		throw Exception(Exception::getErrorMessage(ERR_CONNECTION_BROKEN)
-										.arg(connection_params[PARAM_SERVER_FQDN].isEmpty() ? connection_params[PARAM_SERVER_IP] : connection_params[PARAM_SERVER_FQDN])
-										.arg(connection_params[PARAM_PORT]),
-										ERR_CONNECTION_BROKEN, __PRETTY_FUNCTION__, __FILE__, __LINE__);
+		throw Exception(Exception::getErrorMessage(ErrorCode::ConnectionBroken)
+										.arg(connection_params[ParamServerFqdn].isEmpty() ? connection_params[ParamServerIp] : connection_params[ParamServerFqdn])
+										.arg(connection_params[ParamPort]),
+										ErrorCode::ConnectionBroken, __PRETTY_FUNCTION__, __FILE__, __LINE__);
 }
 
 void Connection::setNoticeEnabled(bool value)
@@ -183,9 +197,9 @@ void Connection::setNoticeEnabled(bool value)
 	notice_enabled=value;
 }
 
-bool Connection::isNoticeEnabled(void)
+bool Connection::isNoticeEnabled()
 {
-	return(notice_enabled);
+	return notice_enabled;
 }
 
 void Connection::setPrintSQL(bool value)
@@ -193,9 +207,9 @@ void Connection::setPrintSQL(bool value)
 	print_sql=value;
 }
 
-bool Connection::isSQLPrinted(void)
+bool Connection::isSQLPrinted()
 {
-	return(print_sql);
+	return print_sql;
 }
 
 void Connection::setSilenceConnError(bool value)
@@ -203,27 +217,27 @@ void Connection::setSilenceConnError(bool value)
 	silence_conn_err=value;
 }
 
-bool Connection::isConnErrorSilenced(void)
+bool Connection::isConnErrorSilenced()
 {
-	return(silence_conn_err);
+	return silence_conn_err;
 }
 
-void Connection::connect(void)
+void Connection::connect()
 {
 	/* If the connection string is not established indicates that the user
 		is trying to connect without configuring connection parameters,
 		thus an error is raised */
 	if(connection_str.isEmpty())
-		throw Exception(ERR_CONNECTION_NOT_CONFIGURED, __PRETTY_FUNCTION__, __FILE__, __LINE__);
+		throw Exception(ErrorCode::ConnectionNotConfigured, __PRETTY_FUNCTION__, __FILE__, __LINE__);
 	else if(connection)
 	{
 		if(!silence_conn_err)
-			throw Exception(ERR_CONNECTION_ALREADY_STABLISHED, __PRETTY_FUNCTION__, __FILE__, __LINE__);
+			throw Exception(ErrorCode::ConnectionAlreadyStablished, __PRETTY_FUNCTION__, __FILE__, __LINE__);
 		else
 		{
 			QTextStream err(stderr);
-			err << QT_TR_NOOP("ERROR: trying to open an already stablished connection.") << endl
-				<< QString("Conn. info: [ ") << connection_str << QString("]") << endl;
+			err << QT_TR_NOOP("ERROR: trying to open an already stablished connection.") << QtCompat::endl
+				<< QString("Conn. info: [ ") << connection_str << QString("]") << QtCompat::endl;
 			this->close();
 		}
 	}
@@ -237,8 +251,8 @@ void Connection::connect(void)
 	if(connection==nullptr || PQstatus(connection)==CONNECTION_BAD)
 	{
 		//Raise the error generated by the DBMS
-		throw Exception(QString(Exception::getErrorMessage(ERR_CONNECTION_NOT_STABLISHED))
-						.arg(PQerrorMessage(connection)), ERR_CONNECTION_NOT_STABLISHED,
+		throw Exception(Exception::getErrorMessage(ErrorCode::ConnectionNotStablished)
+						.arg(PQerrorMessage(connection)), ErrorCode::ConnectionNotStablished,
 						__PRETTY_FUNCTION__, __FILE__, __LINE__);
 	}
 
@@ -252,7 +266,7 @@ void Connection::connect(void)
 		PQsetNoticeProcessor(connection, noticeProcessor, nullptr);
 }
 
-void Connection::close(void)
+void Connection::close()
 {
 	if(connection)
 	{
@@ -265,11 +279,11 @@ void Connection::close(void)
 	}
 }
 
-void Connection::reset(void)
+void Connection::reset()
 {
 	//Raise an erro in case the user try to reset a not opened connection
 	if(!connection)
-		throw Exception(ERR_OPR_NOT_ALOC_CONN, __PRETTY_FUNCTION__, __FILE__, __LINE__);
+		throw Exception(ErrorCode::OprNotAllocatedConnection, __PRETTY_FUNCTION__, __FILE__, __LINE__);
 
 	//Reinicia a conexão
 	PQreset(connection);
@@ -277,59 +291,79 @@ void Connection::reset(void)
 
 QString Connection::getConnectionParam(const QString &param)
 {
-	return(connection_params[param]);
+	return connection_params[param];
 }
 
-attribs_map Connection::getConnectionParams(void) const
+attribs_map Connection::getConnectionParams() const
 {
-	return(connection_params);
+	return connection_params;
 }
 
-attribs_map Connection::getServerInfo(void)
+attribs_map Connection::getServerInfo()
 {
 	attribs_map info;
 
 	if(!connection)
-		throw Exception(ERR_OPR_NOT_ALOC_CONN,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+		throw Exception(ErrorCode::OprNotAllocatedConnection,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
-	info[SERVER_PID]=QString::number(PQbackendPID(connection));
-	info[SERVER_VERSION]=getPgSQLVersion();
-	info[SERVER_PROTOCOL]=QString::number(PQprotocolVersion(connection));
+	info[ServerPid]=QString::number(PQbackendPID(connection));
+	info[ServerVersion]=getPgSQLVersion();
+	info[ServerProtocol]=QString::number(PQprotocolVersion(connection));
 
-	return(info);
+	return info;
 }
 
-QString Connection::getConnectionString(void)
+QString Connection::getConnectionString()
 {
-	return(connection_str);
+	return connection_str;
 }
 
-QString Connection::getConnectionId(bool host_port_only, bool incl_db_name)
+QString Connection::getConnectionId(bool host_port_only, bool incl_db_name, bool html_format)
 {
-	QString addr, db_name;
+	QString addr, db_name, port, conn_id;
 
-	if(!connection_params[PARAM_SERVER_FQDN].isEmpty())
-		addr=connection_params[PARAM_SERVER_FQDN];
+	if(!isConfigured())
+		return "";
+
+	if(!connection_params[ParamServerFqdn].isEmpty())
+		addr=connection_params[ParamServerFqdn];
 	else
-		addr=connection_params[PARAM_SERVER_IP];
+		addr=connection_params[ParamServerIp];
+
+	if(!connection_params[ParamPort].isEmpty())
+		port = QString(":%1").arg(connection_params[ParamPort]);
 
 	if(incl_db_name)
-		db_name = QString("%1@").arg(connection_params[PARAM_DB_NAME]);
+		db_name = QString("%1@").arg(connection_params[ParamDbName]);
 
 	if(host_port_only)
-		return(QString("%1%2:%3").arg(db_name, addr, connection_params[PARAM_PORT]));
+		conn_id = QString("%1%2%3").arg(db_name, addr, port);
 	else
-		return(QString("%1%2 (%3:%4)").arg(db_name, connection_params[PARAM_ALIAS], addr, connection_params[PARAM_PORT]));
+		conn_id = QString("%1%2 (%3%4)").arg(db_name, connection_params[ParamAlias], addr, port);
+
+	if(html_format && incl_db_name)
+	{
+		conn_id.prepend("<strong>");
+		conn_id.replace('@', "</strong>@<em>");
+		conn_id.append("</em>");
+	}
+
+	return conn_id;
 }
 
-bool Connection::isStablished(void)
+bool Connection::isStablished()
 {
-	return(connection!=nullptr);
+	return (connection != nullptr);
 }
 
-bool Connection::isAutoBrowseDB(void)
+bool Connection::isConfigured()
 {
-	return(auto_browse_db);
+	return !connection_str.isEmpty();
+}
+
+bool Connection::isAutoBrowseDB()
+{
+	return auto_browse_db;
 }
 
 QString  Connection::getPgSQLVersion(bool major_only)
@@ -337,19 +371,20 @@ QString  Connection::getPgSQLVersion(bool major_only)
 	QString raw_ver, fmt_ver;
 
 	if(!connection)
-		throw Exception(ERR_OPR_NOT_ALOC_CONN, __PRETTY_FUNCTION__, __FILE__, __LINE__);
+		throw Exception(ErrorCode::OprNotAllocatedConnection, __PRETTY_FUNCTION__, __FILE__, __LINE__);
 
 	raw_ver=QString("%1").arg(PQserverVersion(connection));
 
 	//If the version is 10+
 	if(raw_ver.contains(QRegExp("^((1)[0-9])(.)+")))
 	{
+		//New PostgreSQL 10+ versioning: 100001 means 10.1 (Major.Minor)
 		fmt_ver=QString("%1.%2")
 				.arg(raw_ver.mid(0,2))
-				.arg(raw_ver.mid(2,2).toInt()/10);
+				.arg(raw_ver.mid(3,1).toInt());
 
 		if(!major_only)
-			return(QString("%1.%2").arg(fmt_ver).arg(raw_ver.mid(5,1)));
+			return QString("%1.%2").arg(raw_ver.mid(0,2)).arg(raw_ver.mid(4,2).toInt());
 	}
 	//For versions below or equal to 9.6
 	else
@@ -359,15 +394,15 @@ QString  Connection::getPgSQLVersion(bool major_only)
 				.arg(raw_ver.mid(2,2).toInt()/10);
 
 		if(!major_only)
-			return(QString("%1.%2").arg(fmt_ver).arg(raw_ver.mid(4,1)));
+			return QString("%1.%2").arg(fmt_ver).arg(raw_ver.mid(4,1));
 	}
 
-	return(fmt_ver);
+	return fmt_ver;
 }
 
-QStringList Connection::getNotices(void)
+QStringList Connection::getNotices()
 {
-	return (notices);
+	return notices;
 }
 
 void Connection::executeDMLCommand(const QString &sql, ResultSet &result)
@@ -377,7 +412,7 @@ void Connection::executeDMLCommand(const QString &sql, ResultSet &result)
 
 	//Raise an error in case the user try to close a not opened connection
 	if(!connection)
-		throw Exception(ERR_OPR_NOT_ALOC_CONN, __PRETTY_FUNCTION__, __FILE__, __LINE__);
+		throw Exception(ErrorCode::OprNotAllocatedConnection, __PRETTY_FUNCTION__, __FILE__, __LINE__);
 
 	validateConnectionStatus();
 	notices.clear();
@@ -389,15 +424,15 @@ void Connection::executeDMLCommand(const QString &sql, ResultSet &result)
 	if(print_sql)
 	{
 		QTextStream out(stdout);
-		out << QString("\n---\n") << sql << endl;
+		out << QString("\n---\n") << sql << QtCompat::endl;
 	}
 
 	//Raise an error in case the command sql execution is not sucessful
 	if(strlen(PQerrorMessage(connection))>0)
 	{
-		throw Exception(QString(Exception::getErrorMessage(ERR_CMD_SQL_NOT_EXECUTED))
+		throw Exception(Exception::getErrorMessage(ErrorCode::SQLCommandNotExecuted)
 						.arg(PQerrorMessage(connection)),
-						ERR_CMD_SQL_NOT_EXECUTED, __PRETTY_FUNCTION__, __FILE__, __LINE__, nullptr,
+						ErrorCode::SQLCommandNotExecuted, __PRETTY_FUNCTION__, __FILE__, __LINE__, nullptr,
 						QString(PQresultErrorField(sql_res, PG_DIAG_SQLSTATE)));
 	}
 
@@ -408,7 +443,7 @@ void Connection::executeDMLCommand(const QString &sql, ResultSet &result)
 	result=*(new_res);
 
 	//Deallocate the new resultset
-	delete(new_res);
+	delete new_res;
 	PQclear(sql_res);
 }
 
@@ -418,7 +453,7 @@ void Connection::executeDDLCommand(const QString &sql)
 
 	//Raise an error in case the user try to close a not opened connection
 	if(!connection)
-		throw Exception(ERR_OPR_NOT_ALOC_CONN, __PRETTY_FUNCTION__, __FILE__, __LINE__);
+		throw Exception(ErrorCode::OprNotAllocatedConnection, __PRETTY_FUNCTION__, __FILE__, __LINE__);
 
 	validateConnectionStatus();
 	notices.clear();
@@ -428,7 +463,7 @@ void Connection::executeDDLCommand(const QString &sql)
 	if(print_sql)
 	{
 		QTextStream out(stdout);
-		out << QString("\n---\n") << sql << endl;
+		out << QString("\n---\n") << sql << QtCompat::endl;
 	}
 
 	//Raise an error in case the command sql execution is not sucessful
@@ -438,9 +473,9 @@ void Connection::executeDDLCommand(const QString &sql)
 
 		PQclear(sql_res);
 
-		throw Exception(QString(Exception::getErrorMessage(ERR_CMD_SQL_NOT_EXECUTED))
+		throw Exception(Exception::getErrorMessage(ErrorCode::SQLCommandNotExecuted)
 						.arg(PQerrorMessage(connection)),
-						ERR_CMD_SQL_NOT_EXECUTED, __PRETTY_FUNCTION__, __FILE__, __LINE__, nullptr,	field);
+						ErrorCode::SQLCommandNotExecuted, __PRETTY_FUNCTION__, __FILE__, __LINE__, nullptr,	field);
 	}
 
 	PQclear(sql_res);
@@ -448,25 +483,25 @@ void Connection::executeDDLCommand(const QString &sql)
 
 void Connection::setDefaultForOperation(unsigned op_id, bool value)
 {
-	if(op_id > OP_NONE)
-		throw Exception(ERR_REF_ELEM_INV_INDEX,  __PRETTY_FUNCTION__, __FILE__, __LINE__);
-	else if(op_id!=OP_NONE)
+	if(op_id > OpNone)
+		throw Exception(ErrorCode::RefElementInvalidIndex,  __PRETTY_FUNCTION__, __FILE__, __LINE__);
+	else if(op_id!=OpNone)
 		default_for_oper[op_id]=value;
 }
 
 bool Connection::isDefaultForOperation(unsigned op_id)
 {
-	if(op_id > OP_NONE)
-		throw Exception(ERR_REF_ELEM_INV_INDEX,  __PRETTY_FUNCTION__, __FILE__, __LINE__);
-	else if(op_id==OP_NONE)
-		return(false);
+	if(op_id > OpNone)
+		throw Exception(ErrorCode::RefElementInvalidIndex,  __PRETTY_FUNCTION__, __FILE__, __LINE__);
+	else if(op_id==OpNone)
+		return false;
 
-	return(default_for_oper[op_id]);
+	return default_for_oper[op_id];
 }
 
 void Connection::switchToDatabase(const QString &dbname)
 {
-	QString prev_dbname=connection_params[PARAM_DB_NAME];
+	QString prev_dbname=connection_params[ParamDbName];
 
 	try
 	{
@@ -475,7 +510,7 @@ void Connection::switchToDatabase(const QString &dbname)
 			close();
 
 		//Change the database name and reconfigure the connection string
-		connection_params[PARAM_DB_NAME]=dbname;
+		connection_params[ParamDbName]=dbname;
 		generateConnectionString();
 
 		//Reopen connection
@@ -483,10 +518,10 @@ void Connection::switchToDatabase(const QString &dbname)
 	}
 	catch(Exception &e)
 	{
-		connection_params[PARAM_DB_NAME]=prev_dbname;
+		connection_params[ParamDbName]=prev_dbname;
 		connect();
 
-		throw Exception(e.getErrorMessage(), e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(), e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
@@ -500,7 +535,14 @@ void Connection::operator = (const Connection &conn)
 	this->connection_str=conn.connection_str;
 	this->connection=nullptr;
 
-	for(unsigned idx=OP_VALIDATION; idx <= OP_DIFF; idx++)
+	for(unsigned idx=OpValidation; idx <= OpDiff; idx++)
 		default_for_oper[idx]=conn.default_for_oper[idx];
 }
 
+void Connection::requestCancel()
+{
+	if(!connection)
+		throw Exception(ErrorCode::OprNotAllocatedConnection, __PRETTY_FUNCTION__, __FILE__, __LINE__);
+
+	PQrequestCancel(connection);
+}

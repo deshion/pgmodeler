@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,6 +33,8 @@
 #include "codecompletionwidget.h"
 #include "numberedtexteditor.h"
 #include "findreplacewidget.h"
+#include "resultsetmodel.h"
+#include "sqlexecutionhelper.h"
 
 class SQLExecutionWidget: public QWidget, public Ui::SQLExecutionWidget {
 	private:
@@ -42,7 +44,13 @@ class SQLExecutionWidget: public QWidget, public Ui::SQLExecutionWidget {
 
 		static int cmd_history_max_len;
 
+		qint64 start_exec, end_exec, total_exec;
+
 		SchemaParser schparser;
+
+		QThread sql_exec_thread;
+
+		SQLExecutionHelper sql_exec_hlp;
 
 		//! \brief Syntax highlighter for sql input field
 		SyntaxHighlighter *sql_cmd_hl,
@@ -73,15 +81,13 @@ class SQLExecutionWidget: public QWidget, public Ui::SQLExecutionWidget {
 		void enableSQLExecution(bool enable);
 
 		//! \brief Stores the command on the sql command history
-		void addToSQLHistory(const QString &cmd, unsigned rows=0, const QString &error=QString());
+		void addToSQLHistory(const QString &cmd, unsigned rows=0, const QString &error="");
 
-		//! \brief Show the exception message in the output widget
-		void showError(Exception &e);
+		static void validateSQLHistoryLength(const QString &conn_id, const QString &fmt_cmd = "", NumberedTextEditor *cmd_history_txt = nullptr);
 
-		//! \brief Fills the result grid with the specified result set
-		void fillResultsTable(ResultSet &res);
+		void switchToExecutionMode(bool value);
 
-		static void validateSQLHistoryLength(const QString &conn_id, const QString &fmt_cmd = QString(), NumberedTextEditor *cmd_history_txt = nullptr);
+		void destroyResultModel();
 
 	protected:
 		//! \brief Widget that serves as SQL commands input
@@ -94,65 +100,79 @@ class SQLExecutionWidget: public QWidget, public Ui::SQLExecutionWidget {
 		bool eventFilter(QObject *object, QEvent *event);
 
 	public:
-		SQLExecutionWidget(QWidget * parent = 0);
+		static const QString ColumnNullValue;
+
+		SQLExecutionWidget(QWidget * parent = nullptr);
+		virtual ~SQLExecutionWidget();
 
 		//! \brief Configures the connection to query the server
 		void setConnection(Connection conn);
+
+		//! \brief Insert the provided sql commands in the input field. This method clears the current commands before adding new content
+		void setSQLCommand(const QString &sql);
 
 		/*! \brief Fills up the results grid based upon the specified result set.
 				The parameter store_data will make each item store the text as its data */
 		static void fillResultsTable(Catalog &catalog, ResultSet &res, QTableWidget *results_tbw, bool store_data=false);
 
 		//! \brief Copy to clipboard (in csv format) the current selected items on results grid
-		static void copySelection(QTableWidget *results_tbw, bool use_popup=true, bool csv_is_default = false);
+		static void copySelection(QTableView *results_tbw, bool use_popup=true, bool csv_is_default = false);
 
 		//! \brief Generates a CSV buffer based upon the selection on the results grid
-		static QByteArray generateCSVBuffer(QTableWidget *results_tbw, int start_row, int start_col, int row_cnt, int col_cnt);
+		static QByteArray generateCSVBuffer(QTableView *results_tbw);
 
 		//! \brief Generates a Plain text buffer based upon the selection on the results grid (this method does not include the column names)
-		static QByteArray generateTextBuffer(QTableWidget *results_tbw, int start_row, int start_col, int row_cnt, int col_cnt);
+		static QByteArray generateTextBuffer(QTableView *results_tbw);
+
+		//! \brief Generates a custom text buffer. User can specify a separator for columns, include column names and quote values
+		static QByteArray generateBuffer(QTableView *results_tbw, QChar separator, bool incl_col_names, bool use_quotes, bool escape_chars);
 
 		//! \brief Exports the results to csv file
-		static void exportResults(QTableWidget *results_tbw);
-
-	public slots:
-		void configureSnippets(void);
+		static void exportResults(QTableView *results_tbw);
 
 		//! \brief Save the history of all connections open in the SQL Execution to the sql-history.conf
-		static void saveSQLHistory(void);
+		static void saveSQLHistory();
 
 		//! \brief Load the history from the file sql-history.conf
-		static void loadSQLHistory(void);
+		static void loadSQLHistory();
 
-		static void destroySQLHistory(void);
+		static void destroySQLHistory();
 
 		static void setSQLHistoryMaxLength(int len);
 
-		static int getSQLHistoryMaxLength(void);
+		static int getSQLHistoryMaxLength();
+
+	public slots:
+		void configureSnippets();
+
+		//! \brief Show the exception message in the output widget
+		void	handleExecutionAborted(Exception e);
 
 	private slots:
 		//! \brief Enables the command buttons when user fills the sql field
-		void enableCommandButtons(void);
+		void enableCommandButtons();
 
 		//! \brief Runs the current typed sql command
-		void runSQLCommand(void);
+		void runSQLCommand();
 
 		//! \brief Save the current typed sql command on a file
-		void saveCommands(void);
+		void saveCommands();
 
 		//! \brief Load a sql command from a file
-		void loadCommands(void);
+		void loadCommands();
 
 		//! \brief Clears the input field as well the results grid
-		int clearAll(void);
+		int clearAll();
 
 		void selectSnippet(QAction *act);
 
-		//void handleSelectedWord(QString word);
-
 		void toggleOutputPane(bool visible);
 
-		void showHistoryContextMenu(void);
+		void showHistoryContextMenu();
+
+		void finishExecution(int rows_affected = 0);
+
+		void filterResults();
 
 		friend class SQLToolWidget;
 };

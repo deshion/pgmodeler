@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 #include "databasewidget.h"
 
-DatabaseWidget::DatabaseWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_DATABASE)
+DatabaseWidget::DatabaseWidget(QWidget *parent): BaseObjectWidget(parent, ObjectType::Database)
 {
 	try
 	{
@@ -27,19 +27,19 @@ DatabaseWidget::DatabaseWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_DA
 		QGridLayout *grid=nullptr;
 
 		Ui_DatabaseWidget::setupUi(this);
-		configureFormLayout(database_grid, OBJ_DATABASE);
+		configureFormLayout(database_grid, ObjectType::Database);
 
-		def_schema_sel=new ObjectSelectorWidget(OBJ_SCHEMA, true, this);
-		def_collation_sel=new ObjectSelectorWidget(OBJ_COLLATION, true, this);
-		def_owner_sel=new ObjectSelectorWidget(OBJ_ROLE, true, this);
-		def_tablespace_sel=new ObjectSelectorWidget(OBJ_TABLESPACE, true, this);
+		def_schema_sel=new ObjectSelectorWidget(ObjectType::Schema, true, this);
+		def_collation_sel=new ObjectSelectorWidget(ObjectType::Collation, true, this);
+		def_owner_sel=new ObjectSelectorWidget(ObjectType::Role, true, this);
+		def_tablespace_sel=new ObjectSelectorWidget(ObjectType::Tablespace, true, this);
 
-		frame=generateInformationFrame(trUtf8("The fields <strong>LC_COLLATE</strong> and <strong>LC_CTYPE</strong> have pre-configured values based upon the running system. You can freely modify those values if you intend to export the model to another host."));
+		frame=generateInformationFrame(tr("The fields <strong>LC_COLLATE</strong> and <strong>LC_CTYPE</strong> have pre-configured values based upon the running system. You can freely modify those values if you intend to export the model to another host."));
 		grid=dynamic_cast<QGridLayout *>(attributes_twg->widget(0)->layout());
 		grid->addItem(new QSpacerItem(10,1,QSizePolicy::Fixed,QSizePolicy::Expanding), grid->count()+1, 0);
 		grid->addWidget(frame, grid->count()+1, 0, 1, 0);
 
-		frame=generateInformationFrame(trUtf8("Use the above fields to specify the default attributes assigned to new objects created on the database model. Leaving a field empty will cause PostgreSQL to use the default values when exporting the model."));
+		frame=generateInformationFrame(tr("Use the above fields to specify the default attributes assigned to new objects created on the database model. Leaving a field empty will cause PostgreSQL to use the default values when exporting the model."));
 		grid=dynamic_cast<QGridLayout *>(attributes_twg->widget(1)->layout());
 
 		grid->addWidget(def_collation_sel, 0, 1);
@@ -51,8 +51,8 @@ DatabaseWidget::DatabaseWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_DA
 		frame->setParent(attributes_twg->widget(1));
 
 		//Configures the encoding combobox
-		EncodingType::getTypes(encodings);
-		encodings.push_front(trUtf8("Default"));
+		encodings = EncodingType::getTypes();
+		encodings.push_front(tr("Default"));
 		encoding_cmb->addItems(encodings);
 
 		//Configures the localizations combobox
@@ -64,16 +64,16 @@ DatabaseWidget::DatabaseWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_DA
 
 		loc_list.removeDuplicates();
 		loc_list.sort();
-		loc_list.push_front(trUtf8("Default"));
+		loc_list.push_front(tr("Default"));
 
 		lccollate_cmb->addItems(loc_list);
 		lcctype_cmb->addItems(loc_list);
 
-		setMinimumSize(560, 340);
+		setMinimumSize(560, 380);
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__,&e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__,&e);
 	}
 }
 
@@ -91,29 +91,32 @@ void DatabaseWidget::setAttributes(DatabaseModel *model)
 		if(idx < 0) idx=0;
 		encoding_cmb->setCurrentIndex(idx);
 
-		if(!model->getLocalization(Collation::_LC_COLLATE).isEmpty())
-			lccollate_cmb->setCurrentText(model->getLocalization(Collation::_LC_COLLATE));
+		if(!model->getLocalization(Collation::LcCollate).isEmpty())
+			lccollate_cmb->setCurrentText(model->getLocalization(Collation::LcCollate));
 
-		if(!model->getLocalization(Collation::_LC_CTYPE).isEmpty())
-			lcctype_cmb->setCurrentText(model->getLocalization(Collation::_LC_CTYPE));
+		if(!model->getLocalization(Collation::LcCtype).isEmpty())
+			lcctype_cmb->setCurrentText(model->getLocalization(Collation::LcCtype));
 
 		def_schema_sel->setModel(model);
-		def_schema_sel->setSelectedObject(model->getDefaultObject(OBJ_SCHEMA));
+		def_schema_sel->setSelectedObject(model->getDefaultObject(ObjectType::Schema));
 
 		def_collation_sel->setModel(model);
-		def_collation_sel->setSelectedObject(model->getDefaultObject(OBJ_COLLATION));
+		def_collation_sel->setSelectedObject(model->getDefaultObject(ObjectType::Collation));
 
 		def_owner_sel->setModel(model);
-		def_owner_sel->setSelectedObject(model->getDefaultObject(OBJ_ROLE));
+		def_owner_sel->setSelectedObject(model->getDefaultObject(ObjectType::Role));
 
 		def_tablespace_sel->setModel(model);
-		def_tablespace_sel->setSelectedObject(model->getDefaultObject(OBJ_TABLESPACE));
+		def_tablespace_sel->setSelectedObject(model->getDefaultObject(ObjectType::Tablespace));
+
+		allow_conn_chk->setChecked(model->isAllowConnections());
+		is_template_chk->setChecked(model->isTemplate());
 
 		BaseObjectWidget::setAttributes(model, model, nullptr);
 	}
 }
 
-void DatabaseWidget::applyConfiguration(void)
+void DatabaseWidget::applyConfiguration()
 {
 	try
 	{
@@ -127,27 +130,29 @@ void DatabaseWidget::applyConfiguration(void)
 		if(encoding_cmb->currentIndex() > 0)
 			model->setEncoding(EncodingType(encoding_cmb->currentText()));
 		else
-			model->setEncoding(EncodingType(BaseType::null));
+			model->setEncoding(EncodingType(BaseType::Null));
 
-		if(lccollate_cmb->currentText()!=trUtf8("Default"))
-			model->setLocalization(Collation::_LC_COLLATE, lccollate_cmb->currentText());
+		if(lccollate_cmb->currentText()!=tr("Default"))
+			model->setLocalization(Collation::LcCollate, lccollate_cmb->currentText());
 		else
-			model->setLocalization(Collation::_LC_COLLATE, QString());
+			model->setLocalization(Collation::LcCollate, "");
 
-		if(lcctype_cmb->currentText()!=trUtf8("Default"))
-			model->setLocalization(Collation::_LC_CTYPE, lcctype_cmb->currentText());
+		if(lcctype_cmb->currentText()!=tr("Default"))
+			model->setLocalization(Collation::LcCtype, lcctype_cmb->currentText());
 		else
-			model->setLocalization(Collation::_LC_CTYPE, QString());
+			model->setLocalization(Collation::LcCtype, "");
 
-		model->setDefaultObject(def_schema_sel->getSelectedObject(), OBJ_SCHEMA);
-		model->setDefaultObject(def_owner_sel->getSelectedObject(), OBJ_ROLE);
-		model->setDefaultObject(def_collation_sel->getSelectedObject(), OBJ_COLLATION);
-		model->setDefaultObject(def_tablespace_sel->getSelectedObject(), OBJ_TABLESPACE);
+		model->setDefaultObject(def_schema_sel->getSelectedObject(), ObjectType::Schema);
+		model->setDefaultObject(def_owner_sel->getSelectedObject(), ObjectType::Role);
+		model->setDefaultObject(def_collation_sel->getSelectedObject(), ObjectType::Collation);
+		model->setDefaultObject(def_tablespace_sel->getSelectedObject(), ObjectType::Tablespace);
+		model->setIsTemplate(is_template_chk->isChecked());
+		model->setAllowConnections(allow_conn_chk->isChecked());
 
 		finishConfiguration();
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }

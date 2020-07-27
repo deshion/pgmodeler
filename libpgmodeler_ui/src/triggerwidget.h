@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 
 #include "baseobjectwidget.h"
 #include "ui_triggerwidget.h"
-#include "objecttablewidget.h"
+#include "objectstablewidget.h"
 
 class TriggerWidget: public BaseObjectWidget, public Ui::TriggerWidget {
 	private:
@@ -37,7 +37,7 @@ class TriggerWidget: public BaseObjectWidget, public Ui::TriggerWidget {
 		SyntaxHighlighter *cond_expr_hl;
 
 		//! \brief Object tables used to control columns and agruments
-		ObjectTableWidget *columns_tab,
+		ObjectsTableWidget *columns_tab,
 		*arguments_tab;
 
 		//! \brief Selectors for reference table and trigger function
@@ -47,23 +47,22 @@ class TriggerWidget: public BaseObjectWidget, public Ui::TriggerWidget {
 		//! \brief Adds a column to the referenced columns table
 		void addColumn(Column *column, int row);
 
-		void hideEvent(QHideEvent *event);
-
 	public:
-		TriggerWidget(QWidget * parent = 0);
+		TriggerWidget(QWidget * parent  = nullptr);
 
 		void setAttributes(DatabaseModel *model, OperationList *op_list, BaseTable *parent_table, Trigger *trigger);
 
 	private slots:
 		void addColumn(int lin_idx);
-		void selectUpdateEvent(void);
+		void selectUpdateEvent();
 		void handleArgument(int lin_idx);
 		void editArgument(int lin_idx);
-		void updateColumnsCombo(void);
+		void updateColumnsCombo();
 		void setConstraintTrigger(bool value);
+		void enableTransitionTableNames();
 
 	public slots:
-		void applyConfiguration(void);
+		void applyConfiguration();
 };
 
 #endif

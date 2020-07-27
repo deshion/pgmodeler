@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,6 +30,7 @@
 #include "baserelationship.h"
 #include "xmlparser.h"
 #include "roundedrectitem.h"
+#include "textpolygonitem.h"
 
 class BaseObjectView: public QObject, public QGraphicsItemGroup {
 	private:
@@ -46,6 +47,11 @@ class BaseObjectView: public QObject, public QGraphicsItemGroup {
 		 is incremented each time an object is selected. */
 		static unsigned global_sel_order;
 
+		/*! \brief Stores the current status for object's compact view display.
+		 * In compact view the alias of object's are shown instead of name. Also, data types and constraint types are hidden,
+		 * as well the table's extended area is collapsed by default */
+		static bool compact_view;
+
 		/*! \brief Stores the selection order of the current object. This attribute is used to
 		 know when an item was selected before another in the scene because the implementation of
 		 the method QGraphicsScene :: selectedItem() the selected objects are returned without
@@ -53,11 +59,8 @@ class BaseObjectView: public QObject, public QGraphicsItemGroup {
 		 mainly when creating relationships between tables. */
 		unsigned sel_order;
 
-		//! \brief Graphical text for the position info
-		QGraphicsSimpleTextItem *pos_info_txt;
-
-		//! \brief Graphical object (rectangle) of the position info
-		QGraphicsRectItem *pos_info_rect;
+		//! \brief This item display the current object position on the scene
+		TextPolygonItem *pos_info_item;
 
 		//! \brief Stores the objects bounding rect
 		QRectF bounding_rect;
@@ -80,56 +83,61 @@ class BaseObjectView: public QObject, public QGraphicsItemGroup {
 		//! \brief Graphical text for the sql disabled info
 		QGraphicsSimpleTextItem *sql_disabled_txt;
 
+		//! \brief This items is used to display the sql disabled status of the object
+		TextPolygonItem *sql_disabled_item;
+
 		//! \brief Stores the object font configuration
 		static map<QString, QTextCharFormat> font_config;
 
 		//! \brief Stores the object colors configuration
 		static map<QString, vector<QColor>> color_config;
 
-		//! \brief Resizes to the specified dimension the passed polygon
-		void resizePolygon(QPolygonF &pol, double width, double height);
-
 		//! \brief Configures the objects shadow polygon
-		void configureObjectShadow(void);
+		void configureObjectShadow(void) {}
 
 		//! \brief Configures the object selection polygon
-		void configureObjectSelection(void);
+		void configureObjectSelection();
 
 		//! \brief Configures the polygons used to show the current object position
 		void configurePositionInfo(QPointF pos);
 
 		//! \brief Configures the rectangle used to show the sql disabled status
-		void configureSQLDisabledInfo(void);
+		void configureSQLDisabledInfo();
 
 		//! \brief Configures the icon that denotes the object's protection
-		void configureProtectedIcon(void);
+		void configureProtectedIcon();
 
-		void configurePlaceholder(void);
+		void configurePlaceholder();
 
 		void mousePressEvent(QGraphicsSceneMouseEvent *event);
 
 		void setSelectionOrder(bool selected);
 
+		//! \brief Defines in which layer the object is visible
+		void setLayer(unsigned layer);
+
 	public:
-		static constexpr double VERT_SPACING=2.0f,
-		HORIZ_SPACING=2.0f,
-		DEFAULT_FONT_SIZE=9.0f,
-		OBJ_BORDER_WIDTH=0.80f;
+		static constexpr double VertSpacing=2.0,
+		HorizSpacing=2.0,
+		DefaultFontSize=10.0,
+		ObjectBorderWidth=0.85;
+
+		static constexpr int ObjectAlphaChannel=128;
 
 		BaseObjectView(BaseObject *object=nullptr);
-		virtual ~BaseObjectView(void);
+		virtual ~BaseObjectView();
 
 		//! \brief Returns the object selection order
-		unsigned getSelectionOrder(void);
+		unsigned getSelectionOrder();
 
 		//! \brief Controls the changes during the object's selection and moving
 		QVariant itemChange(GraphicsItemChange change, const QVariant &value);
 
 		//! \brief Returns the object that is representend by the graphical object
-		BaseObject *getSourceObject(void);
+		BaseObject *getUnderlyingObject();
 
 		//! \brief Loads the font / color styels for the objects from a XML configuration file
-		static void loadObjectsStyle(void);
+		static void loadObjectsStyle();
 
 		//! \brief Returns the objects bounding rect in local coordination
 		QRectF boundingRect(void) const;
@@ -149,7 +157,11 @@ class BaseObjectView: public QObject, public QGraphicsItemGroup {
 
 		static void setPlaceholderEnabled(bool value);
 
-		static bool isPlaceholderEnabled(void);
+		static bool isPlaceholderEnabled();
+
+		static void setCompactViewEnabled(bool value);
+
+		static bool isCompactViewEnabled();
 
 		//! \brief Sets the  font style for the specified element id
 		static void setFontStyle(const QString &id, QTextCharFormat font_fmt);
@@ -169,21 +181,24 @@ class BaseObjectView: public QObject, public QGraphicsItemGroup {
 		/*! \brief Returns the center point of the whole object.
 		Note: this is not the same as calling boundingRect()->center(). Instead, this
 		method calculates the center point based upon the current object's position */
-		virtual QPointF getCenter(void);
+		virtual QPointF getCenter();
 
 		//! \brief Toggles the wireframe display
 		virtual void togglePlaceholder(bool visible);
 
 		/*! \brief Returns the current font DPI factor of the screen. This factor is used to resize
 		 * objects according to the screen's resolution/font dpi */
-		static float getScreenDpiFactor(void);
+		static double getScreenDpiFactor();
 
 		//! \brief Returns the current factor between the default font size and the current defined one
-		static float getFontFactor(void);
+		static double getFontFactor();
+
+		//! \brief Returns the layer in which the object is visible
+		unsigned getLayer();
 
 	protected slots:
 		//! \brief Make the basic object operations
-		void __configureObject(void);
+		void __configureObject();
 
 		//! \brief Toggles the protection icon
 		void toggleProtectionIcon(bool value);
@@ -193,7 +208,9 @@ class BaseObjectView: public QObject, public QGraphicsItemGroup {
 		void s_objectSelected(BaseGraphicObject *object, bool selected);
 
 		//! \brief Signal emmited whenever the width or height of the table changes
-		void s_objectDimensionChanged(void);
+		void s_objectDimensionChanged();
+
+	friend class ObjectsScene;
 };
 
 #endif

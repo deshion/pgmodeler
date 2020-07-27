@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 #include "collationwidget.h"
 
-CollationWidget::CollationWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_COLLATION)
+CollationWidget::CollationWidget(QWidget *parent): BaseObjectWidget(parent, ObjectType::Collation)
 {
 	try
 	{
@@ -27,16 +27,16 @@ CollationWidget::CollationWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_
 
 		Ui_CollationWidget::setupUi(this);
 
-		frame=generateInformationFrame(trUtf8("The fields <strong><em>Collation</em></strong>, <strong><em>Locale</em></strong>, <strong><em>LC_COLLATE & LC_CTYPE</em></strong> are mutually exclusive, so you have to set only one of them in order to properly handle a collation."));
+		frame=generateInformationFrame(tr("The fields <strong><em>Collation</em></strong>, <strong><em>Locale</em></strong>, <strong><em>LC_COLLATE & LC_CTYPE</em></strong> are mutually exclusive, so you have to set only one of them in order to properly handle a collation."));
 
 		collation_grid->addItem(new QSpacerItem(10,10, QSizePolicy::Minimum,QSizePolicy::Expanding), collation_grid->count()+1, 0, 1, 0);
 		collation_grid->addWidget(frame, collation_grid->count()+1, 0, 1, 0);
 		frame->setParent(this);
-		configureFormLayout(collation_grid, OBJ_COLLATION);
+		configureFormLayout(collation_grid, ObjectType::Collation);
 
 		//Configures the encoding combobox
-		EncodingType::getTypes(encodings);
-		encodings.push_front(trUtf8("Not defined"));
+		encodings = EncodingType::getTypes();
+		encodings.push_front(tr("Not defined"));
 		encoding_cmb->addItems(encodings);
 
 		//Configures the localizations combobox
@@ -48,25 +48,25 @@ CollationWidget::CollationWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_
 
 		loc_list.removeDuplicates();
 		loc_list.sort();
-		loc_list.push_front(trUtf8("Not defined"));
+		loc_list.push_front(tr("Not defined"));
 
 		lccollate_cmb->addItems(loc_list);
 		lcctype_cmb->addItems(loc_list);
 		locale_cmb->addItems(loc_list);
 
-		connect(collation_sel, SIGNAL(s_objectSelected(void)), this, SLOT(resetFields(void)));
-		connect(collation_sel, SIGNAL(s_selectorCleared(void)), this, SLOT(resetFields(void)));
-		connect(locale_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(resetFields(void)));
-		connect(lcctype_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(resetFields(void)));
-		connect(lccollate_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(resetFields(void)));
+		connect(collation_sel, SIGNAL(s_objectSelected()), this, SLOT(resetFields()));
+		connect(collation_sel, SIGNAL(s_selectorCleared()), this, SLOT(resetFields()));
+		connect(locale_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(resetFields()));
+		connect(lcctype_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(resetFields()));
+		connect(lccollate_cmb, SIGNAL(currentIndexChanged(int)), this, SLOT(resetFields()));
 
 		configureTabOrder({ locale_cmb, encoding_cmb, lccollate_cmb, lcctype_cmb });
 
-		setMinimumSize(520, 380);
+		setMinimumSize(520, 420);
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
@@ -88,23 +88,17 @@ void CollationWidget::setAttributes(DatabaseModel *model, OperationList *op_list
 
 			if(locale_cmb->currentIndex()==0)
 			{
-				idx=lcctype_cmb->findText(collation->getLocalization(Collation::_LC_CTYPE));
+				idx=lcctype_cmb->findText(collation->getLocalization(Collation::LcCtype));
 				lcctype_cmb->setCurrentIndex(idx < 0 ? 0 : idx);
 
-				idx=lccollate_cmb->findText(collation->getLocalization(Collation::_LC_COLLATE));
+				idx=lccollate_cmb->findText(collation->getLocalization(Collation::LcCollate));
 				lccollate_cmb->setCurrentIndex(idx < 0 ? 0 : idx);
 			}
 		}
 	}
 }
 
-void CollationWidget::hideEvent(QHideEvent *event)
-{
-	resetFields();
-	BaseObjectWidget::hideEvent(event);
-}
-
-void CollationWidget::resetFields(void)
+void CollationWidget::resetFields()
 {
 	//Block object's signals to evict an infinite call to this method
 	collation_sel->blockSignals(true);
@@ -148,7 +142,7 @@ void CollationWidget::resetFields(void)
 }
 
 
-void CollationWidget::applyConfiguration(void)
+void CollationWidget::applyConfiguration()
 {
 	try
 	{
@@ -166,16 +160,16 @@ void CollationWidget::applyConfiguration(void)
 			collation->setLocale(locale_cmb->currentText());
 
 		if(lccollate_cmb->currentIndex() > 0)
-			collation->setLocalization(LC_COLLATE, lccollate_cmb->currentText());
+			collation->setLocalization(Collation::LcCollate, lccollate_cmb->currentText());
 
 		if(lcctype_cmb->currentIndex() > 0)
-			collation->setLocalization(LC_CTYPE, lcctype_cmb->currentText());
+			collation->setLocalization(Collation::LcCtype, lcctype_cmb->currentText());
 
 		finishConfiguration();
 	}
 	catch(Exception &e)
 	{
 		cancelConfiguration();
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }

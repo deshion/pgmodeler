@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -53,7 +53,7 @@ class Sequence: public BaseObject {
 		bool isValidValue(const QString &value);
 
 		//! \brief Returns true when the passed value is null (zero)
-		bool isNullValue(const QString &value);
+		bool isZeroValue(const QString &value);
 
 		//! \brief Returns the formated value excluding the aditional operators
 		QString formatValue(const QString &value);
@@ -67,16 +67,16 @@ class Sequence: public BaseObject {
 	public:
 		//! \brief Constants that indicates the maximum and minimum values accepted by sequence
 		static const QString //For serial sequences
-		MAX_POSITIVE_VALUE,
-		MAX_NEGATIVE_VALUE,
+		MaxPositiveValue,
+		MaxNegativeValue,
 		//For smallserial sequences
-		MAX_SMALL_POSITIVE_VALUE,
-		MAX_SMALL_NEGATIVE_VALUE,
+		MaxSmallPositiveValue,
+		MaxSmallNegativeValue,
 		//For bigserial sequences
-		MAX_BIG_POSITIVE_VALUE,
-		MAX_BIG_NEGATIVE_VALUE;
+		MaxBigPositiveValue,
+		MaxBigNegativeValue;
 
-		Sequence(void);
+		Sequence();
 
 		//! \brief Defines if the sequence is a cycle
 		void setCycle(bool value);
@@ -86,10 +86,10 @@ class Sequence: public BaseObject {
 
 		/*! \brief Sets all values at once based on the serial type specified (smallserial, serial or bigserial).
 		If other type the three serial types are passed the method will consider as 'serial' */
-		void setDefaultValues(PgSQLType serial_type);
+		void setDefaultValues(PgSqlType serial_type);
 
 		//! \brief Defines the owner column using a table and a column name
-		void setOwnerColumn(Table *tabela, const QString &col_name);
+		void setOwnerColumn(PhysicalTable *table, const QString &col_name);
 
 		//! \brief Defines the owner column using a column itself
 		void setOwnerColumn(Column *column);
@@ -102,20 +102,20 @@ class Sequence: public BaseObject {
 		 the column parent table schema */
 		void setSchema(BaseObject *schema);
 
-		bool isCycle(void);
-		QString getMaxValue(void);
-		QString getMinValue(void);
-		QString getIncrement(void);
-		QString getStart(void);
-		QString getCache(void);
-		Column *getOwnerColumn(void);
+		bool isCycle();
+		QString getMaxValue();
+		QString getMinValue();
+		QString getIncrement();
+		QString getStart();
+		QString getCache();
+		Column *getOwnerColumn();
 
 		/*! \brief Returns whether the sequence references columns added
 		 by relationship. This method is used as auxiliary
 		 to control which sequence reference columns added by the
 		 relationship in order to avoid referece breaking due constants
 		 connections and disconnections of relationships */
-		bool isReferRelationshipAddedColumn(void);
+		bool isReferRelationshipAddedColumn();
 
 		//! \brief Makes a copy between two sequences
 		void operator = (Sequence &seq);

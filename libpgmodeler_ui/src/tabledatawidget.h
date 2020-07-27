@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -40,41 +40,45 @@ class TableDataWidget: public BaseObjectWidget, public Ui::TableDataWidget {
 		QMenu col_names_menu;
 
 		//! brief Loads the grid with the initial data of the curret table object
-		void populateDataGrid(const QString &data = QString());
+		void populateDataGrid(const QString &data = "");
 
 		//! brief Configures the col_name_menu with the not used columns names
-		void configureColumnNamesMenu(void);
+		void configureColumnNamesMenu();
 
 		//! brief Toggles the warning frame if some invalid or duplicated columns is detected
-		void toggleWarningFrame(void);
+		void toggleWarningFrame();
 
 		//! brief Marks a certain item as invalid cause it to be deactivated in the grid
 		void setItemInvalid(QTableWidgetItem *item);
 
 		//! brief Generated the CSV-like buffer to be used as initial data in the table object
-		QString generateDataBuffer(void);
+		QString generateDataBuffer();
+
+		void showEvent(QShowEvent *);
+
+		void enterEvent(QEvent *);
 
 	public:
-		static const QString PLACEHOLDER_COLUMN;
+		static const QString PlaceholderColumn;
 
-		TableDataWidget(QWidget * parent = 0);
+		TableDataWidget(QWidget * parent = nullptr);
 
-		void setAttributes(DatabaseModel *model, Table *table);
+		void setAttributes(DatabaseModel *model, PhysicalTable *table);
 
 	public slots:
-		void applyConfiguration(void);
+		void applyConfiguration();
 
 	private slots:
 		void insertRowOnTabPress(int curr_row, int curr_col, int prev_row, int prev_col);
-		void addRow(void);
+		void addRow();
 		void addColumn(QAction *action);
-		void duplicateRows(void);
-		void deleteRows(void);
-		void deleteColumns(void);
+		void duplicateRows();
+		void deleteRows();
+		void deleteColumns();
 		void clearRows(bool confirm=true);
-		void clearColumns(void);
+		void clearColumns();
 		void changeColumnName(int col_idx);
-		void enableButtons(void);
+		void enableButtons();
 };
 
 #endif

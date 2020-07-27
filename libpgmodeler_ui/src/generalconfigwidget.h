@@ -1,7 +1,7 @@
-/*
+﻿/*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,56 +28,70 @@
 #include "ui_generalconfigwidget.h"
 #include "baseconfigwidget.h"
 #include "messagebox.h"
-#include "hinttextwidget.h"
 #include "colorpickerwidget.h"
 #include "numberedtexteditor.h"
+#include "fileselectorwidget.h"
 
 class GeneralConfigWidget: public BaseConfigWidget, public Ui::GeneralConfigWidget {
 	private:
 		Q_OBJECT
 
+		/* This simple struct is used to store the widgets geometry and maximized state
+		 * in order to save this info to configuration file being possible to restore
+		 * it when reloading the application */
+		struct WidgetState
+		{
+		  QRect geometry;
+		  bool maximized;
+		  WidgetState() { maximized = false; }
+		};
+
 		QWidgetList child_wgts;
 
 		NumberedTextEditor *font_preview_txt;
 
+		FileSelectorWidget *confs_dir_sel,
+		*source_editor_sel;
+
+		static map<QString, WidgetState> widgets_geom;
+
 		static map<QString, attribs_map> config_params;
 
-		static const unsigned UNIT_MILIMETERS=0,
-		UNIT_POINT=1,
-		UNIT_INCHS=2,
-		UNIT_CENTIMETERS=3;
-
-		HintTextWidget *simp_obj_creation_ht, *confirm_validation_ht, *corner_move_ht,
-		*save_last_pos_ht, *invert_rangesel_ht, *disable_smooth_ht,
-		*hide_ext_attribs_ht, *hide_table_tags_ht, *hide_rel_name_ht,
-		*code_completion_ht, *use_placeholders_ht, *min_obj_opacity_ht;
+		static constexpr unsigned UnitMilimeters=0,
+		UnitPoint=1,
+		UnitInches=2,
+		UnitCentimeters=3;
 
 		ColorPickerWidget *line_numbers_cp, *line_numbers_bg_cp, *line_highlight_cp;
 
-		void hideEvent(QHideEvent *);
-
 	public:
-		GeneralConfigWidget(QWidget * parent=0);
+		//! \brief Maximum number of files listed as recent models
+		static constexpr int MaxRecentModels=15;
 
-		void saveConfiguration(void);
-		void loadConfiguration(void);
+		GeneralConfigWidget(QWidget * parent = nullptr);
+
+		void saveConfiguration();
+		void loadConfiguration();
 		static void addConfigurationParam(const QString &param, const attribs_map &attribs);
 		static void removeConfigurationParam(const QRegExp &param_reg);
-		static map<QString, attribs_map> getConfigurationParams(void);
+		static map<QString, attribs_map> getConfigurationParams();
 
 		/*! \brief Returns a single value of a configuration param in the specified section id.
 		Section id can be <configuration>, <dock-widget>, <file[n]> or <recent[n]> */
 		static QString getConfigurationParam(const QString &section_id, const QString &param_name);
 
+		static void saveWidgetGeometry(QWidget *widget, const QString &custom_wgt_name = "");
+		static bool restoreWidgetGeometry(QWidget *widget, const QString &custom_wgt_name = "");
+
 	public slots:
-		void applyConfiguration(void);
-		void restoreDefaults(void);
-		void selectPaperSize(void);
-		void selectSourceEditor(void);
+		void applyConfiguration();
+		void restoreDefaults();
+		void selectPaperSize();
 
 	private slots:
-		void convertMarginUnity(void);
-		void updateFontPreview(void);
+		void convertMarginUnity();
+		void updateFontPreview();
+		void resetDialogsSizes();
 };
 
 #endif

@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,10 +33,14 @@
 #include "findreplacewidget.h"
 #include "codecompletionwidget.h"
 #include "numberedtexteditor.h"
+#include "databaseexplorerwidget.h"
+#include "sqlexecutionwidget.h"
 
 class SQLToolWidget: public QWidget, public Ui::SQLToolWidget {
 	private:
 		Q_OBJECT
+
+		QToolButton *sql_exec_corner_btn;
 
 		NumberedTextEditor *sourcecode_txt;
 
@@ -53,32 +57,38 @@ class SQLToolWidget: public QWidget, public Ui::SQLToolWidget {
 		bool eventFilter(QObject *object, QEvent *event);
 
 	public:
-		SQLToolWidget(QWidget * parent = 0);
-		~SQLToolWidget(void);
+		SQLToolWidget(QWidget * parent = nullptr);
+		virtual ~SQLToolWidget();
 
 		//! \brief Force the update of the sql command input field and the syntax highligter attached to the opened tabs
-		void updateTabs(void);
+		void updateTabs();
+
+		//! \brief Indicates if there is at least one database being browsed through explorer widget
+		bool hasDatabasesBrowsed();
 
 	public slots:
-		void configureSnippets(void);
+		void configureSnippets();
+		void clearDatabases();
 
-		void clearDatabases(void);
+		//! \brief Add a tab to permit the SQL execution for the current database being browsed
+		SQLExecutionWidget *addSQLExecutionTab(const QString &sql_cmd = "");
+
+	protected slots:
+		//! \brief Add a tab by browsing a database in the specified connection, loads the sql file and put its contents on a SQL execution
+		void addSQLExecutionTab(const QString &conn_id, const QString &database, const QString &sql_file);
 
 	private slots:
 		//! \brief Opens a connection to the selected server
-		void connectToServer(void);
+		void connectToServer();
 
 		//! \brief Disconnect from server and close any opened database explorer or sql execution tab
-		void disconnectFromDatabases(void);
+		void disconnectFromDatabases();
 
 		//! \brief Removes all DatabaseExplorerWidget instances linked to the dropped database
 		void handleDatabaseDropped(const QString &dbname);
 
 		//! \brief Open the current database in a database explorer instance
-		void browseDatabase(void);
-
-		//! \brief Add a tab to permit the SQL execution for the current database being browsed
-		void addSQLExecutionTab(void);
+		DatabaseExplorerWidget *browseDatabase();
 
 		//! \brief Show the selected snippet on the current opened SQL execution tab
 		void showSnippet(const QString &snip);
@@ -92,7 +102,9 @@ class SQLToolWidget: public QWidget, public Ui::SQLToolWidget {
 	signals:
 		/*! \brief This signal is emitted whenever the user changes the connections settings
 		within this widget without use the main configurations dialog */
-		void s_connectionsUpdateRequest(void);
+		void s_connectionsUpdateRequest();
+
+		friend class MainWindow;
 };
 
 #endif

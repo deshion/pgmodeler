@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,6 +30,7 @@ also generates the SQL code definition to represente the table link on PostgreSQ
 #include "baserelationship.h"
 #include "table.h"
 #include "textbox.h"
+#include "pgsqltypes/actiontype.h"
 
 /*
 ### Relationship implementation rules ###
@@ -172,6 +173,8 @@ class Relationship: public BaseRelationship {
 								to generalization / copy relationships */
 		*pk_special,
 
+		*pk_original,
+
 		//! \brief Stores the unique key that represents the 1-1 relationship (including the fk_rel1n)
 		*uq_rel11;
 
@@ -206,115 +209,120 @@ class Relationship: public BaseRelationship {
 		src_tab_prev_name,
 		dst_tab_prev_name;
 
+		//! \brief The partition bounding expression
+		QString part_bounding_expr;
+
 		//! \brief Indicates if the column exists on the referenced column list
 		bool isColumnExists(Column *column);
 
 		//! \brief Executes the column addition for 1-1 relationship
-		void addColumnsRel11(void);
+		void addColumnsRel11();
 
 		//! \brief Executes the column addition for 1-n relationship
-		void addColumnsRel1n(void);
+		void addColumnsRel1n();
 
 		//! \brief Executes the column addition for n-n relationship
-		void addColumnsRelNn(void);
+		void addColumnsRelNn();
 
 		/*! \brief Copy columns from one table to another. This operation is done in
 		 relationships of type copy / generalization. It is necessary
 		 to check duplicate names and incompatible types of columns */
-		void addColumnsRelGen(void);
+		void addColumnsRelGenPart();
 
 		/*! \brief Copy constraints from the parent table to the child. Currently, only
 		check constraints are copied only if the NO INHERIT attribute is not set and
 		there are no conflicting constraints (name or expression) on the child table */
-		void addConstraintsRelGen(void);
+		void addConstraintsRelGenPart();
 
 		/*! \brief Creates the foreign key that represents the relationship and adds it
 		 to the receiver table. Must be specified the actions ON DELETE and UPDATE. */
-		void addForeignKey(Table *ref_tab, Table *recv_tab, ActionType del_act, ActionType upd_act);
+		void addForeignKey(PhysicalTable *ref_tab, PhysicalTable *recv_tab, ActionType del_act, ActionType upd_act);
 
 		/*! \brief Creates the unique key that represents the 1-1 relationship e adds it to
 		 the receiver table */
-		void addUniqueKey(Table *recv_tab);
+		void addUniqueKey(PhysicalTable *recv_tab);
 
 		//! \brief Adds the relationship attributes (columns) into receiver table
-		void addAttributes(Table *recv_tab);
+		void addAttributes(PhysicalTable *recv_tab);
 
 		/*! \brief Adds relationship constraints on the receiver table. If the relationship is
 		 of type n-n, constraints will be added to the created table. If among the constraints
 		 there is a primary key, then it will be merged with the primary key of receiver table */
-		void addConstraints(Table *recv_tab);
+		void addConstraints(PhysicalTable *recv_tab);
 
 		/*! \brief Executes adicional configurations on receiver table primary key when the
 		 relationship is identifier */
-		void configureIndentifierRel(Table *recv_tab);
+		void configureIndentifierRel(PhysicalTable *recv_tab);
 
 		/*! \brief Copy the columns from the reference table to the receiver table. The parameter not_null indicates
 		 that the columns must not accept null values. The parameter is_dst_table is used to force the usage of destination table
 		and destination name pattern when creating a self many-to-many relationship */
-		void copyColumns(Table *ref_tab, Table *recv_tab, bool not_null, bool is_dst_table = false);
+		void copyColumns(PhysicalTable *ref_tab, PhysicalTable *recv_tab, bool not_null, bool is_dst_table = false);
 
 		/*! \brief This method is always executed before disconnection of the relationship.
 		 Its function is to remove from the specified table all the attributes which
 		 references any relationship generated column avoiding reference break */
-		void removeTableObjectsRefCols(Table *table);
+		void removeTableObjectsRefCols(PhysicalTable *table);
 
 		//! \brief Creates the special primary key using the names stored in the 'column_ids_pk_rel' vector
-		void createSpecialPrimaryKey(void);
+		void createSpecialPrimaryKey();
 
 		//! \brief Removes all the columns created by the relationship from the specified table primary key if exists.
-		void removeColumnsFromTablePK(Table *table);
+		void removeColumnsFromTablePK(PhysicalTable *table);
 
 		//! \brief Removes a single column created by the relationship from the specified table primary key if exists.
-		void removeColumnFromTablePK(Table *table, Column *column);
+		void removeColumnFromTablePK(PhysicalTable *table, Column *column);
 
 		//! \brief Generates the object name according to the specified name pattern
-		QString generateObjectName(unsigned pat_id, Column *id_col=nullptr);
+		QString generateObjectName(unsigned pat_id, Column *id_col=nullptr, bool use_alias=false);
+
+		void setOriginalPrimaryKey(Constraint *pk);
 
 	protected:
 		//! \brief Destroy all the relationship attributes and constraints
-		void destroyObjects(void);
+		void destroyObjects();
 
 		//! \brief Returns all the refenced columns of the relationship
-		vector<Column *> getGeneratedColumns(void);
+		vector<Column *> getGeneratedColumns();
 
 		//! \brief Returns the table generated by the n-n relationship
-		Table *getGeneratedTable(void);
+		Table *getGeneratedTable();
 
 		/*! \brief Returns the generated foreign key that represents the 1-1, 1-n relationship,
 		 as well the primary key generated by the identifier relationship and the
 		 unique key used in 1-1 relationships */
-		vector<Constraint *> getGeneratedConstraints(void);
+		vector<Constraint *> getGeneratedConstraints();
 
 	public:
 		//! \brief String used as the name suffix separator. Default '_'
-		static const QString SUFFIX_SEPARATOR,
-		SRC_TAB_TOKEN, //{st}
-		DST_TAB_TOKEN, //{dt}
-		GEN_TAB_TOKEN, //{gt}
-		SRC_COL_TOKEN; //{sc}
+		static const QString SuffixSeparator,
+		SrcTabToken, //{st}
+		DstTabToken, //{dt}
+		GenTabToken, //{gt}
+		SrcColToken; //{sc}
 
 		//! \brief Patterns ids
-		static const unsigned SRC_COL_PATTERN,
-		DST_COL_PATTERN,
-		PK_PATTERN,
-		UQ_PATTERN,
-		SRC_FK_PATTERN,
-		DST_FK_PATTERN,
-		PK_COL_PATTERN;
+		static constexpr unsigned SrcColPattern=0,
+		DstColPattern=1,
+		PkPattern=2,
+		UqPattern=3,
+		SrcFkPattern=4,
+		DstFkPattern=5,
+		PkColPattern=6;
 
 		Relationship(Relationship *rel);
 
 		Relationship(unsigned rel_type,
-					 Table *src_tab, Table *dst_tab,
+					 PhysicalTable *src_tab, PhysicalTable *dst_tab,
 					 bool src_mdtry=false, bool dst_mdtry=false,
 					 bool identifier=false, bool deferrable=false,
-					 DeferralType deferral_type=DeferralType::immediate,
-					 ActionType fk_del_act=ActionType::null,
-					 ActionType fk_upd_act=ActionType::null,
+					 DeferralType deferral_type=DeferralType::Immediate,
+					 ActionType fk_del_act=ActionType::Null,
+					 ActionType fk_upd_act=ActionType::Null,
 					 CopyOptions copy_op = CopyOptions(0,0));
 
 		//! \brief  Connects the relationship making the configuration according to its type
-		void connectRelationship(void);
+		void connectRelationship();
 
 		/*! \brief Disconnects the relationship from the tables removing all the attributes / constraints
 			deallocating all the created object. */
@@ -339,35 +347,42 @@ class Relationship: public BaseRelationship {
 		void setSpecialPrimaryKeyCols(vector<unsigned> &cols);
 
 		//! \brief Returns the column indexes used by the special primary key
-		vector<unsigned> getSpecialPrimaryKeyCols(void);
+		vector<unsigned> getSpecialPrimaryKeyCols();
 
 		//! \brief Defines the name of the auto generated table on the n-n relationship
 		void setTableNameRelNN(const QString &name);
 
 		//! \brief Returns the name of the table auto generated by the n-n relationship
-		QString getTableNameRelNN(void);
+		QString getTableNameRelNN();
+
+		/*! \brief Defines the partition bounding expression associated to the partition table (receiver table)
+		 * when the relationship is connected (only for partitioning relationship) */
+		void setPartitionBoundingExpr(const QString &part_bound_expr);
+
+		//! \brief Returns the partition bouding expression configured for the relationship (only for partitioning relationship)
+		QString getPartitionBoundingExpr();
 
 		//! \brief Defines if the created foreign key  is deferrable (only for 1-1, 1-n relationships)
 		void setDeferrable(bool value);
 
 		//! \brief Returns if the created foreign key is deferrable (only for 1-1, 1-n relationships)
-		bool isDeferrable(void);
+		bool isDeferrable();
 
 		//! \brief Defines the deferral type for the created foreign key (only for 1-1, 1-n relationships)
 		void setDeferralType(DeferralType defer_type);
 
 		/*! \brief Defines the type of action for generated foreign keys (ON DELETE and ON UPDATE)
-	User must use Constraint::[DELETE_ACTION|UPDATE_ACTION] (only for 1-1, 1-n relationships) */
+		 User must use Constraint::[DELETE_ACTION|UPDATE_ACTION] (only for 1-1, 1-n relationships) */
 		void setActionType(ActionType act_type, unsigned act_id);
 
 		//! \brief Returns the deferral tyep for the created foreign key (only for 1-1, 1-n relationships)
-		DeferralType getDeferralType(void);
+		DeferralType getDeferralType();
 
 		//! \brief Defines if the relationship is identifier
 		void setIdentifier(bool value);
 
 		//! \brief Returns if the relationship is identifier
-		bool isIdentifier(void);
+		bool isIdentifier();
 
 		//! \brief Set the copy options (only for copy relationships)
 		void setCopyOptions(CopyOptions copy_op);
@@ -379,7 +394,7 @@ class Relationship: public BaseRelationship {
 		QString getNamePattern(unsigned pat_id);
 
 		//! \brief Returns the current copy options
-		CopyOptions getCopyOptions(void);
+		CopyOptions getCopyOptions();
 
 		//! \brief Retuns the action type (ON DELETE or ON UPDATE) of the generated foreign keys
 		ActionType getActionType(unsigned act_id);
@@ -389,13 +404,13 @@ class Relationship: public BaseRelationship {
 			and if in any condition this method returns 'true' indicates that the relationship
 			is no longer valid and must be reconnected. The reconnection operation is
 			made on de model class ​​only because it treats all cases of invalidity at once. */
-		bool isInvalidated(void);
+		bool isInvalidated();
 
 		/*! \brief Forces the relationship to go into invalidated state. This method is useful to invalidate the
 		relationship without add/remove attributes from it. Calling this method will cause the model to revalidate
 		the relationship even it's structure does not reflect an invalid state (see isInvalidate).
 		Use this wisely or it can cause huge slow downs or unexpected results. */
-		void forceInvalidate(void);
+		void forceInvalidate();
 
 		//! \brief Adds an attribute or constaint to the relationship.
 		void addObject(TableObject *tab_obj, int obj_idx=-1);
@@ -425,7 +440,7 @@ class Relationship: public BaseRelationship {
 		Column *getAttribute(const QString &name);
 
 		//! \brief Returns the list of user added attributes
-		vector<TableObject *> getAttributes(void);
+		vector<TableObject *> getAttributes();
 
 		//! \brief Gets an constraint using its index
 		Constraint *getConstraint(unsigned constr_idx);
@@ -434,17 +449,17 @@ class Relationship: public BaseRelationship {
 		Constraint *getConstraint(const QString &name);
 
 		//! \brief Returns the list of user added constraints
-		vector<TableObject *> getConstraints(void);
+		vector<TableObject *> getConstraints();
 
 		/*! \brief Returns the index of a relationship attribute or constraint. Returns -1
 		 when the object doesn't exists */
 		int getObjectIndex(TableObject *object);
 
 		//! \brief Returns the attribute count
-		unsigned getAttributeCount(void);
+		unsigned getAttributeCount();
 
 		//! \brief Returns the constraint count
-		unsigned getConstraintCount(void);
+		unsigned getConstraintCount();
 
 		//! \brief Returns the attribute or constraint count
 		unsigned getObjectCount(ObjectType obj_type);
@@ -454,14 +469,14 @@ class Relationship: public BaseRelationship {
 		 added by the user. This method only scans the list of constraints
 		 on the relationship searching for primary keys created by the user.
 		 If found returns true. */
-		bool hasIndentifierAttribute(void);
+		bool hasIndentifierAttribute();
 
 		/*! \brief Returns table that receives a copy of the columns that represent the relationship
 		 according to its configuration.
 
 		 WARNING: Not necessarily this method returns the destination table this because not in all
 		 relationship configuration the receiver is the destination table */
-		Table *getReceiverTable(void);
+		PhysicalTable *getReceiverTable();
 
 		/*! \brief Returns table which serves as a reference when coping the columns to the
 		 receiver table.
@@ -471,10 +486,11 @@ class Relationship: public BaseRelationship {
 
 		 For n-n relationships this method returns nullptr as this type of relationship
 		 has 2 reference tables, which may be obtained by the method BaseRelationship::getTable() */
-		Table *getReferenceTable(void);
+		PhysicalTable *getReferenceTable();
 
 		void setSiglePKColumn(bool value);
-		bool isSiglePKColumn(void);
+
+		bool isSiglePKColumn();
 
 		//! \brief Returns SQL / XML definition for the relationship.
 		virtual QString getCodeDefinition(unsigned def_type) final;
@@ -482,13 +498,20 @@ class Relationship: public BaseRelationship {
 		//! \brief Copies the attributes from one relationship to another
 		void operator = (Relationship &rel);
 
-		QString getInheritDefinition(bool undo_inherit);
+		QString getAlterRelationshipDefinition(bool undo_inh_part);
+
+		//! \brief Returns true when the reference table is mandatory in the relationship
+		bool isReferenceTableMandatory();
+
+		//! \brief Returns true when the receiver table is mandatory in the relationship
+		bool isReceiverTableMandatory();
 
 		friend class DatabaseModel;
 		friend class ModelWidget;
 		friend class RelationshipWidget;
 		friend class ModelExportHelper;
 		friend class ModelsDiffHelper;
+		friend class ModelDatabaseDiffForm;
 };
 
 #endif

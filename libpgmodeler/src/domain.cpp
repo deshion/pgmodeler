@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,15 +18,47 @@
 
 #include "domain.h"
 
-Domain::Domain(void)
+Domain::Domain()
 {
-	obj_type=OBJ_DOMAIN;
+	obj_type=ObjectType::Domain;
 	not_null=false;
-	attributes[ParsersAttributes::DEFAULT_VALUE]=QString();
-	attributes[ParsersAttributes::NOT_NULL]=QString();
-	attributes[ParsersAttributes::EXPRESSION]=QString();
-	attributes[ParsersAttributes::TYPE]=QString();
-	attributes[ParsersAttributes::CONSTRAINT]=QString();
+	attributes[Attributes::DefaultValue]="";
+	attributes[Attributes::NotNull]="";
+	attributes[Attributes::Type]="";
+	attributes[Attributes::Constraints]="";
+}
+
+void Domain::addCheckConstraint(const QString &name, const QString &expr)
+{
+	//Raises an error if the constraint name is invalid
+	if(!name.isEmpty() && !BaseObject::isValidName(name))
+		throw Exception(ErrorCode::AsgInvalidNameObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+
+	if(expr.isEmpty())
+		throw Exception(ErrorCode::AsgInvalidExpressionObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+
+	if(chk_constrs.count(name))
+	{
+		throw Exception(Exception::getErrorMessage(ErrorCode::AsgDuplicatedObject)
+						.arg(name)
+						.arg(BaseObject::getTypeName(ObjectType::Constraint))
+						.arg(this->getName(true))
+						.arg(this->getTypeName()),
+						ErrorCode::AsgDuplicatedObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+	}
+
+	chk_constrs[name] = expr;
+	setCodeInvalidated(true);
+}
+
+void Domain::removeCheckConstraints()
+{
+	chk_constrs.clear();
+}
+
+attribs_map Domain::getCheckConstraints()
+{
+	return chk_constrs;
 }
 
 void Domain::setName(const QString &name)
@@ -38,7 +70,7 @@ void Domain::setName(const QString &name)
 	new_name=this->getName(true);
 
 	//Renames the PostgreSQL type represented by the domain
-	PgSQLType::renameUserType(prev_name, this, new_name);
+	PgSqlType::renameUserType(prev_name, this, new_name);
 }
 
 void Domain::setSchema(BaseObject *schema)
@@ -49,23 +81,7 @@ void Domain::setSchema(BaseObject *schema)
 	BaseObject::setSchema(schema);
 
 	//Renames the PostgreSQL type represented by the domain
-	PgSQLType::renameUserType(prev_name, this, this->getName(true));
-}
-
-void Domain::setConstraintName(const QString &constr_name)
-{
-	//Raises an error if the constraint name is invalid
-	if(!constr_name.isEmpty() && !BaseObject::isValidName(constr_name))
-		throw Exception(ERR_ASG_INV_NAME_OBJECT,__PRETTY_FUNCTION__,__FILE__,__LINE__);
-
-	setCodeInvalidated(constraint_name != constr_name);
-	this->constraint_name=constr_name;
-}
-
-void Domain::setExpression(const QString &expr)
-{
-	setCodeInvalidated(expression != expr);
-	this->expression=expr;
+	PgSqlType::renameUserType(prev_name, this, this->getName(true));
 }
 
 void Domain::setDefaultValue(const QString &default_val)
@@ -82,55 +98,50 @@ void Domain::setNotNull(bool value)
 	not_null=value;
 }
 
-void Domain::setType(PgSQLType type)
+void Domain::setType(PgSqlType type)
 {
 	setCodeInvalidated(this->type != type);
 	this->type=type;
 }
 
-QString Domain::getConstraintName(void)
+QString Domain::getDefaultValue()
 {
-	return(constraint_name);
+	return default_value;
 }
 
-QString Domain::getExpression(void)
+bool Domain::isNotNull()
 {
-	return(expression);
+	return not_null;
 }
 
-QString Domain::getDefaultValue(void)
+PgSqlType Domain::getType()
 {
-	return(default_value);
-}
-
-bool Domain::isNotNull(void)
-{
-	return(not_null);
-}
-
-PgSQLType Domain::getType(void)
-{
-	return(type);
+	return type;
 }
 
 QString Domain::getCodeDefinition(unsigned def_type)
 {
 	QString code_def=getCachedCode(def_type, false);
-	if(!code_def.isEmpty()) return(code_def);
+	if(!code_def.isEmpty()) return code_def;
 
-	attributes[ParsersAttributes::NOT_NULL]=(not_null ? ParsersAttributes::_TRUE_ : QString());
-	attributes[ParsersAttributes::DEFAULT_VALUE]=default_value;
-	attributes[ParsersAttributes::EXPRESSION]=expression;
-	attributes[ParsersAttributes::CONSTRAINT]=BaseObject::formatName(constraint_name);
+	attribs_map aux_attribs;
 
-	if(def_type==SchemaParser::SQL_DEFINITION)
-		attributes[ParsersAttributes::TYPE]=(*type);
-	else
+	attributes[Attributes::NotNull]=(not_null ? Attributes::True : "");
+	attributes[Attributes::DefaultValue]=default_value;
+
+	for(auto itr : chk_constrs)
 	{
-		attributes[ParsersAttributes::TYPE]=type.getCodeDefinition(def_type);
+		aux_attribs[Attributes::Name] = itr.first;
+		aux_attribs[Attributes::Expression] = itr.second;
+		attributes[Attributes::Constraints]+=schparser.getCodeDefinition(Attributes::DomConstraint, aux_attribs, def_type);
 	}
 
-	return(BaseObject::__getCodeDefinition(def_type));
+	if(def_type==SchemaParser::SqlDefinition)
+		attributes[Attributes::Type]=(*type);
+	else
+		attributes[Attributes::Type]=type.getCodeDefinition(def_type);
+
+	return BaseObject::__getCodeDefinition(def_type);
 }
 
 void Domain::operator = (Domain &domain)
@@ -138,12 +149,11 @@ void Domain::operator = (Domain &domain)
 	QString prev_name=this->getName(true);
 
 	*(dynamic_cast<BaseObject *>(this))=dynamic_cast<BaseObject &>(domain);
-	this->constraint_name=domain.constraint_name;
-	this->expression=domain.expression;
 	this->not_null=domain.not_null;
 	this->default_value=domain.default_value;
 	this->type=domain.type;
-	PgSQLType::renameUserType(prev_name, this, this->getName(true));
+	this->chk_constrs=domain.chk_constrs;
+	PgSqlType::renameUserType(prev_name, this, this->getName(true));
 }
 
 QString Domain::getAlterDefinition(BaseObject *object)
@@ -151,43 +161,72 @@ QString Domain::getAlterDefinition(BaseObject *object)
 	Domain *domain=dynamic_cast<Domain *>(object);
 
 	if(!domain)
-		throw Exception(ERR_OPR_NOT_ALOC_OBJECT,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+		throw Exception(ErrorCode::OprNotAllocatedObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
 	try
 	{
 		QString alter_def=BaseObject::getAlterDefinition(object);
+		attribs_map orig_constrs, aux_constrs, aux_attribs;
+		QString orig_expr, aux_expr;
 
-		attributes[ParsersAttributes::DEFAULT_VALUE]=QString();
-		attributes[ParsersAttributes::NOT_NULL]=QString();
-		attributes[ParsersAttributes::CONSTRAINT]=QString();
-		attributes[ParsersAttributes::EXPRESSION]=QString();
-		attributes[ParsersAttributes::OLD_NAME]=QString();
-		attributes[ParsersAttributes::NEW_NAME]=QString();
+		attributes[Attributes::DefaultValue]="";
+		attributes[Attributes::NotNull]="";
+		attributes[Attributes::Constraints]="";
+		attributes[Attributes::Expression]="";
+		attributes[Attributes::OldName]="";
+		attributes[Attributes::NewName]="";
 
-		if(this->default_value!=domain->default_value)
-			attributes[ParsersAttributes::DEFAULT_VALUE]=(!domain->default_value.isEmpty() ? domain->default_value : ParsersAttributes::UNSET);
+		if(this->default_value.simplified().toLower()!=domain->default_value.simplified().toLower())
+			attributes[Attributes::DefaultValue]=(!domain->default_value.isEmpty() ? domain->default_value : Attributes::Unset);
 
 		if(this->not_null!=domain->not_null)
-			attributes[ParsersAttributes::NOT_NULL]=(domain->not_null ? ParsersAttributes::_TRUE_ : ParsersAttributes::UNSET);
+			attributes[Attributes::NotNull]=(domain->not_null ? Attributes::True : Attributes::Unset);
 
-		if(this->expression!=domain->expression)
+		orig_constrs = this->chk_constrs;
+		aux_constrs = domain->chk_constrs;
+		aux_attribs[Attributes::SqlObject] = this->getSQLName();
+		aux_attribs[Attributes::Signature] = this->getSignature();
+
+		//Generating the DROP for check constraints that does not exists anymore
+		for(auto constr : orig_constrs)
 		{
-			attributes[ParsersAttributes::CONSTRAINT]=domain->constraint_name;
-			attributes[ParsersAttributes::EXPRESSION]=(!domain->expression.isEmpty() ? domain->expression : ParsersAttributes::UNSET);
+			orig_expr = QString(constr.second).remove(QChar(' ')).toLower();
+			aux_expr = QString(aux_constrs[constr.first]).remove(QChar(' ')).toLower();
+
+			//If the check constraint expression exists and the expressions differ from source to destination we drop it
+			if(aux_constrs.count(constr.first) == 0 ||
+				 (aux_constrs.count(constr.first) && orig_expr != aux_expr))
+			{
+				aux_attribs[Attributes::Name]=constr.first;
+				aux_attribs[Attributes::Expression]=Attributes::Unset;
+				attributes[Attributes::Constraints]+=BaseObject::getAlterDefinition(Attributes::DomConstraint, aux_attribs, false, true);
+			}
+
+			//We should include a command to recreate the check constraint with the new expression
+			if(aux_constrs.count(constr.first) && orig_expr != aux_expr)
+			{
+				aux_attribs[Attributes::Name]=constr.first;
+				aux_attribs[Attributes::Expression]=aux_constrs[constr.first];
+				attributes[Attributes::Constraints]+=BaseObject::getAlterDefinition(Attributes::DomConstraint, aux_attribs, false, true);
+			}
 		}
 
-		if(!this->constraint_name.isEmpty() && !domain->constraint_name.isEmpty() &&
-				this->constraint_name!=domain->constraint_name)
+		//Generating the ADD for new check constraints
+		for(auto constr : aux_constrs)
 		{
-			attributes[ParsersAttributes::OLD_NAME]=this->constraint_name;
-			attributes[ParsersAttributes::NEW_NAME]=domain->constraint_name;
+			if(orig_constrs.count(constr.first) == 0)
+			{
+				aux_attribs[Attributes::Name]=constr.first;
+				aux_attribs[Attributes::Expression]=constr.second;
+				attributes[Attributes::Constraints]+=BaseObject::getAlterDefinition(Attributes::DomConstraint, aux_attribs, false, true);
+			}
 		}
 
 		alter_def+=BaseObject::getAlterDefinition(this->getSchemaName(), attributes, false, true);
-		return(alter_def);
+		return alter_def;
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__,&e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__,&e);
 	}
 }

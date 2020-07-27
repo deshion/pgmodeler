@@ -1,27 +1,30 @@
 #!/bin/bash
 
 USR=`whoami`
-PGSQL_ROOT=/Library/PostgreSQL/9.6
-QT_ROOT=/Users/$USR/Qt5.6.2/5.6/clang_64
+PGSQL_ROOT=/Library/PostgreSQL/12
+QT_ROOT=/Users/$USR/Qt5.14.0/5.14.0/clang_64
 QMAKE_ARGS="-r CONFIG+=x86_64 CONFIG+=release -spec macx-clang"
 LOG=macdeploy.log
 
 # Detecting current pgModeler version
-DEPLOY_VER=`cat libutils/src/globalattributes.cpp | grep PGMODELER_VERSION | sed 's/PGMODELER_VERSION=QString("//g' | sed 's/"),//g' | sed 's/^ *//g' | cut -s -f2`
+DEPLOY_VER=`cat libutils/src/globalattributes.cpp | grep PgModelerVersion | sed 's/.*PgModelerVersion=QString("//g' | sed 's/")\;//g' | sed 's/^ *//g'`
 BUILD_NUM=$(date '+%Y%m%d')
 
-WITH_BUILD_NUM='-with-build-num'
 DEMO_VERSION_OPT='-demo-version'
 DEMO_VERSION=0
+SNAPSHOT_OPT='-snapshot'
+SNAPSHOT=0
 
 for param in $@; do
- if [[ "$param" == "$WITH_BUILD_NUM" ]]; then
-   PKGNAME="${PKGNAME}_${BUILD_NUM}"
- fi
-
  if [[ "$param" == "$DEMO_VERSION_OPT" ]]; then
    DEMO_VERSION=1
    QMAKE_ARGS="$QMAKE_ARGS DEMO_VERSION+=true"
+ fi
+
+ if [[ "$param" == "$SNAPSHOT_OPT" ]]; then
+   SNAPSHOT=1
+   QMAKE_ARGS="$QMAKE_ARGS SNAPSHOT_BUILD+=true"
+   DEPLOY_VER="${DEPLOY_VER}_snapshot${BUILD_NUM}"
  fi
 done
 
@@ -39,14 +42,14 @@ BUNDLE="$INSTALL_ROOT/$APP_PREFIX/$APPNAME.app"
 
 clear
 echo
-echo "pgModeler Mac OSX deployment script"
-echo "PostgreSQL Database Modeler Project - pgmodeler.com.br"
-echo "Copyright 2006-2017 Raphael A. Silva <raphael@pgmodeler.com.br>"
+echo "pgModeler macOS deployment script"
+echo "PostgreSQL Database Modeler Project - pgmodeler.io"
+echo "Copyright 2006-2020 Raphael A. Silva <raphael@pgmodeler.io>"
 
 # Identifying System Qt version
 if [ -e "$QT_ROOT/bin/qmake" ]; then
-  QT_VER=`$QT_ROOT/bin/qmake --version | grep -m 1 -o '[0-9].[0-9].[0-9]'`
-  QT_VER=${QT_VER:0:5}
+  QT_VER=`$QT_ROOT/bin/qmake --version | grep -m 1 -o -E '[0-9]\.[0-9]+\.[0-9]+'`
+  QT_VER=${QT_VER:0:6}
 fi
 
 # If Qt was not found in system path
@@ -68,6 +71,11 @@ fi
 
 echo
 echo "Deploying version: $DEPLOY_VER"
+echo "Qt version detected: $QT_VER"
+
+if [ $SNAPSHOT = 1 ]; then
+  echo "Building snapshot version. (Found $SNAPSHOT_OPT)"
+fi
 
 if [ $DEMO_VERSION = 1 ]; then
   echo "Building demonstration version. (Found $DEMO_VERSION_OPT)"

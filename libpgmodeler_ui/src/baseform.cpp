@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,19 +21,19 @@
 BaseForm::BaseForm(QWidget *parent, Qt::WindowFlags f) : QDialog(parent, f)
 {
 	setupUi(this);
-	this->setWindowFlags(this->windowFlags() ^ Qt::WindowContextHelpButtonHint);
+	this->setWindowFlags((this->windowFlags() | Qt::WindowMinMaxButtonsHint) ^ Qt::WindowContextHelpButtonHint);
 }
 
 void BaseForm::setButtonConfiguration(unsigned button_conf)
 {
-	if(button_conf==Messagebox::OK_CANCEL_BUTTONS)
+	if(button_conf==Messagebox::OkCancelButtons)
 	{
-		apply_ok_btn->setText(trUtf8("&Apply"));
+		apply_ok_btn->setText(tr("&Apply"));
 		cancel_btn->setVisible(true);
 	}
 	else
 	{
-		apply_ok_btn->setText(trUtf8("&Ok"));
+		apply_ok_btn->setText(tr("&Ok"));
 		cancel_btn->setVisible(false);
 	}
 }
@@ -45,13 +45,16 @@ void BaseForm::resizeForm(QWidget *widget)
 	int max_h = 0, max_w = 0, curr_w =0, curr_h = 0,
 			screen_id = qApp->desktop()->screenNumber(qApp->activeWindow());
 	QScreen *screen=qApp->screens().at(screen_id);
-	float dpi_factor = 0;
+	double dpi_factor = 0;
+  double pixel_ratio = 0;
 
 	max_w = screen->size().width() * 0.70;
 	max_h = screen->size().height() * 0.70;
-	dpi_factor = screen->logicalDotsPerInch() / 96.0f;
+	dpi_factor = screen->logicalDotsPerInch() / 96.0;
+  pixel_ratio = screen->devicePixelRatio();
 
-	if(dpi_factor < 1.0f) dpi_factor = 1.0f;
+	if(dpi_factor <= 1.01)
+		dpi_factor = 1.0;
 
 	vbox->setContentsMargins(2,2,2,2);
 
@@ -84,12 +87,12 @@ void BaseForm::resizeForm(QWidget *widget)
 	main_frm->setLayout(vbox);
 	this->adjustSize();
 
-	curr_h=this->height(),
+	curr_h=this->height();
 	curr_w=min_size.width();
 
 	// If the current height is greater than the widget's minimum height we will use a medium value
 	if(curr_h > min_size.height() && min_size.height() < max_h)
-		curr_h = (curr_h + min_size.height())/2;
+		curr_h = (curr_h + min_size.height())/2.5;
 	//Using the maximum height if the widget's minimum height exceeds the maximum allowed
 	else if(min_size.height() >= max_h)
 		curr_h = max_h;
@@ -101,36 +104,59 @@ void BaseForm::resizeForm(QWidget *widget)
 							((buttons_lt->contentsMargins().top() +
 								buttons_lt->contentsMargins().bottom()) * 6);
 
-	this->setMinimumSize(curr_w * dpi_factor, curr_h * dpi_factor);
-	this->resize(this->minimumSize());
+	curr_w *= dpi_factor * pixel_ratio;
+	curr_h *= dpi_factor * pixel_ratio;
+
+	if(curr_w > screen->size().width())
+		curr_w = screen->size().width() * 0.80;
+
+	if(curr_h > screen->size().height())
+		curr_h = screen->size().height() * 0.80;
+
+	this->setMinimumSize(min_size);
+	this->resize(curr_w, curr_h);
+	this->adjustSize();
+}
+
+void BaseForm::closeEvent(QCloseEvent *)
+{
+	this->reject();
 }
 
 void BaseForm::setMainWidget(BaseObjectWidget *widget)
 {
 	if(!widget)	return;
 
-	if(widget->getHandledObjectType()!=BASE_OBJECT && widget->windowTitle().isEmpty())
-		setWindowTitle(trUtf8("%1 properties").arg(BaseObject::getTypeName(widget->getHandledObjectType())));
+	if(widget->getHandledObjectType()!=ObjectType::BaseObject && widget->windowTitle().isEmpty())
+		setWindowTitle(tr("%1 properties").arg(BaseObject::getTypeName(widget->getHandledObjectType())));
 	else
 		setWindowTitle(widget->windowTitle());
 
 	apply_ok_btn->setDisabled(widget->isHandledObjectProtected());
 	resizeForm(widget);
-	setButtonConfiguration(Messagebox::OK_CANCEL_BUTTONS);
+	setButtonConfiguration(Messagebox::OkCancelButtons);
 
+	connect(cancel_btn, SIGNAL(clicked(bool)), widget, SLOT(cancelConfiguration()));
 	connect(cancel_btn, SIGNAL(clicked(bool)), this, SLOT(reject()));
 	connect(apply_ok_btn, SIGNAL(clicked(bool)), widget, SLOT(applyConfiguration()));
 	connect(widget, SIGNAL(s_closeRequested()), this, SLOT(accept()));
 }
 
-void BaseForm::setMainWidget(QWidget *widget)
+void BaseForm::setMainWidget(QWidget *widget, const char *accept_slot, const char *reject_slot)
 {
 	if(!widget)	return;
 
 	setWindowTitle(widget->windowTitle());
 	resizeForm(widget);
-	setButtonConfiguration(Messagebox::OK_BUTTON);
+	setButtonConfiguration(Messagebox::OkButton);
 
-	connect(cancel_btn, SIGNAL(clicked(bool)), this, SLOT(reject()));
-	connect(apply_ok_btn, SIGNAL(clicked(bool)), this, SLOT(accept()));
+	if(!reject_slot)
+		connect(cancel_btn, SIGNAL(clicked(bool)), this, SLOT(reject()));
+	else
+		connect(cancel_btn, SIGNAL(clicked(bool)), widget, reject_slot);
+
+	if(!accept_slot)
+		connect(apply_ok_btn, SIGNAL(clicked(bool)), this, SLOT(accept()));
+	else
+		connect(apply_ok_btn, SIGNAL(clicked(bool)), widget, accept_slot);
 }

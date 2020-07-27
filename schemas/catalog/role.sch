@@ -3,10 +3,20 @@
 #          Code generation can be broken if incorrect changes are made.
 
 %if {list} %then
-  [SELECT oid, rolname AS name FROM pg_roles]
+  [SELECT oid, rolname AS name, current_database() AS parent, 'database' AS parent_type FROM pg_roles]
 
   %if {last-sys-oid} %then
    [ WHERE oid ] {oid-filter-op} $sp {last-sys-oid}
+  %end
+  
+  %if {name-filter} %then        
+    %if {last-sys-oid} %then
+        [ AND ] 
+    %else
+        [ WHERE ]
+    %end        
+        
+    ( [rolname ~* ] E'{name-filter}' )    
   %end
 
 %else
@@ -24,6 +34,12 @@
 	  [ rolreplication AS replication_bool, ]
 	%else
 	  [ NULL AS replication_bool, ]
+	%end
+	
+        %if ({pgsql-ver} >=f "9.5") %then
+	  [ rolbypassrls AS bypassrls_bool, ]
+	%else
+	  [ NULL AS bypassrls_bool, ]
 	%end
 
   [   (SELECT array_agg(rl.oid) AS member_roles FROM pg_auth_members AS am

@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,19 +18,19 @@
 
 #include "validationinfo.h"
 
-ValidationInfo::ValidationInfo(void)
+ValidationInfo::ValidationInfo()
 {
 	object=nullptr;
-	val_type=VALIDATION_ABORTED;
+	val_type=ValidationAborted;
 }
 
 ValidationInfo::ValidationInfo(unsigned val_type, BaseObject *object, vector<BaseObject *> references)
 {
-	if(val_type >= SQL_VALIDATION_ERR)
-		throw Exception(ERR_ASG_INV_TYPE_OBJECT,__PRETTY_FUNCTION__,__FILE__,__LINE__);
-	else if((val_type==NO_UNIQUE_NAME || val_type==BROKEN_REFERENCE) &&
+	if(val_type >= SqlValidationError)
+		throw Exception(ErrorCode::AsgInvalidTypeObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+	else if((val_type==NoUniqueName || val_type==BrokenReference) &&
 			(!object || references.empty()))
-		throw Exception(ERR_ASG_NOT_ALOC_OBJECT,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+		throw Exception(ErrorCode::AsgNotAllocattedObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
 	this->val_type=val_type;
 	this->object=object;
@@ -41,7 +41,7 @@ ValidationInfo::ValidationInfo(Exception e)
 {
 	vector<Exception> err_list;
 
-	val_type=SQL_VALIDATION_ERR;
+	val_type=SqlValidationError;
 	e.getExceptionsList(err_list);
 
 	while(!err_list.empty())
@@ -55,32 +55,32 @@ ValidationInfo::ValidationInfo(Exception e)
 
 ValidationInfo::ValidationInfo(const QString &msg)
 {
-	val_type=VALIDATION_ABORTED;
+	val_type=ValidationAborted;
 	errors.push_back(msg);
 }
 
-unsigned ValidationInfo::getValidationType(void)
+unsigned ValidationInfo::getValidationType()
 {
-	return(val_type);
+	return val_type;
 }
 
-BaseObject *ValidationInfo::getObject(void)
+BaseObject *ValidationInfo::getObject()
 {
-	return(object);
+	return object;
 }
 
-vector<BaseObject *> ValidationInfo::getReferences(void)
+vector<BaseObject *> ValidationInfo::getReferences()
 {
-	return(references);
+	return references;
 }
 
-QStringList ValidationInfo::getErrors(void)
+QStringList ValidationInfo::getErrors()
 {
-	return(errors);
+	return errors;
 }
 
-bool ValidationInfo::isValid(void)
+bool ValidationInfo::isValid()
 {
-	return(((val_type==NO_UNIQUE_NAME || val_type==BROKEN_REFERENCE) && object) ||
-		   (val_type==SQL_VALIDATION_ERR && !errors.empty()));
+	return (((val_type==NoUniqueName || val_type==BrokenReference) && object) ||
+					(val_type==SqlValidationError && !errors.empty()));
 }

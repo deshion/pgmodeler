@@ -1,12 +1,11 @@
 # SQL definition for database model
-# PostgreSQL Version: 9.x
 # CAUTION: Do not modify this file unless you know what you are doing.
 #          Code generation can be broken if incorrect changes are made.
 
 [-- Database generated with pgModeler (PostgreSQL Database Modeler).] $br
 [-- pgModeler  version: ] {pgmodeler-ver} $br
 [-- PostgreSQL version: ] {pgsql-ver} $br
-[-- Project Site: pgmodeler.com.br] $br
+[-- Project Site: pgmodeler.io] $br
 [-- Model Author: ]
 
 %if {author} %then
@@ -25,14 +24,14 @@ $br $br
 
  %if {role} %then {role} %end
  %if {tablespace} %then 
-   [-- Tablespaces creation must be done outside an multicommand file.] $br
-   [-- These commands were put in this file only for convenience.] $br
+   [-- Tablespaces creation must be done outside a multicommand file.] $br
+   [-- These commands were put in this file only as a convenience.] $br
    {tablespace} $br
  %end
 
 $br
-    [-- Database creation must be done outside an multicommand file.] $br
-    [-- These commands were put in this file only for convenience.] $br
+    [-- Database creation must be done outside a multicommand file.] $br
+    [-- These commands were put in this file only as a convenience.] $br
    {database} $br
 %end
 

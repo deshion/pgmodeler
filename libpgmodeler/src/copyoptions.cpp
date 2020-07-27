@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,58 +17,59 @@
 */
 
 #include "copyoptions.h"
+#include "baseobject.h"
 
-CopyOptions::CopyOptions(void)
+CopyOptions::CopyOptions()
 {
 	copy_mode = copy_op_ids = 0;
 }
 
 CopyOptions::CopyOptions(unsigned copy_mode, unsigned copy_op_ids)
 {
-	if((copy_mode!=0 && copy_mode!=INCLUDING && copy_mode!=EXCLUDING) || copy_op_ids > ALL)
-		throw Exception(ERR_REF_INV_LIKE_OP_TYPE,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+	if((copy_mode!=0 && copy_mode!=Including && copy_mode!=Excluding) || copy_op_ids > All)
+		throw Exception(ErrorCode::RefInvalidLikeOptionType,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
 	this->copy_mode = copy_mode;
 	this->copy_op_ids = copy_op_ids;
 }
 
-unsigned CopyOptions::getCopyMode(void)
+unsigned CopyOptions::getCopyMode()
 {
-	return(copy_mode);
+	return copy_mode;
 }
 
 bool CopyOptions::isOptionSet(unsigned op)
 {
-	if(op > ALL)
-		throw Exception(ERR_REF_INV_LIKE_OP_TYPE,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+	if(op > All)
+		throw Exception(ErrorCode::RefInvalidLikeOptionType,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
-	return((copy_op_ids & op) == op);
+	return ((copy_op_ids & op) == op);
 }
 
-bool CopyOptions::isIncluding(void)
+bool CopyOptions::isIncluding()
 {
-	return(copy_mode & INCLUDING);
+	return (copy_mode & Including);
 }
 
-bool CopyOptions::isExcluding(void)
+bool CopyOptions::isExcluding()
 {
-	return(copy_mode & EXCLUDING);
+	return (copy_mode & Excluding);
 }
 
-unsigned CopyOptions::getCopyOptionsIds(void)
+unsigned CopyOptions::getCopyOptionsIds()
 {
-	return(copy_op_ids);
+	return copy_op_ids;
 }
 
-QString CopyOptions::getSQLDefinition(void)
+QString CopyOptions::getSQLDefinition()
 {
 	QString def, mode, op_name;
 	unsigned op_id,
-			ids[]={ALL, DEFAULTS, CONSTRAINTS,
-				   INDEXES, STORAGE, COMMENTS },
+			ids[]={All, Defaults, Constraints, Indexes,
+						 Storage, Comments, Identity, Statistics },
 			cnt = sizeof(ids) / sizeof(unsigned);
 
-	mode = (copy_mode == INCLUDING ? QString(" INCLUDING") : QString(" EXCLUDING"));
+	mode = (copy_mode == Including ? QString(" INCLUDING") : QString(" EXCLUDING"));
 	if(copy_mode!=0 && copy_op_ids!=0)
 	{
 		for(unsigned i=0; i < cnt; i++)
@@ -77,12 +78,14 @@ QString CopyOptions::getSQLDefinition(void)
 
 			switch(op_id)
 			{
-				case ALL: op_name=QString(" ALL"); break;
-				case DEFAULTS: op_name=QString(" DEFAULTS"); break;
-				case CONSTRAINTS: op_name=QString(" CONSTRAINTS"); break;
-				case INDEXES: op_name=QString(" INDEXES"); break;
-				case STORAGE: op_name=QString(" STORAGE"); break;
-				case COMMENTS: op_name=QString(" COMMENTS"); break;
+				case All: op_name=QString(" ALL"); break;
+				case Defaults: op_name=QString(" DEFAULTS"); break;
+				case Constraints: op_name=QString(" CONSTRAINTS"); break;
+				case Indexes: op_name=QString(" INDEXES"); break;
+				case Storage: op_name=QString(" STORAGE"); break;
+				case Comments: op_name=QString(" COMMENTS"); break;
+				case Identity: op_name=(BaseObject::getPgSQLVersion().toFloat() > PgSqlVersions::PgSqlVersion96.toFloat() ? QString(" IDENTITY") : ""); break;
+				case Statistics: op_name=(BaseObject::getPgSQLVersion().toFloat() > PgSqlVersions::PgSqlVersion96.toFloat() ? QString(" STATISTICS") : ""); break;
 			}
 
 			if(!op_name.isEmpty())
@@ -91,14 +94,14 @@ QString CopyOptions::getSQLDefinition(void)
 				op_name.clear();
 			}
 
-			if(op_id==ALL) break;
+			if(op_id==All) break;
 		}
 	}
 
-	return(def);
+	return def;
 }
 
 bool CopyOptions::operator != (CopyOptions &cp)
 {
-	return(this->copy_mode!= cp.copy_mode && this->copy_op_ids!=cp.copy_op_ids);
+	return (this->copy_mode!= cp.copy_mode && this->copy_op_ids!=cp.copy_op_ids);
 }

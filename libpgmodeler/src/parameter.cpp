@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,16 +18,34 @@
 
 #include "parameter.h"
 
-Parameter::Parameter(void)
+Parameter::Parameter()
 {
-	obj_type=OBJ_PARAMETER;
+	obj_type=ObjectType::Parameter;
 	is_in=is_out=is_variadic=false;
 }
 
-void Parameter::setType(PgSQLType type)
+Parameter::Parameter(const Parameter &param) : Parameter()
+{
+    setName(param.obj_name);
+    setType(param.type);
+    setIn(param.is_in);
+    setOut(param.is_out);
+    setVariadic(param.is_variadic);
+}
+
+Parameter::Parameter(const QString &name, PgSqlType type, bool in, bool out, bool variadic) : Parameter()
+{
+    setName(name);
+    setType(type);
+    setIn(in);
+    setOut(out);
+    setVariadic(variadic);
+}
+
+void Parameter::setType(PgSqlType type)
 {
 	if(!type.isArrayType() && !type.isPolymorphicType() && is_variadic)
-		throw Exception(ERR_INV_USE_VARIADIC_PARAM_MODE ,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+		throw Exception(ErrorCode::InvUsageVariadicParamMode ,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
 	setCodeInvalidated(this->type != type);
 	this->type=type;
@@ -50,26 +68,26 @@ void Parameter::setOut(bool value)
 void Parameter::setVariadic(bool value)
 {
 	if(value && !type.isArrayType() && !type.isPolymorphicType())
-		throw Exception(ERR_INV_USE_VARIADIC_PARAM_MODE ,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+		throw Exception(ErrorCode::InvUsageVariadicParamMode ,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
 	setCodeInvalidated(is_variadic != value);
 	is_variadic=value;
 	if(value)	is_in=is_out=false;
 }
 
-bool Parameter::isIn(void)
+bool Parameter::isIn()
 {
-	return(is_in);
+	return is_in;
 }
 
-bool Parameter::isOut(void)
+bool Parameter::isOut()
 {
-	return(is_out);
+	return is_out;
 }
 
-bool Parameter::isVariadic(void)
+bool Parameter::isVariadic()
 {
-	return(is_variadic);
+	return is_variadic;
 }
 
 void Parameter::operator = (const Parameter &param)
@@ -86,23 +104,23 @@ void Parameter::operator = (const Parameter &param)
 QString Parameter::getCodeDefinition(unsigned def_type)
 {
 	QString code_def=getCachedCode(def_type, false);
-	if(!code_def.isEmpty()) return(code_def);
+	if(!code_def.isEmpty()) return code_def;
 
-	return(this->getCodeDefinition(def_type, false));
+	return this->getCodeDefinition(def_type, false);
 }
 
 QString Parameter::getCodeDefinition(unsigned def_type, bool reduced_form)
 {
-	if(def_type==SchemaParser::SQL_DEFINITION)
-		attributes[ParsersAttributes::NAME]=BaseObject::formatName(obj_name);
+	if(def_type==SchemaParser::SqlDefinition)
+		attributes[Attributes::Name]=BaseObject::formatName(obj_name);
 	else
-		attributes[ParsersAttributes::NAME]=obj_name;
+		attributes[Attributes::Name]=obj_name;
 
-	attributes[ParsersAttributes::PARAM_IN]=(is_in ? ParsersAttributes::_TRUE_ : QString());
-	attributes[ParsersAttributes::PARAM_OUT]=(is_out ? ParsersAttributes::_TRUE_ : QString());
-	attributes[ParsersAttributes::PARAM_VARIADIC]=(is_variadic ? ParsersAttributes::_TRUE_ : QString());
-	attributes[ParsersAttributes::DEFAULT_VALUE]=default_value;
-	attributes[ParsersAttributes::TYPE]=type.getCodeDefinition(def_type);
+	attributes[Attributes::ParamIn]=(is_in ? Attributes::True : "");
+	attributes[Attributes::ParamOut]=(is_out ? Attributes::True : "");
+	attributes[Attributes::ParamVariadic]=(is_variadic ? Attributes::True : "");
+	attributes[Attributes::DefaultValue]=default_value;
+	attributes[Attributes::Type]=type.getCodeDefinition(def_type);
 
-	return(BaseObject::getCodeDefinition(def_type, reduced_form));
+	return BaseObject::getCodeDefinition(def_type, reduced_form);
 }

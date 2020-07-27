@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,8 +29,8 @@ based upon the code editor example provided by Qt
 #include <QPlainTextEdit>
 #include <QMenu>
 #include <QToolButton>
-#include <QTemporaryFile>
 #include <QProcess>
+#include <QLabel>
 #include "linenumberswidget.h"
 
 class NumberedTextEditor : public QPlainTextEdit {
@@ -50,7 +50,7 @@ class NumberedTextEditor : public QPlainTextEdit {
 		static QFont default_font;
 
 		//! \brief Default tab size for texts
-		static int tab_width;
+		static double tab_width;
 
 		static QString src_editor_app;
 
@@ -62,33 +62,37 @@ class NumberedTextEditor : public QPlainTextEdit {
 		//! \brief Indicates if the text editor can handle external files
 		bool handle_ext_files;
 
-		QWidget *top_widget;
+		QWidget *top_widget,
+
+		*editor_alert_wgt;
+
+		QLabel *msg_lbl;
 
 		QToolButton *load_file_btn, *edit_src_btn, *clear_btn;
 
 		//! \brief The name of the temp file currently being used to edit the souce
-		QTemporaryFile tmp_src_file;
+		QString tmp_src_file;
 
 		//! \brief The process object that holds the source code editor app
 		QProcess src_editor_proc;
 
 		//! \brief Determines and returns the line numbers widget width
-		int getLineNumbersWidth(void);
+		int getLineNumbersWidth();
 
 	protected:
 		void resizeEvent(QResizeEvent *event);
 		void keyPressEvent(QKeyEvent *event);
 
 	public:
-		NumberedTextEditor(QWidget * parent = 0, bool handle_ext_files = false);
-		~NumberedTextEditor(void);
+		NumberedTextEditor(QWidget * parent = nullptr, bool handle_ext_files = false);
+		virtual ~NumberedTextEditor();
 
 		static void setDefaultFont(const QFont &font);
 		static void setLineNumbersVisible(bool value);
 		static void setHighlightLines(bool value);
 		static void setLineHighlightColor(const QColor &color);
-		static void setTabWidth(int value);
-		static int getTabWidth(void);
+		static void setTabDistance(double value);
+		static double getTabDistance();
 		static void setSourceEditorApp(const QString &app);
 		static void setSourceEditorAppArgs(const QString &args);
 
@@ -98,36 +102,38 @@ class NumberedTextEditor : public QPlainTextEdit {
 		void setCustomContextMenuEnabled(bool enabled);
 
 	private slots:
-		void showContextMenu(void);
+		void showContextMenu();
 
-		void changeSelectionToLower(void);
-		void changeSelectionToUpper(void);
+		void changeSelectionToLower();
+		void changeSelectionToUpper();
 		void changeSelectionCase(bool lower);
 
-		void identSelectionRight(void);
-		void identSelectionLeft(void);
+		void identSelectionRight();
+		void identSelectionLeft();
 		void identSelection(bool ident_right);
 
-		void loadFile(void);
-		void editSource(void);
-		void updateSource(void);
-		void handleProcessError(void);
+		void loadFile();
+		void editSource();
+		void updateSource(int exit_code);
+		void handleProcessStart();
+		void handleProcessError();
+		void enableEditor();
 
 	public slots:
 		void setReadOnly(bool ro);
 
 		//! \brief Grabs the keyboard input and also highlight the current line
-		void setFocus(void);
+		void setFocus();
 
 		//! \brief Draw the line numbers according to the current visible lines
-		void updateLineNumbers(void);
+		void updateLineNumbers();
 
 		/*! \brief Configures the line numbers widget sizes (w,h) depending on the current
 		visible lines and the text editor height */
-		void updateLineNumbersSize(void);
+		void updateLineNumbersSize();
 
 		//! \brief Colors the background of the line where the cursor is
-		void highlightCurrentLine(void);
+		void highlightCurrentLine();
 };
 
 #endif

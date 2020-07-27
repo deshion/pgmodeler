@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,9 +22,12 @@ map<QString, attribs_map> RelationshipConfigWidget::config_params;
 
 RelationshipConfigWidget::RelationshipConfigWidget(QWidget * parent) : BaseConfigWidget(parent)
 {
-	QStringList list, rel_types={ ParsersAttributes::RELATIONSHIP_11, ParsersAttributes::RELATIONSHIP_1N,
-								  ParsersAttributes::RELATIONSHIP_NN, ParsersAttributes::RELATIONSHIP_GEN,
-								  ParsersAttributes::RELATIONSHIP_DEP };
+	QStringList list, rel_types={ Attributes::Relationship11, Attributes::Relationship1n,
+								  Attributes::RelationshipNn, Attributes::RelationshipGen,
+								  Attributes::RelationshipDep, Attributes::RelationshipPart };
+	unsigned rel_types_id[]={ BaseRelationship::Relationship11, BaseRelationship::Relationship1n,
+							  BaseRelationship::RelationshipNn, BaseRelationship::RelationshipGen,
+							  BaseRelationship::RelationshipDep, BaseRelationship::RelationshipPart};
 
 	Ui_RelationshipConfigWidget::setupUi(this);
 
@@ -36,36 +39,25 @@ RelationshipConfigWidget::RelationshipConfigWidget(QWidget * parent) : BaseConfi
 	for(int i=0; i < pattern_fields.size(); i++)
 	{
 		pattern_hl=new SyntaxHighlighter(pattern_fields[i], true);
-		pattern_hl->loadConfiguration(GlobalAttributes::CONFIGURATIONS_DIR +
-									  GlobalAttributes::DIR_SEPARATOR +
-									  GlobalAttributes::PATTERN_HIGHLIGHT_CONF +
-									  GlobalAttributes::CONFIGURATION_EXT);
+		pattern_hl->loadConfiguration(GlobalAttributes::getConfigurationFilePath(GlobalAttributes::PatternHighlightConf));
 
 		connect(pattern_fields[i], SIGNAL(textChanged()), this, SLOT(updatePattern()));
 	}
 
-	fk_to_pk_ht=new HintTextWidget(fk_to_pk_hint, this);
-	fk_to_pk_ht->setText(fk_to_pk_chk->statusTip());
+	deferral_cmb->addItems(DeferralType::getTypes());
 
-	center_pnts_ht=new HintTextWidget(center_pnts_hint, this);
-	center_pnts_ht->setText(center_pnts_chk->statusTip());
-
-	DeferralType::getTypes(list);
-	deferral_cmb->addItems(list);
-
-	ActionType::getTypes(list);
-	list.push_front(trUtf8("Default"));
+	list = ActionType::getTypes();
+	list.push_front(tr("Default"));
 	del_action_cmb->addItems(list);
 	upd_action_cmb->addItems(list);
 
 	for(int i=0; i < rel_types.size(); i++)
-		rel_type_cmb->setItemData(i, rel_types[i]);
+		rel_type_cmb->addItem(BaseRelationship::getRelationshipTypeName(rel_types_id[i]), rel_types[i]);
 
-	connect(fk_to_pk_chk, SIGNAL(toggled(bool)), conn_cnt_pnts_lbl, SLOT(setDisabled(bool)));
-	connect(fk_to_pk_chk, SIGNAL(toggled(bool)), this, SLOT(setConfigurationChanged(bool)));
-
-	connect(center_pnts_chk, SIGNAL(toggled(bool)), conn_fk_pk_lbl, SLOT(setDisabled(bool)));
-	connect(center_pnts_chk, SIGNAL(toggled(bool)), this, SLOT(setConfigurationChanged(bool)));
+	connect(crows_foot_rb, SIGNAL(toggled(bool)), this, SLOT(enableConnModePreview()));
+	connect(fk_to_pk_rb, SIGNAL(toggled(bool)), this, SLOT(enableConnModePreview()));
+	connect(center_pnts_rb, SIGNAL(toggled(bool)), this, SLOT(enableConnModePreview()));
+	connect(tab_edges_rb, SIGNAL(toggled(bool)), this, SLOT(enableConnModePreview()));
 
 	connect(deferrable_chk, SIGNAL(toggled(bool)), deferral_lbl, SLOT(setEnabled(bool)));
 	connect(deferrable_chk, SIGNAL(toggled(bool)), deferral_cmb, SLOT(setEnabled(bool)));
@@ -77,110 +69,120 @@ RelationshipConfigWidget::RelationshipConfigWidget(QWidget * parent) : BaseConfi
 	connect(deferral_cmb, &QComboBox::currentTextChanged, [&](){ setConfigurationChanged(true); });
 }
 
-map<QString, attribs_map> RelationshipConfigWidget::getConfigurationParams(void)
+map<QString, attribs_map> RelationshipConfigWidget::getConfigurationParams()
 {
-	return(config_params);
+	return config_params;
 }
 
-void RelationshipConfigWidget::loadConfiguration(void)
+void RelationshipConfigWidget::loadConfiguration()
 {
 	try
 	{
 		int idx;
-		vector<QString> key_attribs={ParsersAttributes::TYPE};
-		BaseConfigWidget::loadConfiguration(GlobalAttributes::RELATIONSHIPS_CONF, config_params, key_attribs);
+		vector<QString> key_attribs={Attributes::Type};
+		BaseConfigWidget::loadConfiguration(GlobalAttributes::RelationshipsConf, config_params, key_attribs);
 
-		fk_to_pk_chk->setChecked(config_params[ParsersAttributes::CONNECTION][ParsersAttributes::MODE]==ParsersAttributes::CONNECT_FK_TO_PK);
-		center_pnts_chk->setChecked(config_params[ParsersAttributes::CONNECTION][ParsersAttributes::MODE]==ParsersAttributes::CONNECT_CENTER_PNTS);
+		fk_to_pk_rb->setChecked(config_params[Attributes::Connection][Attributes::Mode]==Attributes::ConnectFkToPk);
+		center_pnts_rb->setChecked(config_params[Attributes::Connection][Attributes::Mode]==Attributes::ConnectCenterPnts);
+		tab_edges_rb->setChecked(config_params[Attributes::Connection][Attributes::Mode]==Attributes::ConnectTableEdges);
+		crows_foot_rb->setChecked(config_params[Attributes::Connection][Attributes::Mode]==Attributes::CrowsFoot);
 
-		deferrable_chk->setChecked(config_params[ParsersAttributes::FOREIGN_KEYS][ParsersAttributes::DEFERRABLE]==ParsersAttributes::_TRUE_);
-		deferral_cmb->setCurrentText(config_params[ParsersAttributes::FOREIGN_KEYS][ParsersAttributes::DEFER_TYPE]);
+		deferrable_chk->setChecked(config_params[Attributes::ForeignKeys][Attributes::Deferrable]==Attributes::True);
+		deferral_cmb->setCurrentText(config_params[Attributes::ForeignKeys][Attributes::DeferType]);
 
-		idx=upd_action_cmb->findText(config_params[ParsersAttributes::FOREIGN_KEYS][ParsersAttributes::UPD_ACTION]);
+		idx=upd_action_cmb->findText(config_params[Attributes::ForeignKeys][Attributes::UpdAction]);
 		upd_action_cmb->setCurrentIndex(idx < 0 ? 0 : idx);
 
-		idx=del_action_cmb->findText(config_params[ParsersAttributes::FOREIGN_KEYS][ParsersAttributes::DEL_ACTION]);
+		idx=del_action_cmb->findText(config_params[Attributes::ForeignKeys][Attributes::DelAction]);
 		del_action_cmb->setCurrentIndex(idx < 0 ? 0 : idx);
 
-		patterns[ParsersAttributes::RELATIONSHIP_11]=config_params[ParsersAttributes::RELATIONSHIP_11];
-		patterns[ParsersAttributes::RELATIONSHIP_1N]=config_params[ParsersAttributes::RELATIONSHIP_1N];
-		patterns[ParsersAttributes::RELATIONSHIP_NN]=config_params[ParsersAttributes::RELATIONSHIP_NN];
-		patterns[ParsersAttributes::RELATIONSHIP_GEN]=config_params[ParsersAttributes::RELATIONSHIP_GEN];
-		patterns[ParsersAttributes::RELATIONSHIP_DEP]=config_params[ParsersAttributes::RELATIONSHIP_DEP];
+		patterns[Attributes::Relationship11]=config_params[Attributes::Relationship11];
+		patterns[Attributes::Relationship1n]=config_params[Attributes::Relationship1n];
+		patterns[Attributes::RelationshipNn]=config_params[Attributes::RelationshipNn];
+		patterns[Attributes::RelationshipGen]=config_params[Attributes::RelationshipGen];
+		patterns[Attributes::RelationshipDep]=config_params[Attributes::RelationshipDep];
+		patterns[Attributes::RelationshipPart]=config_params[Attributes::RelationshipPart];
 
 		fillNamePatterns();
 		this->applyConfiguration();
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(), e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e, e.getExtraInfo());
+		throw Exception(e.getErrorMessage(), e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e, e.getExtraInfo());
 	}
 }
 
-void RelationshipConfigWidget::saveConfiguration(void)
+void RelationshipConfigWidget::saveConfiguration()
 {  
 	try
 	{
-		QString patterns_sch, root_dir;
+		QString patterns_sch;
 
-		root_dir=GlobalAttributes::TMPL_CONFIGURATIONS_DIR +
-				 GlobalAttributes::DIR_SEPARATOR;
+		patterns_sch=GlobalAttributes::getTmplConfigurationFilePath(GlobalAttributes::SchemasDir,
+																																Attributes::Patterns +
+																																GlobalAttributes::SchemaExt);
+		if(crows_foot_rb->isChecked())
+			config_params[Attributes::Connection][Attributes::Mode]=Attributes::CrowsFoot;
+		else if(fk_to_pk_rb->isChecked())
+			config_params[Attributes::Connection][Attributes::Mode]=Attributes::ConnectFkToPk;
+		else if(tab_edges_rb->isChecked())
+			config_params[Attributes::Connection][Attributes::Mode]=Attributes::ConnectTableEdges;
+		else
+			config_params[Attributes::Connection][Attributes::Mode]=Attributes::ConnectCenterPnts;
 
-		patterns_sch=root_dir +
-					 GlobalAttributes::SCHEMAS_DIR +
-					 GlobalAttributes::DIR_SEPARATOR +
-					 ParsersAttributes::PATTERNS +
-					 GlobalAttributes::SCHEMA_EXT;
+		config_params[Attributes::ForeignKeys][Attributes::Deferrable]=(deferrable_chk->isChecked() ? Attributes::True : Attributes::False);
+		config_params[Attributes::ForeignKeys][Attributes::DeferType]=deferral_cmb->currentText();
+		config_params[Attributes::ForeignKeys][Attributes::UpdAction]=(upd_action_cmb->currentIndex() > 0 ? upd_action_cmb->currentText() : "");
+		config_params[Attributes::ForeignKeys][Attributes::DelAction]=(del_action_cmb->currentIndex() > 0 ? del_action_cmb->currentText() : "");
 
-
-		config_params[ParsersAttributes::CONNECTION][ParsersAttributes::MODE]=(fk_to_pk_chk->isChecked() ? ParsersAttributes::CONNECT_FK_TO_PK : ParsersAttributes::CONNECT_CENTER_PNTS);
-
-		config_params[ParsersAttributes::FOREIGN_KEYS][ParsersAttributes::DEFERRABLE]=(deferrable_chk->isChecked() ? ParsersAttributes::_TRUE_ : ParsersAttributes::_FALSE_);
-		config_params[ParsersAttributes::FOREIGN_KEYS][ParsersAttributes::DEFER_TYPE]=deferral_cmb->currentText();
-		config_params[ParsersAttributes::FOREIGN_KEYS][ParsersAttributes::UPD_ACTION]=(upd_action_cmb->currentIndex() > 0 ? upd_action_cmb->currentText() : QString());
-		config_params[ParsersAttributes::FOREIGN_KEYS][ParsersAttributes::DEL_ACTION]=(del_action_cmb->currentIndex() > 0 ? del_action_cmb->currentText() : QString());
-
-		config_params[ParsersAttributes::NAME_PATTERNS][ParsersAttributes::PATTERNS]=QString();
+		config_params[Attributes::NamePatterns][Attributes::Patterns]="";
 
 		for(auto &itr : patterns)
 		{
 			schparser.ignoreUnkownAttributes(true);
 			schparser.ignoreEmptyAttributes(true);
 			config_params[itr.first]=itr.second;
-			config_params[ParsersAttributes::NAME_PATTERNS][ParsersAttributes::PATTERNS]+=schparser.getCodeDefinition(patterns_sch, itr.second);
+			config_params[Attributes::NamePatterns][Attributes::Patterns]+=schparser.getCodeDefinition(patterns_sch, itr.second);
 		}
 
-		BaseConfigWidget::saveConfiguration(GlobalAttributes::RELATIONSHIPS_CONF, config_params);
+		BaseConfigWidget::saveConfiguration(GlobalAttributes::RelationshipsConf, config_params);
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void RelationshipConfigWidget::applyConfiguration(void)
+void RelationshipConfigWidget::applyConfiguration()
 {
-	if(fk_to_pk_chk->isChecked())
-		RelationshipView::setLineConnectionMode(RelationshipView::CONNECT_FK_TO_PK);
-	else
-		RelationshipView::setLineConnectionMode(RelationshipView::CONNECT_CENTER_PNTS);
+	RelationshipView::setCrowsFoot(crows_foot_rb->isChecked());
+
+	if(!crows_foot_rb->isChecked())
+	{
+		if(fk_to_pk_rb->isChecked())
+			RelationshipView::setLineConnectionMode(RelationshipView::ConnectFkToPk);
+		else if(tab_edges_rb->isChecked())
+			RelationshipView::setLineConnectionMode(RelationshipView::ConnectTableEdges);
+		else
+			RelationshipView::setLineConnectionMode(RelationshipView::ConnectCenterPoints);
+	}
 }
 
-void RelationshipConfigWidget::restoreDefaults(void)
+void RelationshipConfigWidget::restoreDefaults()
 {
 	try
 	{
-		BaseConfigWidget::restoreDefaults(GlobalAttributes::RELATIONSHIPS_CONF);
+		BaseConfigWidget::restoreDefaults(GlobalAttributes::RelationshipsConf, false);
 		this->loadConfiguration();
 		setConfigurationChanged(true);
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void RelationshipConfigWidget::fillNamePatterns(void)
+void RelationshipConfigWidget::fillNamePatterns()
 {
 	QString rel_type=rel_type_cmb->currentData().toString();
 	bool relnn=false, reldep=false, relgen=false;
@@ -188,14 +190,14 @@ void RelationshipConfigWidget::fillNamePatterns(void)
 									 dst_col_pattern_txt, src_fk_pattern_txt, dst_fk_pattern_txt,
 									 pk_col_pattern_txt };
 
-	QList<QString> pattern_ids={ ParsersAttributes::PK_PATTERN,  ParsersAttributes::UQ_PATTERN,
-								 ParsersAttributes::SRC_COL_PATTERN, ParsersAttributes::DST_COL_PATTERN,
-								 ParsersAttributes::SRC_FK_PATTERN, ParsersAttributes::DST_FK_PATTERN,
-								 ParsersAttributes::PK_COL_PATTERN };
+	QList<QString> pattern_ids={ Attributes::PkPattern,  Attributes::UqPattern,
+								 Attributes::SrcColPattern, Attributes::DstColPattern,
+								 Attributes::SrcFkPattern, Attributes::DstFkPattern,
+								 Attributes::PkColPattern };
 
-	relnn=(rel_type==ParsersAttributes::RELATIONSHIP_NN);
-	reldep=(rel_type==ParsersAttributes::RELATIONSHIP_DEP);
-	relgen=(rel_type==ParsersAttributes::RELATIONSHIP_GEN);
+	relnn=(rel_type==Attributes::RelationshipNn);
+	reldep=(rel_type==Attributes::RelationshipDep || rel_type==Attributes::RelationshipPart);
+	relgen=(rel_type==Attributes::RelationshipGen);
 
 	dst_col_pattern_txt->setEnabled(relnn);
 	dst_fk_pattern_txt->setEnabled(relnn);
@@ -223,21 +225,29 @@ void RelationshipConfigWidget::fillNamePatterns(void)
 	}
 }
 
-void RelationshipConfigWidget::updatePattern(void)
+void RelationshipConfigWidget::updatePattern()
 {
 	QPlainTextEdit *input=qobject_cast<QPlainTextEdit *>(sender());
 	QString rel_type=rel_type_cmb->currentData().toString();
-	map<QPlainTextEdit *, QString> inputs_map={ { pk_pattern_txt, ParsersAttributes::PK_PATTERN },
-												{ uq_pattern_txt, ParsersAttributes::UQ_PATTERN },
-												{ src_col_pattern_txt, ParsersAttributes::SRC_COL_PATTERN },
-												{ dst_col_pattern_txt, ParsersAttributes::DST_COL_PATTERN },
-												{ src_fk_pattern_txt, ParsersAttributes::SRC_FK_PATTERN   },
-												{ dst_fk_pattern_txt, ParsersAttributes::DST_FK_PATTERN   },
-												{ pk_col_pattern_txt, ParsersAttributes::PK_COL_PATTERN   } };
-
+	map<QPlainTextEdit *, QString> inputs_map={ { pk_pattern_txt, Attributes::PkPattern },
+												{ uq_pattern_txt, Attributes::UqPattern },
+												{ src_col_pattern_txt, Attributes::SrcColPattern },
+												{ dst_col_pattern_txt, Attributes::DstColPattern },
+												{ src_fk_pattern_txt, Attributes::SrcFkPattern   },
+												{ dst_fk_pattern_txt, Attributes::DstFkPattern   },
+												{ pk_col_pattern_txt, Attributes::PkColPattern   } };
 
 	setConfigurationChanged(true);
 	patterns[rel_type][inputs_map[input]]=input->toPlainText();
+}
+
+void RelationshipConfigWidget::enableConnModePreview()
+{
+	crows_foot_lbl->setEnabled(crows_foot_rb->isChecked());
+	conn_cnt_pnts_lbl->setEnabled(center_pnts_rb->isChecked());
+	conn_tab_edges_lbl->setEnabled(tab_edges_rb->isChecked());
+	conn_fk_pk_lbl->setEnabled(fk_to_pk_rb->isChecked());
+	setConfigurationChanged(true);
 }
 
 void RelationshipConfigWidget::hideEvent(QHideEvent *)

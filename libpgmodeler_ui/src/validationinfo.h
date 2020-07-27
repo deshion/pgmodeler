@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -46,34 +46,35 @@ class ValidationInfo {
 		QStringList errors;
 
 	public:
-		static const unsigned NO_UNIQUE_NAME=0,
-		BROKEN_REFERENCE=1,
-		SP_OBJ_BROKEN_REFERENCE=2,
-		BROKEN_REL_CONFIG=3,
-		SQL_VALIDATION_ERR=4,
-		VALIDATION_ABORTED=5;
+		static constexpr unsigned NoUniqueName=0,
+		BrokenReference=1,
+		SpObjBrokenReference=2,
+		BrokenRelConfig=3,
+		MissingExtension=4,
+		SqlValidationError=5,
+		ValidationAborted=6;
 
-		ValidationInfo(void);
+		ValidationInfo();
 		ValidationInfo(unsigned val_type, BaseObject *object, vector<BaseObject *> references);
 		ValidationInfo(const QString &msg);
 		ValidationInfo(Exception e);
 
 		//! \brief Returns the validation type
-		unsigned getValidationType(void);
+		unsigned getValidationType();
 
 		//! \brief Returns the object which the validation info belongs to
-		BaseObject *getObject(void);
+		BaseObject *getObject();
 
 		//! \brief Returns the objects that somehow references the validation info object
-		vector<BaseObject *> getReferences(void);
+		vector<BaseObject *> getReferences();
 
 		//! \brief Returns the SQL errors generated during the SQL validation
-		QStringList getErrors(void);
+		QStringList getErrors();
 
 		/*! \brief Returns if the content of validation info is valid. To be valid
 		the info must have the object not null when it is NO_UNIQUE_NAME or BROKEN_REFERENCE,
 		and when its SQL_VALIDATION_ERR the sql error message must be set */
-		bool isValid(void);
+		bool isValid();
 
 		friend class ModelValidationHelper;
 		friend class QVariant;

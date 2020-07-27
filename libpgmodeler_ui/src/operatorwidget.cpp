@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 #include "operatorwidget.h"
 
-OperatorWidget::OperatorWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_OPERATOR)
+OperatorWidget::OperatorWidget(QWidget *parent): BaseObjectWidget(parent, ObjectType::Operator)
 {
 	try
 	{
@@ -29,9 +29,9 @@ OperatorWidget::OperatorWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_OP
 		Ui_OperatorWidget::setupUi(this);
 
 		arg_types[0]=nullptr;
-		arg_types[0]=new PgSQLTypeWidget(this, trUtf8("Left Argument Type"));
+		arg_types[0]=new PgSQLTypeWidget(this, tr("Left Argument Type"));
 		arg_types[1]=nullptr;
-		arg_types[1]=new PgSQLTypeWidget(this, trUtf8("Right Argument Type"));
+		arg_types[1]=new PgSQLTypeWidget(this, tr("Right Argument Type"));
 
 		grid=new QGridLayout;
 		grid->setContentsMargins(4,4,4,4);
@@ -41,30 +41,30 @@ OperatorWidget::OperatorWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_OP
 
 		grid->addItem(new QSpacerItem(10,1,QSizePolicy::Fixed,QSizePolicy::Expanding), 2, 0);
 
-		frame=generateInformationFrame(trUtf8("To create a unary operator it is necessary to specify as <strong><em>'any'</em></strong> one of its arguments. Additionally, the function that defines the operator must have only one parameter and this, in turn, must have the same data type of the the argument of unary operator."));
+		frame=generateInformationFrame(tr("To create a unary operator it is necessary to specify as <strong><em>'any'</em></strong> one of its arguments. Additionally, the function that defines the operator must have only one parameter and this, in turn, must have the same data type of the the argument of unary operator."));
 		grid->addWidget(frame, 3, 0);
 		attributes_twg->widget(0)->setLayout(grid);
 
 
 		grid=dynamic_cast<QGridLayout *>(attributes_twg->widget(1)->layout());
-		for(i=Operator::FUNC_OPERATOR; i <= Operator::FUNC_RESTRICT; i++)
+		for(i=Operator::FuncOperator; i <= Operator::FuncRestrict; i++)
 		{
 			functions_sel[i]=nullptr;
-			functions_sel[i]=new ObjectSelectorWidget(OBJ_FUNCTION, true, this);
+			functions_sel[i]=new ObjectSelectorWidget(ObjectType::Function, true, this);
 
-			if(i!=Operator::FUNC_OPERATOR)
+			if(i!=Operator::FuncOperator)
 				grid->addWidget(functions_sel[i],i,1,1,1);
 		}
 
-		for(i=Operator::OPER_COMMUTATOR, i1=3; i <= Operator::OPER_NEGATOR; i++,i1++)
+		for(i=Operator::OperCommutator, i1=3; i <= Operator::OperNegator; i++,i1++)
 		{
 			operators_sel[i]=nullptr;
-			operators_sel[i]=new ObjectSelectorWidget(OBJ_OPERATOR, true, this);
+			operators_sel[i]=new ObjectSelectorWidget(ObjectType::Operator, true, this);
 			grid->addWidget(operators_sel[i],i1,1,1,1);
 		}
 
 		operator_grid->addWidget(functions_sel[0],0,1,1,3);
-		configureFormLayout(operator_grid, OBJ_OPERATOR);
+		configureFormLayout(operator_grid, ObjectType::Operator);
 
 		setRequiredField(operator_func_lbl);
 		setRequiredField(functions_sel[0]);
@@ -74,38 +74,21 @@ OperatorWidget::OperatorWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_OP
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
-}
-
-void OperatorWidget::hideEvent(QHideEvent *event)
-{
-	unsigned i;
-
-	hashes_chk->setChecked(false);
-	merges_chk->setChecked(false);
-
-	for(i=Operator::FUNC_OPERATOR; i <= Operator::FUNC_RESTRICT; i++)
-		functions_sel[i]->clearSelector();
-
-	for(i=Operator::OPER_COMMUTATOR; i <= Operator::OPER_NEGATOR; i++)
-		operators_sel[i]->clearSelector();
-
-	attributes_twg->setCurrentIndex(0);
-	BaseObjectWidget::hideEvent(event);
 }
 
 void OperatorWidget::setAttributes(DatabaseModel *model, OperationList *op_list, Schema *schema, Operator *oper)
 {
 	unsigned i;
-	PgSQLType left_type, right_type;
+	PgSqlType left_type, right_type;
 
 	BaseObjectWidget::setAttributes(model,op_list, oper, schema);
 
-	for(i=Operator::FUNC_OPERATOR; i <= Operator::FUNC_RESTRICT; i++)
+	for(i=Operator::FuncOperator; i <= Operator::FuncRestrict; i++)
 		functions_sel[i]->setModel(model);
 
-	for(i=Operator::OPER_COMMUTATOR; i <= Operator::OPER_NEGATOR; i++)
+	for(i=Operator::OperCommutator; i <= Operator::OperNegator; i++)
 		operators_sel[i]->setModel(model);
 
 	if(oper)
@@ -113,21 +96,21 @@ void OperatorWidget::setAttributes(DatabaseModel *model, OperationList *op_list,
 		hashes_chk->setChecked(oper->isHashes());
 		merges_chk->setChecked(oper->isMerges());
 
-		for(i=Operator::FUNC_OPERATOR; i <= Operator::FUNC_RESTRICT; i++)
+		for(i=Operator::FuncOperator; i <= Operator::FuncRestrict; i++)
 			functions_sel[i]->setSelectedObject(oper->getFunction(i));
 
-		for(i=Operator::OPER_COMMUTATOR; i <= Operator::OPER_NEGATOR; i++)
+		for(i=Operator::OperCommutator; i <= Operator::OperNegator; i++)
 			operators_sel[i]->setSelectedObject(oper->getOperator(i));
 
-		left_type=oper->getArgumentType(Operator::LEFT_ARG);
-		right_type=oper->getArgumentType(Operator::RIGHT_ARG);
+		left_type=oper->getArgumentType(Operator::LeftArg);
+		right_type=oper->getArgumentType(Operator::RightArg);
 	}
 
 	arg_types[0]->setAttributes(left_type, model);
 	arg_types[1]->setAttributes(right_type, model);
 }
 
-void OperatorWidget::applyConfiguration(void)
+void OperatorWidget::applyConfiguration()
 {
 	try
 	{
@@ -142,13 +125,13 @@ void OperatorWidget::applyConfiguration(void)
 		oper->setHashes(hashes_chk->isChecked());
 		oper->setMerges(merges_chk->isChecked());
 
-		for(i=Operator::LEFT_ARG; i <= Operator::RIGHT_ARG; i++)
+		for(i=Operator::LeftArg; i <= Operator::RightArg; i++)
 			oper->setArgumentType(arg_types[i]->getPgSQLType(), i);
 
-		for(i=Operator::FUNC_OPERATOR; i <= Operator::FUNC_RESTRICT; i++)
+		for(i=Operator::FuncOperator; i <= Operator::FuncRestrict; i++)
 			oper->setFunction(dynamic_cast<Function *>(functions_sel[i]->getSelectedObject()), i);
 
-		for(i=Operator::OPER_COMMUTATOR; i <= Operator::OPER_NEGATOR; i++)
+		for(i=Operator::OperCommutator; i <= Operator::OperNegator; i++)
 			oper->setOperator(dynamic_cast<Operator *>(operators_sel[i]->getSelectedObject()), i);
 
 		finishConfiguration();
@@ -156,7 +139,7 @@ void OperatorWidget::applyConfiguration(void)
 	catch(Exception &e)
 	{
 		cancelConfiguration();
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 

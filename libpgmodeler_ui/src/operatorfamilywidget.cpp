@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 #include "operatorfamilywidget.h"
 
-OperatorFamilyWidget::OperatorFamilyWidget(QWidget *parent): BaseObjectWidget(parent, OBJ_OPFAMILY)
+OperatorFamilyWidget::OperatorFamilyWidget(QWidget *parent): BaseObjectWidget(parent, ObjectType::OpFamily)
 {
 	QStringList types;
 	map<QString, vector<QWidget *> > fields_map;
@@ -26,14 +26,13 @@ OperatorFamilyWidget::OperatorFamilyWidget(QWidget *parent): BaseObjectWidget(pa
 	QFrame *frame=nullptr;
 
 	Ui_OperatorFamilyWidget::setupUi(this);
-	configureFormLayout(opfamily_grid, OBJ_OPFAMILY);
+	configureFormLayout(opfamily_grid, ObjectType::OpFamily);
 
-	IndexingType::getTypes(types);
-	indexing_cmb->addItems(types);
+	indexing_cmb->addItems(IndexingType::getTypes());
 
 	setRequiredField(indexing_lbl);
-	fields_map[BaseObjectWidget::generateVersionsInterval(BaseObjectWidget::AFTER_VERSION, PgSQLVersions::PGSQL_VERSION_95)].push_back(indexing_lbl);
-	values_map[indexing_lbl].push_back(~IndexingType(IndexingType::brin));
+	fields_map[BaseObjectWidget::generateVersionsInterval(BaseObjectWidget::AfterVersion, PgSqlVersions::PgSqlVersion95)].push_back(indexing_lbl);
+	values_map[indexing_lbl].push_back(~IndexingType(IndexingType::Brin));
 
 	opfamily_grid->addItem(new QSpacerItem(10,10,QSizePolicy::Minimum,QSizePolicy::Expanding), opfamily_grid->count()+1, 0, 1, 0);
 
@@ -42,13 +41,7 @@ OperatorFamilyWidget::OperatorFamilyWidget(QWidget *parent): BaseObjectWidget(pa
 	opfamily_grid->addWidget(frame, opfamily_grid->count()+1, 0, 1, 5);
 
 	configureTabOrder();
-	setMinimumSize(500, 250);
-}
-
-void OperatorFamilyWidget::hideEvent(QHideEvent *event)
-{
-	indexing_cmb->setCurrentIndex(0);
-	BaseObjectWidget::hideEvent(event);
+	setMinimumSize(500, 290);
 }
 
 void OperatorFamilyWidget::setAttributes(DatabaseModel *model, OperationList *op_list, Schema *schema, OperatorFamily *op_family)
@@ -59,7 +52,7 @@ void OperatorFamilyWidget::setAttributes(DatabaseModel *model, OperationList *op
 		indexing_cmb->setCurrentIndex(indexing_cmb->findText(~(op_family->getIndexingType())));
 }
 
-void OperatorFamilyWidget::applyConfiguration(void)
+void OperatorFamilyWidget::applyConfiguration()
 {
 	try
 	{
@@ -75,7 +68,7 @@ void OperatorFamilyWidget::applyConfiguration(void)
 	catch(Exception &e)
 	{
 		cancelConfiguration();
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 

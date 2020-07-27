@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,19 +27,24 @@
 
 #include "baseobjectwidget.h"
 #include "ui_tablewidget.h"
-#include "objecttablewidget.h"
+#include "objectstablewidget.h"
 #include "tableview.h"
+#include "elementstablewidget.h"
 
 class TableWidget: public BaseObjectWidget, public Ui::TableWidget {
 	private:
 		Q_OBJECT
 
-		ObjectTableWidget *parent_tables;
+		ObjectsTableWidget *parent_tables, *options_tab;
 
-		ObjectSelectorWidget *tag_sel;
+		ElementsTableWidget *partition_keys_tab;
+
+		ObjectSelectorWidget *tag_sel, *server_sel;
+
+		QFrame *warn_frame;
 
 		//! \brief Stores the objects tables used to handle columns, constraints, indexes, rules and triggers
-		map<ObjectType, ObjectTableWidget *> objects_tab_map;
+		map<ObjectType, ObjectsTableWidget *> objects_tab_map;
 
 		//! \brief Lists (on the correct object table) the table objects according to the specified type
 		void listObjects(ObjectType obj_type);
@@ -48,7 +53,7 @@ class TableWidget: public BaseObjectWidget, public Ui::TableWidget {
 		void showObjectData(TableObject *object, int row);
 
 		//! \brief Returns the object table according with the child type
-		ObjectTableWidget *getObjectTable(ObjectType obj_type);
+		ObjectsTableWidget *getObjectTable(ObjectType obj_type);
 
 		//! \brief Returns the object type according to the widget (in this case a object table) that called the method
 		ObjectType getObjectType(QObject *sender);
@@ -58,16 +63,17 @@ class TableWidget: public BaseObjectWidget, public Ui::TableWidget {
 		template<class Class, class ClassWidget>
 		int openEditingForm(TableObject *object);
 
-		void hideEvent(QHideEvent *event);
+		void __setAttributes(DatabaseModel *model, OperationList *op_list, Schema *schema, PhysicalTable *table, double pos_x, double pos_y);
 
 	public:
-		TableWidget(QWidget * parent = 0);
+		TableWidget(QWidget * parent = nullptr, ObjectType tab_type = ObjectType::Table);
 
 		void setAttributes(DatabaseModel *model, OperationList *op_list, Schema *schema, Table *table, double pos_x, double pos_y);
+		void setAttributes(DatabaseModel *model, OperationList *op_list, Schema *schema, ForeignTable *ftable, double pos_x, double pos_y);
 
 	private slots:
 		//! \brief Adds or edit a object on the object table that calls the slot
-		void handleObject(void);
+		void handleObject();
 
 		//! \brief Removes the selected object from the table that calls the slot
 		void removeObject(int row);
@@ -76,16 +82,16 @@ class TableWidget: public BaseObjectWidget, public Ui::TableWidget {
 		void duplicateObject(int sel_row, int new_row);
 
 		//! \brief Removes all objects from the table that calls the slot
-		void removeObjects(void);
+		void removeObjects();
 
 		//! \brief Swap the index between two rows of the table that calls the slot
 		void swapObjects(int idx1, int idx2);
 
-		void editData(void);
+		void editData();
 
 	public slots:
-		void applyConfiguration(void);
-		void cancelConfiguration(void);
+		void applyConfiguration();
+		void cancelConfiguration();
 };
 
 #endif

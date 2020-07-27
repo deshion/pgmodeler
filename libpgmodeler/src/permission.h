@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -43,8 +43,8 @@ class Permission: public BaseObject {
 				* view
 				* sequence
 				* database
-				* foreign-data wrapper (not implemented)
-				* foreign server (not implemented)
+				* foreign-data wrapper
+				* foreign server
 				* large objects (not implemented)
 				* function
 				* aggregate
@@ -80,22 +80,22 @@ class Permission: public BaseObject {
 		/*! \brief Generates a unique identifier for permission using the attribute
 			'name' of base class BaseObject. This is only used to avoid
 			 duplicate permissions in the model */
-		void generatePermissionId(void);
+		void generatePermissionId();
 
 	public:
 		//! \brief Constants used to reference the privileges
-		static const unsigned PRIV_SELECT=0,
-		PRIV_INSERT=1,
-		PRIV_UPDATE=2,
-		PRIV_DELETE=3,
-		PRIV_TRUNCATE=4,
-		PRIV_REFERENCES=5,
-		PRIV_TRIGGER=6,
-		PRIV_CREATE=7,
-		PRIV_CONNECT=8,
-		PRIV_TEMPORARY=9,
-		PRIV_EXECUTE=10,
-		PRIV_USAGE=11;
+		static constexpr unsigned PrivSelect=0,
+		PrivInsert=1,
+		PrivUpdate=2,
+		PrivDelete=3,
+		PrivTruncate=4,
+		PrivReferences=5,
+		PrivTrigger=6,
+		PrivCreate=7,
+		PrivConnect=8,
+		PrivTemporary=9,
+		PrivExecute=10,
+		PrivUsage=11;
 
 		/*! \brief In the constructor is required to specify which object will receive
 		 the permissions this can not be changed after the object instance of
@@ -116,19 +116,19 @@ class Permission: public BaseObject {
 		void removeRole(unsigned role_idx);
 
 		//! \brief Remove all roles from the permission
-		void removeRoles(void);
+		void removeRoles();
 
 		//! \brief Gets the role count associated to the permission
-		unsigned getRoleCount(void);
+		unsigned getRoleCount();
 
 		//! \brief Gets one role from permission using its index
 		Role *getRole(unsigned role_idx);
 
 		//! \brief Returns all the roles that is used by the permission
-		vector<Role *> getRoles(void);
+		vector<Role *> getRoles();
 
 		//! \brief Gets the object that is subject to the privileges
-		BaseObject *getObject(void);
+		BaseObject *getObject();
 
 		//! \brief Gets the actual state of the GRANT OPTION for the given privilege
 		bool getGrantOption(unsigned priv_id);
@@ -139,7 +139,7 @@ class Permission: public BaseObject {
 		/*! \brief Returns a string containing all the privileges
 		 configured as the internal format of permissions
 		 as documented on PostgreSQL GRANT command */
-		QString getPermissionString(void);
+		QString getPermissionString();
 
 		/*! \brief Parses the permission string (e.g. postgres=arwdDxt/postgres) and returns the role name
 		which owns the permission. The parameter vectors stores the ordinary privileges as well the GRANT OPTION privileges */
@@ -147,19 +147,19 @@ class Permission: public BaseObject {
 
 		//! \brief Indicates whether the role is present on the permission
 		bool isRoleExists(Role *role);
-		bool isRevoke(void);
-		bool isCascade(void);
+		bool isRevoke();
+		bool isCascade();
 
 		//! \brief Returns the the specified permission is semantically the same as this permission
 		bool isSimilarTo(Permission *perm);
 
 		//! \brief Returns if the passed object type accepts permission
-		static bool objectAcceptsPermission(ObjectType obj_type, int privilege=-1);
+		static bool acceptsPermission(ObjectType obj_type, int privilege=-1);
 
 		//! \brief Returns the SQL / XML definition for the permission
 		virtual QString getCodeDefinition(unsigned def_type) final;
 
-		virtual QString getSignature(bool format=false) final;
+		virtual QString getSignature(bool = false) final;
 
 		virtual QString getDropDefinition(bool cascade) final;
 };

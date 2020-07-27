@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,16 +33,18 @@ class Parameter: public Column {
 		bool is_in, is_out, is_variadic;
 
 	public:
-		Parameter(void);
+		Parameter();
+        Parameter(const Parameter &param);
+		Parameter(const QString &name, PgSqlType type, bool in = false, bool out = false, bool variadic = false);
 
-		void setType(PgSQLType type);
+		void setType(PgSqlType type);
 		void setIn(bool value);
 		void setOut(bool value);
 		void setVariadic(bool value);
 
-		bool isIn(void);
-		bool isOut(void);
-		bool isVariadic(void);
+		bool isIn();
+		bool isOut();
+		bool isVariadic();
 
 		//! \brief Returns the SQL / XML code definition for the parameter
 		virtual QString getCodeDefinition(unsigned def_type) final;

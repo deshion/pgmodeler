@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>315</width>
+    <width>285</width>
     <height>697</height>
    </rect>
   </property>
@@ -34,47 +34,86 @@
    </property>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_5">
+     <property name="spacing">
+      <number>4</number>
+     </property>
      <item>
-      <widget class="QCheckBox" name="sys_objs_chk">
+      <widget class="QToolButton" name="toggle_display_tb">
        <property name="enabled">
         <bool>true</bool>
        </property>
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
+       <property name="font">
+        <font>
+         <pointsize>8</pointsize>
+        </font>
        </property>
        <property name="toolTip">
-        <string>Toggles the display of system objects.</string>
+        <string>Toggle the display of filter widget as well the system/extension objects.</string>
        </property>
        <property name="text">
-        <string>System</string>
+        <string>Filter</string>
        </property>
-       <property name="checked">
-        <bool>false</bool>
+       <property name="icon">
+        <iconset resource="../res/resources.qrc">
+         <normaloff>:/icones/icones/filter.png</normaloff>:/icones/icones/filter.png</iconset>
+       </property>
+       <property name="iconSize">
+        <size>
+         <width>22</width>
+         <height>22</height>
+        </size>
+       </property>
+       <property name="popupMode">
+        <enum>QToolButton::InstantPopup</enum>
+       </property>
+       <property name="toolButtonStyle">
+        <enum>Qt::ToolButtonIconOnly</enum>
+       </property>
+       <property name="autoRaise">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QCheckBox" name="ext_objs_chk">
+      <widget class="QToolButton" name="sort_by_name_tb">
        <property name="enabled">
         <bool>true</bool>
        </property>
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
+       <property name="font">
+        <font>
+         <pointsize>8</pointsize>
+        </font>
        </property>
        <property name="toolTip">
-        <string>Toggles the display of extension objects</string>
+        <string>Sort items alphabetically. When unchecked, items are sorted by OID.</string>
        </property>
        <property name="text">
-        <string>Extension</string>
+        <string>Sort alphabetically</string>
+       </property>
+       <property name="icon">
+        <iconset resource="../res/resources.qrc">
+         <normaloff>:/icones/icones/sortasc.png</normaloff>:/icones/icones/sortasc.png</iconset>
+       </property>
+       <property name="iconSize">
+        <size>
+         <width>22</width>
+         <height>22</height>
+        </size>
+       </property>
+       <property name="shortcut">
+        <string/>
+       </property>
+       <property name="checkable">
+        <bool>true</bool>
        </property>
        <property name="checked">
-        <bool>false</bool>
+        <bool>true</bool>
+       </property>
+       <property name="toolButtonStyle">
+        <enum>Qt::ToolButtonIconOnly</enum>
+       </property>
+       <property name="autoRaise">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -110,6 +149,9 @@
        <property name="toolButtonStyle">
         <enum>Qt::ToolButtonIconOnly</enum>
        </property>
+       <property name="autoRaise">
+        <bool>true</bool>
+       </property>
       </widget>
      </item>
      <item>
@@ -118,14 +160,14 @@
         <bool>true</bool>
        </property>
        <property name="toolTip">
-        <string>Open a new SQL execution pane</string>
+        <string>Add a new SQL execution tab for the current database</string>
        </property>
        <property name="text">
         <string>...</string>
        </property>
        <property name="icon">
         <iconset resource="../res/resources.qrc">
-         <normaloff>:/icones/icones/runsqldb.png</normaloff>:/icones/icones/runsqldb.png</iconset>
+         <normaloff>:/icones/icones/newtab.png</normaloff>:/icones/icones/newtab.png</iconset>
        </property>
        <property name="iconSize">
         <size>
@@ -134,7 +176,10 @@
         </size>
        </property>
        <property name="shortcut">
-        <string>Ctrl+F6</string>
+        <string>Ctrl+T</string>
+       </property>
+       <property name="autoRaise">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -159,8 +204,8 @@
          <height>22</height>
         </size>
        </property>
-       <property name="shortcut">
-        <string>Ctrl+S</string>
+       <property name="autoRaise">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -185,7 +230,23 @@
          <height>22</height>
         </size>
        </property>
+       <property name="autoRaise">
+        <bool>true</bool>
+       </property>
       </widget>
+     </item>
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
      </item>
     </layout>
    </item>
@@ -413,8 +474,11 @@
                 <verstretch>0</verstretch>
                </sizepolicy>
               </property>
+              <property name="toolTip">
+               <string/>
+              </property>
               <property name="statusTip">
-               <string>Filters the currently loaded items in the tree by using a pattern and matching their names. If &lt;strong&gt;By OID&lt;/strong&gt; is checked the pattern is interpreted as an integer value that represents the object id (OID). &lt;br&gt;&lt;br/&gt;&lt;strong&gt;HINT:&lt;/strong&gt; if you need to search the entire database use the full refresh (&lt;strong&gt;Ctrl+F5&lt;/strong&gt;) prior the filtering.</string>
+               <string/>
               </property>
               <property name="text">
                <string>Filter:</string>
@@ -426,6 +490,9 @@
               <property name="enabled">
                <bool>true</bool>
               </property>
+              <property name="toolTip">
+               <string>Filters the currently loaded items in the tree by using a pattern and matching their names. If &lt;strong&gt;By OID&lt;/strong&gt; is checked the pattern is interpreted as an integer value that represents the object id (OID). &lt;br&gt;&lt;br/&gt;&lt;strong&gt;HINT:&lt;/strong&gt; if you need to search the entire database use the full refresh (&lt;strong&gt;Ctrl+F5&lt;/strong&gt;) prior the filtering.</string>
+              </property>
               <property name="clearButtonEnabled">
                <bool>true</bool>
               </property>
@@ -435,28 +502,6 @@
              <widget class="QCheckBox" name="by_oid_chk">
               <property name="text">
                <string>By OID</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QWidget" name="filter_hint" native="true">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="minimumSize">
-               <size>
-                <width>22</width>
-                <height>22</height>
-               </size>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>22</width>
-                <height>22</height>
-               </size>
               </property>
              </widget>
             </item>
@@ -537,11 +582,11 @@
          <attribute name="horizontalHeaderVisible">
           <bool>false</bool>
          </attribute>
-         <attribute name="horizontalHeaderDefaultSectionSize">
-          <number>100</number>
-         </attribute>
          <attribute name="horizontalHeaderMinimumSectionSize">
           <number>25</number>
+         </attribute>
+         <attribute name="horizontalHeaderDefaultSectionSize">
+          <number>100</number>
          </attribute>
          <attribute name="horizontalHeaderStretchLastSection">
           <bool>true</bool>
@@ -550,7 +595,7 @@
           <bool>false</bool>
          </attribute>
          <attribute name="verticalHeaderDefaultSectionSize">
-          <number>25</number>
+          <number>28</number>
          </attribute>
          <attribute name="verticalHeaderStretchLastSection">
           <bool>false</bool>

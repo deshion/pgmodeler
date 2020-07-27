@@ -4,6 +4,7 @@
 -->
 <!ELEMENT textbox (position,comment)>
 <!ATTLIST textbox name CDATA #REQUIRED>
+<!ATTLIST textbox layer CDATA #IMPLIED>
 <!ATTLIST textbox font-size CDATA #IMPLIED>
 <!ATTLIST textbox protected (false|true) "false">
 <!ATTLIST textbox italic (false|true) "false">
@@ -11,3 +12,4 @@
 <!ATTLIST textbox underline (false|true) "false">
 <!ATTLIST textbox color CDATA #IMPLIED>
 <!ATTLIST textbox faded-out (false|true) "false">
+<!ATTLIST textbox z-value CDATA #IMPLIED>

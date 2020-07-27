@@ -1,6 +1,6 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,52 +25,57 @@
 #ifndef BASE_OBJECT_H
 #define BASE_OBJECT_H
 
-#include "parsersattributes.h"
+#include "attributes.h"
 #include "exception.h"
-#include "pgsqltypes.h"
 #include "schemaparser.h"
 #include "xmlparser.h"
 #include <map>
 #include <QRegExp>
 #include <QStringList>
 #include <QTextStream>
+#include <type_traits>
 
-enum ObjectType {
-	OBJ_COLUMN,
-	OBJ_CONSTRAINT,
-	OBJ_FUNCTION,
-	OBJ_TRIGGER,
-	OBJ_INDEX,
-	OBJ_RULE,
-	OBJ_TABLE,
-	OBJ_VIEW,
-	OBJ_DOMAIN,
-	OBJ_SCHEMA,
-	OBJ_AGGREGATE,
-	OBJ_OPERATOR,
-	OBJ_SEQUENCE,
-	OBJ_ROLE,
-	OBJ_CONVERSION,
-	OBJ_CAST,
-	OBJ_LANGUAGE,
-	OBJ_TYPE,
-	OBJ_TABLESPACE,
-	OBJ_OPFAMILY,
-	OBJ_OPCLASS,
-	OBJ_DATABASE,
-	OBJ_COLLATION,
-	OBJ_EXTENSION,
-	OBJ_EVENT_TRIGGER,
-	OBJ_RELATIONSHIP,
-	OBJ_TEXTBOX,
-	OBJ_PERMISSION,
-	OBJ_PARAMETER,
-	OBJ_TYPE_ATTRIBUTE,
-	OBJ_TAG,
-	OBJ_GENERIC_SQL,
-	BASE_RELATIONSHIP,
-	BASE_OBJECT,
-	BASE_TABLE
+enum class ObjectType: unsigned {
+	Column,
+	Constraint,
+	Function,
+	Trigger,
+	Index,
+	Rule,
+	Table,
+	View,
+	Domain,
+	Schema,
+	Aggregate,
+	Operator,
+	Sequence,
+	Role,
+	Conversion,
+	Cast,
+	Language,
+	Type,
+	Tablespace,
+	OpFamily,
+	OpClass,
+	Database,
+	Collation,
+	Extension,
+	EventTrigger,
+	Policy,
+	ForeignDataWrapper,
+	ForeignServer,
+	ForeignTable,
+	UserMapping,
+	Relationship,
+	Textbox,
+	Permission,
+	Parameter,
+	TypeAttribute,
+	Tag,
+	GenericSql,
+	BaseRelationship,
+	BaseObject,
+	BaseTable
 };
 
 class BaseObject {
@@ -80,6 +85,11 @@ class BaseObject {
 
 		//! \brief Indicates the the cached code enabled
 		static bool use_cached_code;
+
+		static bool escape_comments;
+
+		//! \brief Stores the set of special (valid) chars that forces the object's name quoting
+		static const QByteArray special_chars;
 
 		//! \brief Stores the database wich the object belongs
 		BaseObject *database;
@@ -101,7 +111,7 @@ class BaseObject {
 		unsigned object_id;
 
 		//! \brief Objects type count declared on enum ObjectType
-		static const int OBJECT_TYPE_COUNT=36;
+		static constexpr unsigned ObjectTypeCount=enum_cast(ObjectType::BaseTable) + 1;
 
 		/*! \brief Indicates whether the object is protected or not.
 		 A protected object indicates that it can not suffer changes in position
@@ -127,20 +137,21 @@ class BaseObject {
 
 		//! \brief Stores the cached xml and sql code
 		QString cached_code[2],
+
 		//! \brief Stores the xml code in reduced form
 		cached_reduced_code;
 
 		/*! \brief This map stores the name of each object type associated to a schema file
 		 that generates the object's code definition */
-		static QString objs_schemas[OBJECT_TYPE_COUNT];
+		static const QString objs_schemas[ObjectTypeCount];
 
 		/*! \brief This map associates the object type to a keyword on
 		 SQL language that represents the object */
-		static QString objs_sql[OBJECT_TYPE_COUNT];
+		static const QString objs_sql[ObjectTypeCount];
 
 		/*! \brief Stores the name of the type of objects to be used in error messages formatting
 		 and others operations that envolves object type name */
-		static QString obj_type_names[OBJECT_TYPE_COUNT];
+		static const QString obj_type_names[ObjectTypeCount];
 
 		/*! \brief Role that is owner of the object. Some objects cannot be associated to a role
 		 so if one is assigned to the object an error will be raised */
@@ -160,8 +171,12 @@ class BaseObject {
 
 		//! \brief Comments related to object
 		QString comment,
+
 		//! \brief Object's name (in PostgreSQL accepted format)
 		obj_name,
+
+		//! \brief Object's alias (human readable / friendly) name
+		alias,
 
 		//! \brief The set of SQL commands appended on the objectc's definition
 		appended_sql,
@@ -169,13 +184,16 @@ class BaseObject {
 		//! \brief The set of SQL commands prepended on the objectc's definition
 		prepended_sql;
 
-
 		/*! \brief Stores the attributes and their values ​​shaped in strings to be used
 		 by SchemaParser on the object's code definition creation. The attribute
 		 name related to model objects are defined in ParsersAttributes namespace. */
-		attribs_map attributes;
+		attribs_map attributes,
 
-		/*! \brief Type of object, may have one of the values ​​of the enum ObjectType OBJ_*
+		/*! \brief Stores the attributes and their vales which can be used by the
+		 * searching mechanism to match patters */
+		search_attribs;
+
+		/*! \brief Type of object, may have one of the values ​​of the enum ObjectType
 		 It was used a numeric type to avoid the use excessive of RTTI. */
 		ObjectType obj_type;
 
@@ -198,7 +216,7 @@ class BaseObject {
 		static void updateObjectId(BaseObject *obj);
 
 		//! \brief Clears all the attributes used by the SchemaParser
-		void clearAttributes(void);
+		void clearAttributes();
 
 		/*! \brief Returns the cached code for the specified code type. This method returns an empty
 		 string in case of no code is cached */
@@ -220,16 +238,22 @@ class BaseObject {
 
 		static QString getAlterDefinition(QString sch_name, attribs_map &attribs, bool ignore_ukn_attribs=false, bool ignore_empty_attribs=false);
 
+		QString getAlterCommentDefinition(BaseObject *object, attribs_map attributes);
+
 	public:
 		//! \brief Maximum number of characters that an object name on PostgreSQL can have
-		static const int OBJECT_NAME_MAX_LENGTH=63;
+		static constexpr int ObjectNameMaxLength=63;
 
-		BaseObject(void);
-		BaseObject(bool system_obj);
+		/*! \brief The default number of objects supposed to be stored in objects list.
+		 * This values is just a reference (hint) and is used to preallocate (reserve) space on vectors which handle objects
+		 * to avoid excessive allocation/deallocation by resizing the vectors due to insert operation */
+		static constexpr unsigned DefMaxObjectCount=20;
+
+		BaseObject();
 		virtual ~BaseObject(void){}
 
 		//! \brief Returns the reference to the database that owns the object
-		BaseObject *getDatabase(void);
+		BaseObject *getDatabase();
 
 		/*! \brief Defines a specific attribute in the attribute list used to generate the code definition.
 		 This method can be used when a class needs to directly write some attributes of
@@ -265,13 +289,22 @@ class BaseObject {
 		static QString getSQLName(ObjectType obj_type);
 
 		//! \brief Returns the current value of the global object id counter
-		static unsigned getGlobalId(void);
+		static unsigned getGlobalId();
+
+		static void setEscapeComments(bool value);
+
+		static bool isEscapeComments();
 
 		//! \brief Defines the comment of the object that will be attached to its SQL definition
 		virtual void setComment(const QString &comment);
 
 		//! \brief Defines the objects name. If the passed name isn't valid it'll raise an error
 		virtual void setName(const QString &name);
+
+		/*! \brief Defines the object's alias (human readable / friendly name). An alias is used when the database model is being
+		 * displayed in compact view. This method raises an error when the provided name is larger than 63 bytes
+		 * (the same rule for PostgreSQL names length) */
+		virtual void setAlias(const QString &alias);
 
 		//! \brief Toggles the object's modify protection
 		virtual void setProtected(bool value);
@@ -302,58 +335,65 @@ class BaseObject {
 		void setPrependedSQL(const QString &sql);
 
 		//! \brief Returns if the generated SQL is commented
-		bool isSQLDisabled(void);
+		bool isSQLDisabled();
 
 		//! \brief Defines if the object is a system protected object
 		virtual void setSystemObject(bool value);
 
 		//! \brief Returns if the object is a system protected object
-		bool isSystemObject(void);
+		bool isSystemObject();
 
 		/*! \brief Returns the object's name. The parameter 'format' is used to get
 		 the name properly formated (using quotes when there is uppercase char or extended utf-8),
 		 the parameter 'prepend_schema' includes the schema name on the objects name (defult) */
 		virtual QString getName(bool format=false, bool prepend_schema=true);
 
+		//! \brief Returns the object's alias (user friendly) name
+		virtual QString getAlias();
+
 		//! \brief Returns the name of the object with schema name (when available) prepended by default
 		virtual QString getSignature(bool format=true);
 
-		//! \brief Retorns the object's comment
-		QString getComment(void);
+		//! \brief Returns the object's comment (in raw form)
+		QString getComment();
+
+		/*! \brief Returns the object's comment in such way that the quotes are escaped as well,
+		 * if escape_special_chars is true, any line break and tabulation is returned in form \n and \t */
+		QString getEscapedComment(bool escape_special_chars);
 
 		//! \brief Returns the object's type
-		ObjectType getObjectType(void);
+		ObjectType getObjectType();
 
 		//! \brief Returns the object's type name
-		QString getTypeName(void);
+		QString getTypeName();
 
 		//! \brief Returns the object's schema name used to generate code definition
-		QString getSchemaName(void);
+		QString getSchemaName();
 
 		//! \brief Returns the keyword related to the object type
-		QString getSQLName(void);
+		QString getSQLName();
 
 		//! \brief Returns the schema that the objects is part
-		BaseObject *getSchema(void);
+		BaseObject *getSchema();
 
 		//! \brief Returns the owner of the object
-		BaseObject *getOwner(void);
+		BaseObject *getOwner();
 
 		//! \brief Returns the tablespace that the object is part
-		BaseObject *getTablespace(void);
+		BaseObject *getTablespace();
 
 		//! \brief Returns the collation that the object makes use
-		BaseObject *getCollation(void);
+		BaseObject *getCollation();
 
-		QString getAppendedSQL(void);
+		QString getAppendedSQL();
 
-		QString getPrependedSQL(void);
+		QString getPrependedSQL();
 
 		//! \brief Returns the object's generated id
-		unsigned getObjectId(void);
+		unsigned getObjectId();
 
 		//! \brief Returns if the object is protected or not
-		bool isProtected(void);
+		bool isProtected();
 
 		//! \brief Assigns an object to other copiyng all the attributes correctly
 		virtual void operator = (BaseObject &obj);
@@ -403,26 +443,29 @@ class BaseObject {
 		//! \brief Returns if the specified type accepts the use of DROP commands
 		static bool acceptsDropCommand(ObjectType obj_type);
 
+		//! \brief Returns if the specified type accepts an alias (friendly name)
+		static bool acceptsAlias(ObjectType obj_type);
+
 		//! \brief Returns if the object accepts to have a schema assigned
-		bool acceptsSchema(void);
+		bool acceptsSchema();
 
 		//! \brief Returns if the object accepts to have an owner assigned
-		bool acceptsOwner(void);
+		bool acceptsOwner();
 
 		//! \brief Returns if the object accepts to have a tablespace assigned
-		bool acceptsTablespace(void);
+		bool acceptsTablespace();
 
 		//! \brief Returns if the object accepts to have a collation assigned
-		bool acceptsCollation(void);
+		bool acceptsCollation();
 
 		//! \brief Returns if the object accepts to have appended sql commands
-		bool acceptsCustomSQL(void);
+		bool acceptsCustomSQL();
 
 		//! \brief Returns if the object accepts the use of ALTER commands to have its attributes changed
-		bool acceptsAlterCommand(void);
+		bool acceptsAlterCommand();
 
 		//! \brief Returns if the object accepts the use of DROP commands
-		bool acceptsDropCommand(void);
+		bool acceptsDropCommand();
 
 		/*! \brief Marks the current cached code as invalid and forces its regenaration.
 				Some key attributes / setters in the base classes BaseObject, BaseTable and BaseRelationship
@@ -431,8 +474,10 @@ class BaseObject {
 				This method has no effect when the cached code support is disables. See enableCachedCode() */
 		virtual void setCodeInvalidated(bool value);
 
+		virtual void configureSearchAttributes();
+
 		//! \brief Returns if the code (sql and xml) is invalidated
-		bool isCodeInvalidated(void);
+		bool isCodeInvalidated();
 
 		/*! \brief Compares the xml code between the "this" object and another one. The user can specify which attributes
 		and tags must be ignored when makin the comparison. NOTE: only the name for attributes and tags must be informed */
@@ -444,7 +489,7 @@ class BaseObject {
 		static void enableCachedCode(bool value);
 
 		/*! \brief Returns the valid object types in a vector. The types
-		BASE_OBJECT, TYPE_ATTRIBUTE and BASE_TABLE aren't included in return vector.
+		ObjectType::ObjBaseObject, TYPE_ATTRIBUTE and ObjectType::ObjBaseTable aren't included in return vector.
 		By default table objects (columns, trigger, constraints, etc) are included. To
 		avoid the insertion of these types set the boolean param to false. */
 		static vector<ObjectType> getObjectTypes(bool inc_table_objs=true, vector<ObjectType> exclude_types={});
@@ -452,15 +497,21 @@ class BaseObject {
 		/*! \brief Returns the valid object types that are child or grouped under the specified type.
 	This method works a litte different from getObjectTypes() since this latter returns all valid types
 	and this one returns only the valid types for the current specified type. For now the only accepted
-	types are OBJ_DATABASE, OBJ_SCHEMA and OBJ_TABLE */
+	types are ObjectType::Database, ObjectType::Schema, ObjectType::Table, ObjectType::ForeignTable */
 		static vector<ObjectType> getChildObjectTypes(ObjectType obj_type);
+
+		//! \brief Returns true when the child_type is in the list of children types of the parent_type
+		static bool isChildObjectType(ObjectType parent_type, ObjectType child_type);
 
 		/*! \brief Sets the default version when generating the SQL code. This affects all instances of classes that
 				is based upon this one */
 		static void setPgSQLVersion(const QString &ver);
 
 		//! \brief Returns the current version for SQL code generation
-		static QString getPgSQLVersion(void);
+		static QString getPgSQLVersion();
+
+		//! \brief Returns the set of attributes used by the search mechanism
+		attribs_map getSearchAttributes();
 
 		friend class DatabaseModel;
 		friend class ModelValidationHelper;

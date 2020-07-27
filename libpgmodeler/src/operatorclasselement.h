@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -52,7 +52,7 @@ class OperatorClassElement {
 
 		/*! \brief PostgreSQL type used in the indexing method of operator class.
 		 (only for type STORAGE_ELEM) */
-		PgSQLType storage;
+		PgSqlType storage;
 
 		/*! \brief Strategy number (or support number for functions). This attribute
 		 must have a value greater than 0 (only for OPERATOR_ELEM and FUNCTION_ELEM) */
@@ -60,11 +60,11 @@ class OperatorClassElement {
 
 	public:
 		//! \brief Constants used to reference the element types
-		static const unsigned OPERATOR_ELEM=0,
-		FUNCTION_ELEM=1,
-		STORAGE_ELEM=2;
+		static constexpr unsigned OperatorElem=0,
+		FunctionElem=1,
+		StorageElem=2;
 
-		OperatorClassElement(void);
+		OperatorClassElement();
 		virtual ~OperatorClassElement(void){}
 
 		//! \brief Defines the element as a function clause
@@ -77,28 +77,28 @@ class OperatorClassElement {
 		void setOperatorFamily(OperatorFamily *op_family);
 
 		//! \brief Defines the element as a storage clause
-		void setStorage(PgSQLType storage);
+		void setStorage(PgSqlType storage);
 
 		//! \brief Returns the element type
-		unsigned getElementType(void);
+		unsigned getElementType();
 
 		/*! \brief Returns the current assigned function.
 		 This method returns nullptr when the element is not an FUNCTION_ELEM */
-		Function *getFunction(void);
+		Function *getFunction();
 
 		/*! \brief Returns the current assigned operator.
 		 This method returns nullptr when the element is not an OPERATOR_ELEM */
-		Operator *getOperator(void);
+		Operator *getOperator();
 
 		/*! \brief Returns the operator family used by element.
 		This method returns nullptr when the element is not an OPERATOR_ELEM */
-		OperatorFamily *getOperatorFamily(void);
+		OperatorFamily *getOperatorFamily();
 
 		//! \brief Storage type of the element
-		PgSQLType getStorage(void);
+		PgSqlType getStorage();
 
 		//! \brief Returns the strategy (support) number of the element
-		unsigned getStrategyNumber(void);
+		unsigned getStrategyNumber();
 
 		//! \brief Returns the SQL / XML code definition for the element
 		virtual QString getCodeDefinition(unsigned def_type) final;

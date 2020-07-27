@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@
 #include "textbox.h"
 #include "baseobjectview.h"
 #include "roundedrectitem.h"
+#include "textpolygonitem.h"
 
 class TextboxView: public BaseObjectView {
 	private:
@@ -36,6 +37,8 @@ class TextboxView: public BaseObjectView {
 		//! \brief Indicates the the font / color styles will be overriden (need to call setColorStyle, setFontStyle)
 		bool override_style;
 
+		QString txtbox_tooltip;
+
 	protected:
 		//! \brief Graphical item that represent the box
 		QGraphicsPolygonItem *box;
@@ -43,18 +46,20 @@ class TextboxView: public BaseObjectView {
 		//! \brief Graphical item that represent the text
 		QGraphicsSimpleTextItem *text;
 
+		TextPolygonItem *text_item;
+
 		//! \brief Configures the shadow for the textbox
-		void configureObjectShadow(void);
+		void configureObjectShadow();
 
 		//! \brief Configures the selection for the textbox
-		void configureObjectSelection(void);
+		void configureObjectSelection();
 
 		//! \brief Configures the basic attributes for textbox
-		void __configureObject(void);
+		void __configureObject();
 
 	public:
 		TextboxView(Textbox *txtbox, bool override_style=false);
-		virtual ~TextboxView(void);
+		virtual ~TextboxView();
 
 		/*! \brief Sets the fill and border color for the text box. This method has effect only when
 		 the style can be overriden (via constructor) */
@@ -64,8 +69,12 @@ class TextboxView: public BaseObjectView {
 		 the style can be overriden (via constructor) */
 		void setFontStyle(const QTextCharFormat &fmt);
 
+		void setToolTip(const QString &tooltip);
+
+		QVariant itemChange(GraphicsItemChange change, const QVariant &value);
+
 	protected slots:
-		virtual void configureObject(void);
+		virtual void configureObject();
 };
 
 #endif

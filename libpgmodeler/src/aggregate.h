@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -41,7 +41,7 @@ class Aggregate: public BaseObject {
 		 To declare an aggregate function which works with several
 		 types in the old syntax, the only element of the list must
 		 be of type 'any' */
-		vector<PgSQLType> data_types;
+		vector<PgSqlType> data_types;
 
 		/*! \brief Function that defines the aggregate behavior
 		 0 -> Final function
@@ -49,7 +49,7 @@ class Aggregate: public BaseObject {
 		Function *functions[2];
 
 		//! \brief Data type used as aggregate's state
-		PgSQLType state_type;
+		PgSqlType state_type;
 
 		//! \brief Initial condition for the aggregate
 		QString initial_condition;
@@ -63,18 +63,21 @@ class Aggregate: public BaseObject {
 		//! \brief Checks if the passed function is valid according to the rule of aggregate definition
 		bool isValidFunction(unsigned func_idx, Function *func);
 
+	protected:
+		virtual void configureSearchAttributes();
+
 	public:
 		//! \brief Constants used to reference the functions used by the aggregate
-		static const unsigned FINAL_FUNC=0,
-		TRANSITION_FUNC=1;
+		static constexpr unsigned FinalFunc=0,
+		TransitionFunc=1;
 
-		Aggregate(void);
+		Aggregate();
 
 		//! \brief Defines one of the functions used by the aggregate
 		void setFunction(unsigned func_idx, Function *func);
 
 		//! \brief Defines the state data type of the aggregate
-		void setStateType(PgSQLType state_type);
+		void setStateType(PgSqlType state_type);
 
 		//! \brief Defines the initial condition for the aggregate
 		void setInitialCondition(const QString &cond);
@@ -83,20 +86,20 @@ class Aggregate: public BaseObject {
 		void setSortOperator(Operator *sort_op);
 
 		//! \brief Adds a data type in the group that is accepted by the aggregate
-		void addDataType(PgSQLType type);
+		void addDataType(PgSqlType type);
 
 		//! \brief Removes one aggregate accepted data type
 		void removeDataType(unsigned type_idx);
 
 		//! \brief Removes all accepted data types from aggregate
-		void removeDataTypes(void);
+		void removeDataTypes();
 
 		Function *getFunction(unsigned func_idx);
-		PgSQLType getStateType(void);
-		QString getInitialCondition(void);
-		Operator *getSortOperator(void);
-		PgSQLType getDataType(unsigned type_idx);
-		unsigned getDataTypeCount(void);
+		PgSqlType getStateType();
+		QString getInitialCondition();
+		Operator *getSortOperator();
+		PgSqlType getDataType(unsigned type_idx);
+		unsigned getDataTypeCount();
 
 		//! \brief Returns the SQL / XML code definition for the aggregate
 		virtual QString getCodeDefinition(unsigned def_type) final;

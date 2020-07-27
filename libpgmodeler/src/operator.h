@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@ class Operator: public BaseObject {
 		Function *functions[3];
 
 		//! \brief Stores the arguments types (left and right) used by the operator
-		PgSQLType argument_types[2];
+		PgSqlType argument_types[2];
 
 		//! \brief Stores the auxiliary operators
 		Operator *operators[2];
@@ -44,16 +44,19 @@ class Operator: public BaseObject {
 		bool	hashes, //! \brief Indicates that the operator can execute a hash join
 		merges;  //! \brief Indicates that the operator can execute a merge join
 
-	public:
-		static const unsigned FUNC_OPERATOR=0,
-		FUNC_JOIN=1,
-		FUNC_RESTRICT=2,
-		LEFT_ARG=0,
-		RIGHT_ARG=1,
-		OPER_COMMUTATOR=0,
-		OPER_NEGATOR=1;
+	protected:
+		virtual void configureSearchAttributes();
 
-		Operator(void);
+	public:
+		static constexpr unsigned FuncOperator=0,
+		FuncJoin=1,
+		FuncRestrict=2,
+		LeftArg=0,
+		RightArg=1,
+		OperCommutator=0,
+		OperNegator=1;
+
+		Operator();
 
 		//! \brief Defines the name of the operator
 		void setName(const QString &name);
@@ -62,7 +65,7 @@ class Operator: public BaseObject {
 		void setFunction(Function *func, unsigned func_type);
 
 		//! \brief Defines the argument data type for operator (constants ARG_[LEFT | RIGHT])
-		void setArgumentType(PgSQLType arg_type, unsigned arg_id);
+		void setArgumentType(PgSqlType arg_type, unsigned arg_id);
 
 		//! \brief Defines the auxiliary operators (constants OPER_[COMMUTATOR | NEGATOR])
 		void setOperator(Operator *oper, unsigned op_type);
@@ -77,16 +80,16 @@ class Operator: public BaseObject {
 		Function *getFunction(unsigned func_type);
 
 		//! \brief Returns the type of the passed argument id
-		PgSQLType getArgumentType(unsigned arg_id);
+		PgSqlType getArgumentType(unsigned arg_id);
 
 		//! \brief Returns on of the auxiliary operators
 		Operator *getOperator(unsigned op_type);
 
 		//! \brief Returns whether the operator accepts hash join
-		bool isHashes(void);
+		bool isHashes();
 
 		//! \brief Returns whether the operator accepts merge join
-		bool isMerges(void);
+		bool isMerges();
 
 		//! \brief Validates the passed name using the naming rule for operators
 		static bool isValidName(const QString &name);

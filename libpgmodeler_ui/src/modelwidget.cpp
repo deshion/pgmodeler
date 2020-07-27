@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -55,6 +55,12 @@
 #include "pgmodeleruins.h"
 #include "swapobjectsidswidget.h"
 #include "genericsqlwidget.h"
+#include "policywidget.h"
+#include "tabledatawidget.h"
+#include "generalconfigwidget.h"
+#include "foreigndatawrapperwidget.h"
+#include "foreignserverwidget.h"
+#include "usermappingwidget.h"
 
 vector<BaseObject *> ModelWidget::copied_objects;
 vector<BaseObject *> ModelWidget::cutted_objects;
@@ -63,12 +69,12 @@ bool ModelWidget::save_restore_pos=true;
 bool ModelWidget::disable_render_smooth=false;
 bool ModelWidget::simple_obj_creation=true;
 ModelWidget *ModelWidget::src_model=nullptr;
-float ModelWidget::min_object_opacity=0.10f;
+double ModelWidget::min_object_opacity=0.10;
 
-const unsigned ModelWidget::BREAK_VERT_NINETY_DEGREES=0;
-const unsigned ModelWidget::BREAK_HORIZ_NINETY_DEGREES=1;
-const unsigned ModelWidget::BREAK_VERT_2NINETY_DEGREES=2;
-const unsigned ModelWidget::BREAK_HORIZ_2NINETY_DEGREES=3;
+constexpr unsigned ModelWidget::BreakVertNinetyDegrees;
+constexpr unsigned ModelWidget::BreakHorizNinetyDegrees;
+constexpr unsigned ModelWidget::BreakVert2NinetyDegrees;
+constexpr unsigned ModelWidget::BreakHoriz2NinetyDegrees;
 
 ModelWidget::ModelWidget(QWidget *parent) : QWidget(parent)
 {
@@ -76,48 +82,42 @@ ModelWidget::ModelWidget(QWidget *parent) : QWidget(parent)
 	QLabel *label=nullptr;
 	QGridLayout *grid=nullptr;
 	QAction *action=nullptr;
-	QString str_ico, str_txt;
-	QStringList rel_types_cod={QString("11"), QString("1n"), QString("nn"), QString("dep"), QString("gen") },
-			rel_labels={ trUtf8("One to One (1-1)"), trUtf8("One to Many (1-n)"),
-						 trUtf8("Many to Many (n-n)"), trUtf8("Copy"), trUtf8("Inheritance") };
-	ObjectType types[]={ OBJ_TABLE, OBJ_VIEW, OBJ_TEXTBOX, OBJ_RELATIONSHIP,
-						 OBJ_CAST, OBJ_CONVERSION, OBJ_DOMAIN,
-						 OBJ_FUNCTION, OBJ_AGGREGATE, OBJ_LANGUAGE,
-						 OBJ_OPCLASS, OBJ_OPERATOR, OBJ_OPFAMILY,
-						 OBJ_ROLE, OBJ_SCHEMA, OBJ_SEQUENCE, OBJ_TYPE,
-						 OBJ_COLUMN, OBJ_CONSTRAINT, OBJ_RULE, OBJ_TRIGGER, OBJ_INDEX, OBJ_TABLESPACE,
-						 OBJ_COLLATION, OBJ_EXTENSION, OBJ_EVENT_TRIGGER, OBJ_TAG, OBJ_GENERIC_SQL };
-	unsigned i, obj_cnt=sizeof(types)/sizeof(ObjectType),
-			rel_types_id[]={ BaseRelationship::RELATIONSHIP_11, BaseRelationship::RELATIONSHIP_1N,
-							 BaseRelationship::RELATIONSHIP_NN, BaseRelationship::RELATIONSHIP_DEP,
-							 BaseRelationship::RELATIONSHIP_GEN };
+	QString str_ico;
+	QStringList rel_types_cod={QString("11"), QString("1n"), QString("nn"), QString("dep"), QString("gen"), QString("part") };
+	unsigned i,
+			rel_types_id[]={ BaseRelationship::Relationship11, BaseRelationship::Relationship1n,
+							 BaseRelationship::RelationshipNn, BaseRelationship::RelationshipDep,
+							 BaseRelationship::RelationshipGen, BaseRelationship::RelationshipPart};
+
+	vector<ObjectType> types_vect = BaseObject::getObjectTypes(true, { ObjectType::Database, ObjectType::Permission,
+																																		 ObjectType::BaseRelationship});
 
 	current_zoom=1;
 	modified=panning_mode=false;
-	new_obj_type=BASE_OBJECT;
+	new_obj_type=ObjectType::BaseObject;
 
 	//Generating a temporary file name for the model
 	QTemporaryFile tmp_file;
 
 	//Configuring the template mask which includes the full path to temporary dir
-	tmp_file.setFileTemplate(GlobalAttributes::TEMPORARY_DIR + GlobalAttributes::DIR_SEPARATOR + QString("model_XXXXXX") + QString(".dbm"));
+	tmp_file.setFileTemplate(GlobalAttributes::getTemporaryFilePath("model_XXXXXX.dbm"));
 	tmp_file.open();
 	tmp_filename=tmp_file.fileName();
 	tmp_file.close();
 
 	protected_model_frm=new QFrame(this);
-	protected_model_frm->setGeometry(QRect(20, 10, 511, 48));
-	protected_model_frm->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-	protected_model_frm->setMinimumSize(QSize(0, 48));
-	protected_model_frm->setMaximumHeight(48);
+	protected_model_frm->setGeometry(QRect(20, 10, 500, 25));
+	protected_model_frm->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+	protected_model_frm->setMinimumSize(QSize(0, 25));
 	protected_model_frm->setFrameShape(QFrame::StyledPanel);
 	protected_model_frm->setFrameShadow(QFrame::Raised);
 	protected_model_frm->setVisible(false);
 
 	label=new QLabel(protected_model_frm);
-	label->setMinimumSize(QSize(32, 32));
-	label->setMaximumSize(QSize(32, 32));
-	label->setPixmap(QPixmap(PgModelerUiNS::getIconPath("msgbox_alerta")));
+	label->setMinimumSize(QSize(20, 20));
+	label->setMaximumSize(QSize(20, 20));
+	label->setScaledContents(true);
+	label->setPixmap(QPixmap(PgModelerUiNs::getIconPath("msgbox_alerta")));
 
 	grid=new QGridLayout;
 	grid->addWidget(label, 0, 0, 1, 1);
@@ -132,8 +132,8 @@ ModelWidget::ModelWidget(QWidget *parent) : QWidget(parent)
 	font.setKerning(true);
 	label->setFont(font);
 	label->setWordWrap(true);
-	label->setText(trUtf8("<strong>ATTENTION:</strong> The database model is protected! Operations that could modify it are disabled!"));
-	PgModelerUiNS::configureWidgetFont(label, PgModelerUiNS::MEDIUM_FONT_FACTOR);
+	label->setText(tr("<strong>ATTENTION:</strong> The database model is protected! Operations that could modify it are disabled!"));
+	PgModelerUiNs::configureWidgetFont(label, PgModelerUiNs::MediumFontFactor);
 
 	grid->addWidget(label, 0, 1, 1, 1);
 	protected_model_frm->setLayout(grid);
@@ -148,11 +148,12 @@ ModelWidget::ModelWidget(QWidget *parent) : QWidget(parent)
 
 	viewport=new QGraphicsView(scene);
 	updateRenderHints();
-	viewport->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+	viewport->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
 	//Force the scene to be drawn from the left to right and from top to bottom
 	viewport->setAlignment(Qt::AlignLeft | Qt::AlignTop);
 	viewport->setViewportUpdateMode(QGraphicsView::MinimalViewportUpdate);
+	viewport->setCacheMode(QGraphicsView::CacheBackground);
 	viewport->centerOn(0,0);
 	viewport->setMouseTracking(true);
 
@@ -172,11 +173,11 @@ ModelWidget::ModelWidget(QWidget *parent) : QWidget(parent)
 	magnifier_frm->setCursor(Qt::CrossCursor);
 
 	QColor c1, c2;
-	BaseObjectView::getFillStyle(ParsersAttributes::OBJ_SELECTION, c1, c2);
+	BaseObjectView::getFillStyle(Attributes::ObjSelection, c1, c2);
 	c1.setAlpha(50);
 	magnifier_frm->setStyleSheet(QString("background-color: %1; border: 1px solid %2;")
 															 .arg(c1.name(QColor::HexArgb))
-															 .arg(BaseObjectView::getBorderStyle(ParsersAttributes::OBJ_SELECTION).color().name(QColor::HexArgb)));
+															 .arg(BaseObjectView::getBorderStyle(Attributes::ObjSelection).color().name(QColor::HexArgb)));
 
 	magnifier_area_lbl = new QLabel(this);
 	magnifier_area_lbl->raise();
@@ -196,8 +197,8 @@ ModelWidget::ModelWidget(QWidget *parent) : QWidget(parent)
 	zoom_info_lbl->setText(QString("Zoom: 100%"));
 	zoom_info_lbl->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
 	zoom_info_lbl->setStyleSheet(QString("color: #C8000000; \
-								 background-color: #C8FFFF80;\
-								 border: 1px solid #C8B16351;"));
+								 background-color: #C8FFFFa0;\
+								 border: 1px solid #C8B16380;"));
 
 	font=zoom_info_lbl->font();
 	font.setBold(true);
@@ -207,163 +208,214 @@ ModelWidget::ModelWidget(QWidget *parent) : QWidget(parent)
 	zoom_info_lbl->setVisible(false);
 	zoom_info_timer.setInterval(3000);
 
-	action_source_code=new QAction(QIcon(PgModelerUiNS::getIconPath("codigosql")), trUtf8("Source"), this);
-	action_source_code->setShortcut(QKeySequence(trUtf8("Alt+S")));
-	action_source_code->setToolTip(trUtf8("Show object source code"));
+	action_edit_data=new QAction(QIcon(PgModelerUiNs::getIconPath("editdata")), tr("Edit data"), this);
 
-	action_edit=new QAction(QIcon(PgModelerUiNS::getIconPath("editar")), trUtf8("Properties"), this);
-	action_edit->setShortcut(QKeySequence(trUtf8("Space")));
-	action_edit->setToolTip(trUtf8("Edit the object properties"));
+	action_source_code=new QAction(QIcon(PgModelerUiNs::getIconPath("codigosql")), tr("Source"), this);
+	action_source_code->setShortcut(QKeySequence(tr("Alt+S")));
+	action_source_code->setToolTip(tr("Show object source code"));
 
-	action_protect=new QAction(QIcon(PgModelerUiNS::getIconPath("bloqobjeto")), trUtf8("Protect"), this);
-	action_unprotect=new QAction(QIcon(PgModelerUiNS::getIconPath("desbloqobjeto")), trUtf8("Unprotect"), this);
-	action_protect->setToolTip(trUtf8("Protects object(s) from modifications"));
+	action_edit=new QAction(QIcon(PgModelerUiNs::getIconPath("editar")), tr("Properties"), this);
+	action_edit->setShortcut(QKeySequence(tr("Space")));
+	action_edit->setToolTip(tr("Edit the object properties"));
 
-	action_remove=new QAction(QIcon(PgModelerUiNS::getIconPath("excluir")), trUtf8("Delete"), this);
-	action_remove->setShortcut(QKeySequence(trUtf8("Del")));
+	action_protect=new QAction(QIcon(PgModelerUiNs::getIconPath("bloqobjeto")), tr("Protect"), this);
+	action_unprotect=new QAction(QIcon(PgModelerUiNs::getIconPath("desbloqobjeto")), tr("Unprotect"), this);
+	action_protect->setToolTip(tr("Protects object(s) from modifications"));
 
-	action_cascade_del=new QAction(QIcon(PgModelerUiNS::getIconPath("delcascade")), trUtf8("Del. cascade"), this);
-	action_cascade_del->setShortcut(QKeySequence(trUtf8("Shift+Del")));
+	action_remove=new QAction(QIcon(PgModelerUiNs::getIconPath("excluir")), tr("Delete"), this);
+	action_remove->setShortcut(QKeySequence(tr("Del")));
+	action_remove->setMenuRole(QAction::NoRole);
 
-	action_select_all=new QAction(QIcon(PgModelerUiNS::getIconPath("seltodos")), trUtf8("Select all"), this);	
-	action_select_all->setToolTip(trUtf8("Selects all the graphical objects in the model"));
+	action_cascade_del=new QAction(QIcon(PgModelerUiNs::getIconPath("delcascade")), tr("Del. cascade"), this);
+	action_cascade_del->setShortcut(QKeySequence(tr("Shift+Del")));
+	action_cascade_del->setMenuRole(QAction::NoRole);
+
+	action_select_all=new QAction(QIcon(PgModelerUiNs::getIconPath("seltodos")), tr("Select all"), this);
+	action_select_all->setToolTip(tr("Selects all the graphical objects in the model"));
 	action_select_all->setMenu(&select_all_menu);
 
-	action_convert_relnn=new QAction(QIcon(PgModelerUiNS::getIconPath("convrelnn")), trUtf8("Convert"), this);
+	action_convert_relnn=new QAction(QIcon(PgModelerUiNs::getIconPath("convrelnn")), tr("Convert"), this);
+	action_convert_rel1n=new QAction(QIcon(PgModelerUiNs::getIconPath("convrel1n")), tr("Convert"), this);
 
-	action_copy=new QAction(QIcon(PgModelerUiNS::getIconPath("copiar")), trUtf8("Copy"), this);
-	action_copy->setShortcut(QKeySequence(trUtf8("Ctrl+C")));
+	action_copy=new QAction(QIcon(PgModelerUiNs::getIconPath("copiar")), tr("Copy"), this);
+	action_copy->setShortcut(QKeySequence(tr("Ctrl+C")));
+	action_copy->setMenuRole(QAction::NoRole);
 
-	action_paste=new QAction(QIcon(PgModelerUiNS::getIconPath("colar")), trUtf8("Paste"), this);
-	action_paste->setShortcut(QKeySequence(trUtf8("Ctrl+V")));
+	action_paste=new QAction(QIcon(PgModelerUiNs::getIconPath("colar")), tr("Paste"), this);
+	action_paste->setShortcut(QKeySequence(tr("Ctrl+V")));
+	action_paste->setMenuRole(QAction::NoRole);
 
-	action_cut=new QAction(QIcon(PgModelerUiNS::getIconPath("recortar")), trUtf8("Cut"), this);
-	action_cut->setShortcut(QKeySequence(trUtf8("Ctrl+X")));
+	action_cut=new QAction(QIcon(PgModelerUiNs::getIconPath("recortar")), tr("Cut"), this);
+	action_cut->setShortcut(QKeySequence(tr("Ctrl+X")));
+	action_cut->setMenuRole(QAction::NoRole);
 
-	action_deps_refs=new QAction(QIcon(PgModelerUiNS::getIconPath("depsrefs")), trUtf8("Deps && Referrers"), this);
+	action_deps_refs=new QAction(QIcon(PgModelerUiNs::getIconPath("depsrefs")), tr("Deps && Referrers"), this);
 
-	action_new_object=new QAction(QIcon(PgModelerUiNS::getIconPath("novoobjeto")), trUtf8("New"), this);
-	action_new_object->setToolTip(trUtf8("Add a new object in the model"));
+	action_new_object=new QAction(QIcon(PgModelerUiNs::getIconPath("novoobjeto")), tr("New"), this);
+	action_new_object->setToolTip(tr("Add a new object in the model"));
 
-	action_quick_actions=new QAction(QIcon(PgModelerUiNS::getIconPath("quickactions")), trUtf8("Quick"), this);
-	action_quick_actions->setToolTip(trUtf8("Quick action for the selected object"));
+	action_quick_actions=new QAction(QIcon(PgModelerUiNs::getIconPath("quickactions")), tr("Quick"), this);
+	action_quick_actions->setToolTip(tr("Quick action for the selected object"));
 	action_quick_actions->setMenu(&quick_actions_menu);
 
-	action_rename=new QAction(QIcon(PgModelerUiNS::getIconPath("rename")), trUtf8("Rename"), this);
-	action_rename->setShortcut(QKeySequence(trUtf8("F2")));
-	action_rename->setToolTip(trUtf8("Quick rename the object"));
+	action_rename=new QAction(QIcon(PgModelerUiNs::getIconPath("rename")), tr("Rename"), this);
+	action_rename->setShortcut(QKeySequence(tr("F2")));
+	action_rename->setToolTip(tr("Quick rename the object"));
 
-	action_moveto_schema=new QAction(QIcon(PgModelerUiNS::getIconPath("movetoschema")), trUtf8("Move to schema"), this);
+	action_moveto_schema=new QAction(QIcon(PgModelerUiNs::getIconPath("movetoschema")), tr("Move to schema"), this);
 	action_moveto_schema->setMenu(&schemas_menu);
 
-	action_set_tag=new QAction(QIcon(PgModelerUiNS::getIconPath("tag")), trUtf8("Set tag"), this);
+	action_moveto_layer=new QAction(QIcon(PgModelerUiNs::getIconPath("movetolayer")), tr("Move to layer"), this);
+	action_moveto_layer->setMenu(&layers_menu);
+
+	action_set_tag=new QAction(QIcon(PgModelerUiNs::getIconPath("tag")), tr("Set tag"), this);
 	action_set_tag->setMenu(&tags_menu);
 
-	action_edit_perms=new QAction(QIcon(PgModelerUiNS::getIconPath("permission")), trUtf8("Edit permissions"), this);
-	action_edit_perms->setShortcut(QKeySequence(trUtf8("Ctrl+E")));
+	action_edit_perms=new QAction(QIcon(PgModelerUiNs::getIconPath("permission")), tr("Edit permissions"), this);
+	action_edit_perms->setShortcut(QKeySequence(tr("Ctrl+E")));
 
-	action_change_owner=new QAction(QIcon(PgModelerUiNS::getIconPath("changeowner")), trUtf8("Change owner"), this);
+	action_change_owner=new QAction(QIcon(PgModelerUiNs::getIconPath("changeowner")), tr("Change owner"), this);
 	action_change_owner->setMenu(&owners_menu);
 
-	action_sel_sch_children=new QAction(QIcon(PgModelerUiNS::getIconPath("seltodos")), trUtf8("Select children"), this);
-	action_sel_tagged_tabs=new QAction(QIcon(PgModelerUiNS::getIconPath("seltodos")), trUtf8("Select tagged"), this);
+	action_sel_sch_children=new QAction(QIcon(PgModelerUiNs::getIconPath("seltodos")), tr("Select children"), this);
+	action_sel_tagged_tabs=new QAction(QIcon(PgModelerUiNs::getIconPath("seltodos")), tr("Select tagged"), this);
 
-	action_highlight_object=new QAction(QIcon(PgModelerUiNS::getIconPath("movimentado")), trUtf8("Highlight"), this);
-	action_parent_rel=new QAction(QIcon(PgModelerUiNS::getIconPath("relationship")), trUtf8("Open relationship"), this);
+	action_select_object=new QAction(QIcon(PgModelerUiNs::getIconPath("movimentado")), tr("Select"), this);
+	action_parent_rel=new QAction(QIcon(PgModelerUiNs::getIconPath("relationship")), tr("Open relationship"), this);
 
-	action_append_sql=new QAction(QIcon(PgModelerUiNS::getIconPath("sqlappend")), trUtf8("Custom SQL"), this);
-	action_append_sql->setShortcut(QKeySequence(trUtf8("Alt+Q")));
+	action_append_sql=new QAction(QIcon(PgModelerUiNs::getIconPath("sqlappend")), tr("Custom SQL"), this);
+	action_append_sql->setShortcut(QKeySequence(tr("Alt+Q")));
 
-	action_create_seq_col=new QAction(QIcon(PgModelerUiNS::getIconPath("sequence")), trUtf8("Convert to sequence"), this);
-	action_conv_int_serial=new QAction(QIcon(PgModelerUiNS::getIconPath("sequence")), trUtf8("Convert to serial"), this);
+	action_create_seq_col=new QAction(QIcon(PgModelerUiNs::getIconPath("sequence")), tr("Convert to sequence"), this);
+	action_conv_int_serial=new QAction(QIcon(PgModelerUiNs::getIconPath("sequence")), tr("Convert to serial"), this);
 
-	action_break_rel_line=new QAction(QIcon(PgModelerUiNS::getIconPath("breakrelline")), trUtf8("Break line"), this);
+	action_break_rel_line=new QAction(QIcon(PgModelerUiNs::getIconPath("breakrelline")), tr("Break line"), this);
 
-	action_remove_rel_points=new QAction(QIcon(PgModelerUiNS::getIconPath("removepoints")), trUtf8("Remove points"), this);
+	action_remove_rel_points=new QAction(QIcon(PgModelerUiNs::getIconPath("removepoints")), tr("Remove points"), this);
 
-	action_enable_sql=new QAction(QIcon(PgModelerUiNS::getIconPath("codigosql")), trUtf8("Enable SQL"), this);
-	action_disable_sql=new QAction(QIcon(PgModelerUiNS::getIconPath("disablesql")), trUtf8("Disable SQL"), this);
+	action_enable_sql=new QAction(QIcon(PgModelerUiNs::getIconPath("codigosql")), tr("Enable SQL"), this);
+	action_disable_sql=new QAction(QIcon(PgModelerUiNs::getIconPath("disablesql")), tr("Disable SQL"), this);
 
-	action_duplicate=new QAction(QIcon(PgModelerUiNS::getIconPath("duplicate")), trUtf8("Duplicate"), this);
-	action_duplicate->setShortcut(QKeySequence(trUtf8("Ctrl+D")));
+	action_duplicate=new QAction(QIcon(PgModelerUiNs::getIconPath("duplicate")), tr("Duplicate"), this);
+	action_duplicate->setShortcut(QKeySequence(tr("Ctrl+D")));
+	action_duplicate->setMenuRole(QAction::NoRole);
 
-	action_extended_attribs=new QAction(QIcon(PgModelerUiNS::getIconPath("toggleattribs")), trUtf8("Extended attributes"), this);
-	action_show_ext_attribs=new QAction(trUtf8("Show"), this);
-	action_hide_ext_attribs=new QAction(trUtf8("Hide"), this);
+	action_pagination=new QAction(QIcon(PgModelerUiNs::getIconPath("pagination")), tr("Pagination"), this);
+	action_pagination->setMenu(&pagination_menu);
 
-	action_jump_to_table=new QAction(QIcon(PgModelerUiNS::getIconPath("jumptotable")), trUtf8("Jump to table"), this);
+	action = pagination_menu.addAction(tr("Enable"));
+	action->setData(true);
+	connect(action, SIGNAL(triggered(bool)), this, SLOT(togglePagination()));
+
+	action = pagination_menu.addAction(tr("Disable"));
+	action->setData(false);
+	connect(action, SIGNAL(triggered(bool)), this, SLOT(togglePagination()));
+
+	action_collapse_mode=new QAction(QIcon(PgModelerUiNs::getIconPath("collapse")), tr("Collapse"), this);
+	action_no_collapse_attribs=new QAction(tr("Not collapsed"), this);
+	action_no_collapse_attribs->setData(enum_cast(CollapseMode::NotCollapsed));
+	action_collapse_ext_attribs=new QAction(tr("Extended attributes"), this);
+	action_collapse_ext_attribs->setData(enum_cast(CollapseMode::ExtAttribsCollapsed));
+	action_collpase_all_attribs=new QAction(tr("All attributes"), this);
+	action_collpase_all_attribs->setData(enum_cast(CollapseMode::AllAttribsCollapsed));
+
+	action_jump_to_table=new QAction(QIcon(PgModelerUiNs::getIconPath("jumptotable")), tr("Jump to table"), this);
 	action_jump_to_table->setMenu(&jump_to_tab_menu);
 
-	toggle_attrs_menu.addAction(action_show_ext_attribs);
-	toggle_attrs_menu.addAction(action_hide_ext_attribs);
-	action_extended_attribs->setMenu(&toggle_attrs_menu);
+	toggle_attrs_menu.addAction(action_no_collapse_attribs);
+	toggle_attrs_menu.addAction(action_collapse_ext_attribs);
+	toggle_attrs_menu.addAction(action_collpase_all_attribs);
+	action_collapse_mode->setMenu(&toggle_attrs_menu);
 
-	action_fade=new QAction(QIcon(PgModelerUiNS::getIconPath("fade")), trUtf8("Fade in/out"), this);
-	action_fade_in=new QAction(QIcon(PgModelerUiNS::getIconPath("fadein")), trUtf8("Fade in"), this);
-	action_fade_out=new QAction(QIcon(PgModelerUiNS::getIconPath("fadeout")), trUtf8("Fade out"), this);
+	action_schemas_rects=new QAction(QIcon(PgModelerUiNs::getIconPath("schemarect")), tr("Schemas rectangles"), this);
+	action_show_schemas_rects=new QAction(tr("Show"), this);
+	action_hide_schemas_rects=new QAction(tr("Hide"), this);
+	toggle_sch_rects_menu.addAction(action_show_schemas_rects);
+	toggle_sch_rects_menu.addAction(action_hide_schemas_rects);
+	action_schemas_rects->setMenu(&toggle_sch_rects_menu);
 
-	action_fade_rels_in=new QAction(QIcon(PgModelerUiNS::getIconPath("fadein")), trUtf8("Fade in"), this);
-	action_fade_rels_out=new QAction(QIcon(PgModelerUiNS::getIconPath("fadeout")), trUtf8("Fade out"), this);
+	action_fade=new QAction(QIcon(PgModelerUiNs::getIconPath("fade")), tr("Fade in/out"), this);
+	action_fade_in=new QAction(QIcon(PgModelerUiNs::getIconPath("fadein")), tr("Fade in"), this);
+	action_fade_out=new QAction(QIcon(PgModelerUiNs::getIconPath("fadeout")), tr("Fade out"), this);
+
+	action_fade_rels_in=new QAction(QIcon(PgModelerUiNs::getIconPath("fadein")), tr("Fade in"), this);
+	action_fade_rels_out=new QAction(QIcon(PgModelerUiNs::getIconPath("fadeout")), tr("Fade out"), this);
 
 	fade_rels_menu.addAction(action_fade_rels_in);
 	fade_rels_menu.addAction(action_fade_rels_out);
 
-	action_fade_rels=new QAction(QIcon(PgModelerUiNS::getIconPath("relationship_grp")), trUtf8("Relationships"), this);
+	action_fade_rels=new QAction(QIcon(PgModelerUiNs::getIconPath("relationship_grp")), tr("Relationships"), this);
 	action_fade_rels->setMenu(&fade_rels_menu);
 
 	action_fade->setMenu(&fade_menu);
 	action_fade_in->setMenu(&fade_in_menu);
 	action_fade_out->setMenu(&fade_out_menu);
 
-	action_edit_creation_order=new QAction(QIcon(PgModelerUiNS::getIconPath("swapobjs")), trUtf8("Swap ids"), this);
-	action_edit_creation_order->setToolTip(trUtf8("Edit the objects creation order by swapping their ids"));
-	connect(action_edit_creation_order, SIGNAL(triggered(bool)), this, SLOT(editCreationOrder()));
+	action_edit_creation_order=new QAction(QIcon(PgModelerUiNs::getIconPath("swapobjs")), tr("Swap ids"), this);
+	action_edit_creation_order->setToolTip(tr("Edit the objects creation order by swapping their ids"));
+	connect(action_edit_creation_order, SIGNAL(triggered(bool)), this, SLOT(swapObjectsIds()));
 
-	action=new QAction(QIcon(PgModelerUiNS::getIconPath("breakline_90dv")), trUtf8("90° (vertical)"), this);
-	connect(action, SIGNAL(triggered(bool)), this, SLOT(breakRelationshipLine(void)));
-	action->setData(QVariant::fromValue<unsigned>(BREAK_VERT_NINETY_DEGREES));
+	action=new QAction(QIcon(PgModelerUiNs::getIconPath("breakline_90dv")), tr("90° (vertical)"), this);
+	connect(action, SIGNAL(triggered(bool)), this, SLOT(breakRelationshipLine()));
+	action->setData(QVariant::fromValue<unsigned>(BreakVertNinetyDegrees));
 	break_rel_menu.addAction(action);
 
-	action=new QAction(QIcon(PgModelerUiNS::getIconPath("breakline_90dh")), trUtf8("90° (horizontal)"), this);
-	connect(action, SIGNAL(triggered(bool)), this, SLOT(breakRelationshipLine(void)));
-	action->setData(QVariant::fromValue<unsigned>(BREAK_HORIZ_NINETY_DEGREES));
+	action=new QAction(QIcon(PgModelerUiNs::getIconPath("breakline_90dh")), tr("90° (horizontal)"), this);
+	connect(action, SIGNAL(triggered(bool)), this, SLOT(breakRelationshipLine()));
+	action->setData(QVariant::fromValue<unsigned>(BreakHorizNinetyDegrees));
 	break_rel_menu.addAction(action);
 
-	action=new QAction(QIcon(PgModelerUiNS::getIconPath("breakline_290dv")), trUtf8("90° + 90° (vertical)"), this);
-	connect(action, SIGNAL(triggered(bool)), this, SLOT(breakRelationshipLine(void)));
-	action->setData(QVariant::fromValue<unsigned>(BREAK_VERT_2NINETY_DEGREES));
+	action=new QAction(QIcon(PgModelerUiNs::getIconPath("breakline_290dv")), tr("90° + 90° (vertical)"), this);
+	connect(action, SIGNAL(triggered(bool)), this, SLOT(breakRelationshipLine()));
+	action->setData(QVariant::fromValue<unsigned>(BreakVert2NinetyDegrees));
 	break_rel_menu.addAction(action);
 
-	action=new QAction(QIcon(PgModelerUiNS::getIconPath("breakline_290dh")), trUtf8("90° + 90° (horizontal)"), this);
-	connect(action, SIGNAL(triggered(bool)), this, SLOT(breakRelationshipLine(void)));
-	action->setData(QVariant::fromValue<unsigned>(BREAK_HORIZ_2NINETY_DEGREES));
+	action=new QAction(QIcon(PgModelerUiNs::getIconPath("breakline_290dh")), tr("90° + 90° (horizontal)"), this);
+	connect(action, SIGNAL(triggered(bool)), this, SLOT(breakRelationshipLine()));
+	action->setData(QVariant::fromValue<unsigned>(BreakHoriz2NinetyDegrees));
 	break_rel_menu.addAction(action);
 
 	action_break_rel_line->setMenu(&break_rel_menu);
 
 	//Alocatting the object creation actions
-	for(i=0; i < obj_cnt; i++)
+	for(auto &type : types_vect)
 	{
-		actions_new_objects[types[i]]=new QAction(QIcon(PgModelerUiNS::getIconPath(types[i])), BaseObject::getTypeName(types[i]), this);
-		actions_new_objects[types[i]]->setData(QVariant(types[i]));
-		connect(actions_new_objects[types[i]], SIGNAL(triggered(bool)), this, SLOT(addNewObject(void)));
+		actions_new_objects[type]=new QAction(QIcon(PgModelerUiNs::getIconPath(type)), BaseObject::getTypeName(type), this);
+		actions_new_objects[type]->setData(QVariant(enum_cast(type)));
+		connect(actions_new_objects[type], SIGNAL(triggered(bool)), this, SLOT(addNewObject()));
 	}
+
+	// Configuring the submenu of database level objects
+	action_database_category = new QAction(QIcon(PgModelerUiNs::getIconPath(ObjectType::Database)), tr("Database object"), this);
+	action_database_category->setMenu(&database_category_menu);
+	types_vect = BaseObject::getChildObjectTypes(ObjectType::Database);
+
+	for(auto &type : types_vect)
+		database_category_menu.addAction(actions_new_objects[type]);
+
+	// Configuring the submenu of schema level objects
+	action_schema_category = new QAction(QIcon(PgModelerUiNs::getIconPath(ObjectType::Schema)), tr("Schema object"), this);
+	action_schema_category->setMenu(&schema_category_menu);
+	types_vect = BaseObject::getChildObjectTypes(ObjectType::Schema);
+
+	for(auto &type : types_vect)
+		schema_category_menu.addAction(actions_new_objects[type]);
 
 	//Creating the relationship submenu
 	rels_menu=new QMenu(this);
-	actions_new_objects[OBJ_RELATIONSHIP]->setMenu(rels_menu);
+	actions_new_objects[ObjectType::Relationship]->setMenu(rels_menu);
 
 	for(int i=0; i < rel_types_cod.size(); i++)
 	{
-		str_ico=BaseObject::getSchemaName(OBJ_RELATIONSHIP) + rel_types_cod[i];
-		str_txt=rel_labels[i];
+		str_ico=BaseObject::getSchemaName(ObjectType::Relationship) + rel_types_cod[i];
 
-		action=new QAction(QIcon(PgModelerUiNS::getIconPath(str_ico)), str_txt, this);
+		action=new QAction(QIcon(PgModelerUiNs::getIconPath(str_ico)),
+						   BaseRelationship::getRelationshipTypeName(rel_types_id[i], false), this);
 
 		//Storing a unique identifier for the relationship type
-		action->setData(QVariant(OBJ_RELATIONSHIP + rel_types_id[i]));
+		action->setData(QVariant(enum_cast(ObjectType::Relationship) + rel_types_id[i]));
 
-		connect(action, SIGNAL(triggered(bool)), this, SLOT(addNewObject(void)));
+		connect(action, SIGNAL(triggered(bool)), this, SLOT(addNewObject()));
 		rels_menu->addAction(action);
 	}
 
@@ -371,76 +423,98 @@ ModelWidget::ModelWidget(QWidget *parent) : QWidget(parent)
 	new_obj_overlay_wgt->setObjectName(QString("new_obj_overlay_wgt"));
 	new_obj_overlay_wgt->setVisible(false);
 
-	for(auto &obj_type : vector<ObjectType>({ BASE_OBJECT, OBJ_SCHEMA, OBJ_TABLE, OBJ_VIEW, OBJ_RELATIONSHIP, OBJ_TEXTBOX }))
+	vector<ObjectType> graph_types = { ObjectType::BaseObject, ObjectType::Schema, ObjectType::Table, ObjectType::ForeignTable,
+																		 ObjectType::View, ObjectType::Relationship, ObjectType::Textbox };
+	QStringList labels = { tr("All objects"), tr("Schemas"), tr("Tables"), tr("Foreign Tables"),
+												 tr("Views"), tr("Relationships"), tr("Textboxes") };
+
+	i=0;
+	for(auto &obj_type : graph_types)
 	{
-		if(obj_type == BASE_OBJECT)
+		if(obj_type == ObjectType::BaseObject)
 		{
-			action=new QAction(trUtf8("All objects"), this);
-			action->setShortcut(QKeySequence(trUtf8("Ctrl+A")));
+			action=new QAction(labels[i++], this);
+			action->setShortcut(QKeySequence(tr("Ctrl+A")));
 			select_all_menu.addAction(action);
 			select_all_menu.addSeparator();
 		}
 		else
 		{
-			action=new QAction(QIcon(PgModelerUiNS::getIconPath(obj_type)), BaseObject::getTypeName(obj_type), this);
+			action=new QAction(QIcon(PgModelerUiNs::getIconPath(BaseObject::getSchemaName(obj_type) + QString("_grp"))), labels[i++], this);
 			select_all_menu.addAction(action);
 		}
 
-		action->setData(QVariant(obj_type));
+		action->setData(QVariant(enum_cast(obj_type)));
 		connect(action, SIGNAL(triggered(bool)), this, SLOT(selectAllObjects()));
 	}
 
-	connect(&zoom_info_timer, SIGNAL(timeout()), zoom_info_lbl, SLOT(hide()));
-	connect(action_source_code, SIGNAL(triggered(bool)), this, SLOT(showSourceCode(void)));
-	connect(action_edit, SIGNAL(triggered(bool)),this,SLOT(editObject(void)));
-	connect(action_protect, SIGNAL(triggered(bool)),this,SLOT(protectObject(void)));
-	connect(action_unprotect, SIGNAL(triggered(bool)),this,SLOT(protectObject(void)));
-	connect(action_select_all, SIGNAL(triggered(bool)),this,SLOT(selectAllObjects(void)));
-	connect(action_convert_relnn, SIGNAL(triggered(bool)), this, SLOT(convertRelationshipNN(void)));
-	connect(action_deps_refs, SIGNAL(triggered(bool)), this, SLOT(showDependenciesReferences(void)));
-	connect(action_copy, SIGNAL(triggered(bool)),this,SLOT(copyObjects(void)));
-	connect(action_paste, SIGNAL(triggered(bool)),this,SLOT(pasteObjects(void)));
-	connect(action_cut, SIGNAL(triggered(bool)),this,SLOT(cutObjects(void)));
-	connect(action_duplicate, SIGNAL(triggered(bool)),this,SLOT(duplicateObject(void)));
-	connect(action_rename, SIGNAL(triggered(bool)), this, SLOT(renameObject(void)));
-	connect(action_edit_perms, SIGNAL(triggered(bool)), this, SLOT(editPermissions(void)));
-	connect(action_sel_sch_children, SIGNAL(triggered(bool)), this, SLOT(selectSchemaChildren(void)));
-	connect(action_sel_tagged_tabs, SIGNAL(triggered(bool)), this, SLOT(selectTaggedTables(void)));
-	connect(action_highlight_object, SIGNAL(triggered(bool)), this, SLOT(highlightObject(void)));
-	connect(action_parent_rel, SIGNAL(triggered(bool)), this, SLOT(editObject(void)));
-	connect(action_append_sql, SIGNAL(triggered(bool)), this, SLOT(editCustomSQL(void)));
-	connect(action_create_seq_col, SIGNAL(triggered(bool)), this, SLOT(createSequenceFromColumn(void)));
-	connect(action_conv_int_serial, SIGNAL(triggered(bool)), this, SLOT(convertIntegerToSerial(void)));
-	connect(action_remove_rel_points, SIGNAL(triggered(bool)), this, SLOT(removeRelationshipPoints(void)));
-	connect(action_enable_sql, SIGNAL(triggered(bool)), this, SLOT(toggleObjectSQL(void)));
-	connect(action_disable_sql, SIGNAL(triggered(bool)), this, SLOT(toggleObjectSQL(void)));
+	action_stacking=new QAction(QIcon(PgModelerUiNs::getIconPath("stacking")), tr("Stacking"), this);
+	action_send_to_back=new QAction(QIcon(PgModelerUiNs::getIconPath("sendtoback")), tr("Send to back"), this);
+	action_bring_to_front=new QAction(QIcon(PgModelerUiNs::getIconPath("bringtofront")), tr("Bring to front"), this);
+	stacking_menu.addAction(action_send_to_back);
+	stacking_menu.addAction(action_bring_to_front);
+	action_stacking->setMenu(&stacking_menu);
 
+	connect(action_send_to_back, SIGNAL(triggered(bool)), this, SLOT(sendToBack()));
+	connect(action_bring_to_front, SIGNAL(triggered(bool)), this, SLOT(bringToFront()));
+
+	connect(action_edit_data, SIGNAL(triggered(bool)), this, SLOT(editTableData()));
+	connect(&zoom_info_timer, SIGNAL(timeout()), zoom_info_lbl, SLOT(hide()));
+	connect(action_source_code, SIGNAL(triggered(bool)), this, SLOT(showSourceCode()));
+	connect(action_edit, SIGNAL(triggered(bool)),this,SLOT(editObject()));
+	connect(action_protect, SIGNAL(triggered(bool)),this,SLOT(protectObject()));
+	connect(action_unprotect, SIGNAL(triggered(bool)),this,SLOT(protectObject()));
+	connect(action_select_all, SIGNAL(triggered(bool)),this,SLOT(selectAllObjects()));
+	connect(action_convert_relnn, SIGNAL(triggered(bool)), this, SLOT(convertRelationshipNN()));
+	connect(action_convert_rel1n, SIGNAL(triggered(bool)), this, SLOT(convertRelationship1N()));
+	connect(action_deps_refs, SIGNAL(triggered(bool)), this, SLOT(showDependenciesReferences()));
+	connect(action_copy, SIGNAL(triggered(bool)),this,SLOT(copyObjects()));
+	connect(action_paste, SIGNAL(triggered(bool)),this,SLOT(pasteObjects()));
+	connect(action_cut, SIGNAL(triggered(bool)),this,SLOT(cutObjects()));
+	connect(action_duplicate, SIGNAL(triggered(bool)),this,SLOT(duplicateObject()));
+	connect(action_rename, SIGNAL(triggered(bool)), this, SLOT(renameObjects()));
+	connect(action_edit_perms, SIGNAL(triggered(bool)), this, SLOT(editPermissions()));
+	connect(action_sel_sch_children, SIGNAL(triggered(bool)), this, SLOT(selectSchemaChildren()));
+	connect(action_sel_tagged_tabs, SIGNAL(triggered(bool)), this, SLOT(selectTaggedTables()));
+	connect(action_select_object, SIGNAL(triggered(bool)), this, SLOT(highlightObject()));
+	connect(action_parent_rel, SIGNAL(triggered(bool)), this, SLOT(editObject()));
+	connect(action_append_sql, SIGNAL(triggered(bool)), this, SLOT(editCustomSQL()));
+	connect(action_create_seq_col, SIGNAL(triggered(bool)), this, SLOT(createSequenceFromColumn()));
+	connect(action_conv_int_serial, SIGNAL(triggered(bool)), this, SLOT(convertIntegerToSerial()));
+	connect(action_remove_rel_points, SIGNAL(triggered(bool)), this, SLOT(removeRelationshipPoints()));
+	connect(action_enable_sql, SIGNAL(triggered(bool)), this, SLOT(toggleObjectSQL()));
+	connect(action_disable_sql, SIGNAL(triggered(bool)), this, SLOT(toggleObjectSQL()));
 	connect(action_remove, &QAction::triggered, [&](){ removeObjects(false); });
 	connect(action_cascade_del, &QAction::triggered, [&](){ removeObjects(true); });
-
 	connect(action_fade_in, SIGNAL(triggered(bool)), this, SLOT(fadeObjectsIn()));
 	connect(action_fade_out, SIGNAL(triggered(bool)), this, SLOT(fadeObjectsOut()));
 	connect(action_fade_rels_in, SIGNAL(triggered(bool)), this, SLOT(fadeObjectsIn()));
 	connect(action_fade_rels_out, SIGNAL(triggered(bool)), this, SLOT(fadeObjectsOut()));
-
-	connect(action_show_ext_attribs, SIGNAL(triggered(bool)), this, SLOT(toggleExtendedAttributes()));
-	connect(action_hide_ext_attribs, SIGNAL(triggered(bool)), this, SLOT(toggleExtendedAttributes()));
-
+	connect(action_collapse_ext_attribs, SIGNAL(triggered(bool)), this, SLOT(setCollapseMode()));
+	connect(action_collpase_all_attribs, SIGNAL(triggered(bool)), this, SLOT(setCollapseMode()));
+	connect(action_no_collapse_attribs, SIGNAL(triggered(bool)), this, SLOT(setCollapseMode()));
+	connect(action_show_schemas_rects, SIGNAL(triggered(bool)), this, SLOT(toggleSchemasRectangles()));
+	connect(action_hide_schemas_rects, SIGNAL(triggered(bool)), this, SLOT(toggleSchemasRectangles()));
 	connect(db_model, SIGNAL(s_objectAdded(BaseObject*)), this, SLOT(handleObjectAddition(BaseObject *)));
 	connect(db_model, SIGNAL(s_objectRemoved(BaseObject*)), this, SLOT(handleObjectRemoval(BaseObject *)));
-
 	connect(scene, SIGNAL(s_objectsMoved(bool)), this, SLOT(handleObjectsMovement(bool)));
 	connect(scene, SIGNAL(s_objectModified(BaseGraphicObject*)), this, SLOT(handleObjectModification(BaseGraphicObject*)));
 	connect(scene, SIGNAL(s_objectDoubleClicked(BaseGraphicObject*)), this, SLOT(handleObjectDoubleClick(BaseGraphicObject*)));
-	connect(scene, SIGNAL(s_popupMenuRequested(BaseObject*)), this, SLOT(configureObjectMenu(BaseObject *)));
-	connect(scene, SIGNAL(s_popupMenuRequested(void)), this, SLOT(showObjectMenu(void)));
-	connect(scene, SIGNAL(s_objectSelected(BaseGraphicObject*,bool)), this, SLOT(configureObjectSelection(void)));
-
-	connect(scene, &ObjectsScene::s_extAttributesToggled, [&](){ modified = true; });
-
+	connect(scene, SIGNAL(s_popupMenuRequested(BaseObject*)), this, SLOT(configurePopupMenu(BaseObject *)));
+	connect(scene, SIGNAL(s_popupMenuRequested()), this, SLOT(showObjectMenu()));
+	connect(scene, SIGNAL(s_objectSelected(BaseGraphicObject*,bool)), this, SLOT(configureObjectSelection()));
+	connect(scene, SIGNAL(s_childrenSelectionChanged()), this, SLOT(configureObjectSelection()));
+	connect(scene, SIGNAL(s_objectsSelectedInRange()), this, SLOT(configureObjectSelection()));
+	connect(scene, &ObjectsScene::s_collapseModeChanged, [&](){ setModified(true); });
+	connect(scene, &ObjectsScene::s_paginationToggled, [&](){ setModified(true); });
+	connect(scene, &ObjectsScene::s_currentPageChanged, [&](){ setModified(true); });
+	connect(scene, &ObjectsScene::s_objectsMovedLayer, [&](){ setModified(true); });
+	connect(scene, SIGNAL(s_layersChanged()), this, SLOT(updateModelLayers()));
+	connect(scene, SIGNAL(s_activeLayersChanged()), this, SLOT(updateModelLayers()));
 	connect(scene, SIGNAL(s_popupMenuRequested(BaseObject*)), new_obj_overlay_wgt, SLOT(hide()));
-	connect(scene, SIGNAL(s_popupMenuRequested(void)), new_obj_overlay_wgt, SLOT(hide()));
+	connect(scene, SIGNAL(s_popupMenuRequested()), new_obj_overlay_wgt, SLOT(hide()));
 	connect(scene, SIGNAL(s_objectSelected(BaseGraphicObject*,bool)), new_obj_overlay_wgt, SLOT(hide()));
+	connect(scene, SIGNAL(s_childrenSelectionChanged()), new_obj_overlay_wgt, SLOT(hide()));
 	connect(scene, SIGNAL(s_objectsScenePressed(Qt::MouseButtons)), new_obj_overlay_wgt, SLOT(hide()));
 
 	viewport->installEventFilter(this);
@@ -448,7 +522,7 @@ ModelWidget::ModelWidget(QWidget *parent) : QWidget(parent)
 	viewport->verticalScrollBar()->installEventFilter(this);
 }
 
-ModelWidget::~ModelWidget(void)
+ModelWidget::~ModelWidget()
 {
 	/* If there are copied/cutted objects that belongs to the database model
 	 being destroyed, then the cut/copy operation are cancelled by emptying
@@ -469,19 +543,16 @@ ModelWidget::~ModelWidget(void)
 	tags_menu.clear();
 	break_rel_menu.clear();
 
-	delete(viewport);
-	delete(scene);
-
-	op_list->removeOperations();
-	db_model->destroyObjects();
-
-	delete(op_list);
-	delete(db_model);
+	delete viewport;
+	delete scene;
+	delete op_list;
+	delete db_model;
 }
 
 void ModelWidget::setModified(bool value)
 {
-	this->modified=value;
+	this->modified = value;
+	emit s_modelModified(value);
 }
 
 void ModelWidget::resizeEvent(QResizeEvent *)
@@ -519,17 +590,19 @@ bool ModelWidget::eventFilter(QObject *object, QEvent *event)
 			object == viewport->verticalScrollBar())
 		 && event->type() == QEvent::Wheel && w_event->modifiers()==Qt::ControlModifier)
 	{
-		if(w_event->angleDelta().y() < 0)
-			this->applyZoom(this->current_zoom - ZOOM_INCREMENT);
-		else
-			this->applyZoom(this->current_zoom + ZOOM_INCREMENT);
+		double zoom_inc = round(fabs(w_event->angleDelta().y())/120) * ZoomIncrement;
 
-		return(true);
+		if(w_event->angleDelta().y() < 0)
+			this->applyZoom(this->current_zoom - zoom_inc);
+		else
+			this->applyZoom(this->current_zoom + zoom_inc);
+
+		return true;
 	}
 	else if(event->type() == QEvent::KeyPress && k_event->modifiers()==Qt::AltModifier)
 	{
 		this->keyPressEvent(k_event);
-		return(true);
+		return true;
 	}
 	else if((object == magnifier_area_lbl || object == magnifier_frm) &&
 					(event->type() == QEvent::MouseMove || event->type() == QEvent::KeyRelease))
@@ -539,7 +612,7 @@ bool ModelWidget::eventFilter(QObject *object, QEvent *event)
 		else if(k_event->modifiers() == (Qt::ControlModifier | Qt::AltModifier))
 			showMagnifierArea(false);
 
-		return(true);
+		return true;
 	}
 	else if(object == magnifier_frm && event->type() == QEvent::MouseButtonPress)
 	{
@@ -552,14 +625,24 @@ bool ModelWidget::eventFilter(QObject *object, QEvent *event)
 		gm_event->setScenePos(viewport->mapToScene(viewport->mapFromGlobal(QCursor::pos())));
 		qApp->postEvent(scene, gm_event);
 
-		return(true);
+		return true;
 	}
 	else if(object == scene && m_event)
 	{
 		if(event->type() == QEvent::GraphicsSceneMouseMove)
 		{
 			emit s_sceneInteracted(m_event->scenePos());
-			emitSceneInteracted();
+
+			if(!selected_objects.empty())
+			{
+				if(selected_objects.size() == 1)
+				{
+					BaseGraphicObject *graph_obj = dynamic_cast<BaseGraphicObject *>(selected_objects[0]);
+					emit s_sceneInteracted(graph_obj ? dynamic_cast<BaseObjectView *>(graph_obj->getOverlyingObject()) : nullptr);
+				}
+				else
+					emit s_sceneInteracted(static_cast<int>(selected_objects.size()), scene->itemsBoundingRect(true, true));
+			}
 		}
 
 		//Forcing the panning mode using the middle mouse button
@@ -580,7 +663,7 @@ bool ModelWidget::eventFilter(QObject *object, QEvent *event)
 			viewport->horizontalScrollBar()->setValue(dx);
 			viewport->verticalScrollBar()->setValue(dy);
 
-			return (true);
+			return true;
 		}
 		else if(m_event->button() == Qt::NoButton && event->type() == QEvent::GraphicsSceneMouseMove)
 		{
@@ -593,7 +676,7 @@ bool ModelWidget::eventFilter(QObject *object, QEvent *event)
 			viewport->setDragMode(QGraphicsView::ScrollHandDrag);
 			QApplication::restoreOverrideCursor();
 			QApplication::setOverrideCursor(Qt::OpenHandCursor);
-			return (true);
+			return true;
 		}
 		//Deactivating the panning mode
 		else if(m_event->button() == Qt::MiddleButton && event->type() == QEvent::GraphicsSceneMouseRelease)
@@ -602,11 +685,11 @@ bool ModelWidget::eventFilter(QObject *object, QEvent *event)
 			viewport->setDragMode(QGraphicsView::NoDrag);
 			QApplication::restoreOverrideCursor();
 			QApplication::restoreOverrideCursor();
-			return (true);
+			return true;
 		}
 	}
 
-	return(QWidget::eventFilter(object, event));
+	return QWidget::eventFilter(object, event);
 }
 
 void ModelWidget::keyPressEvent(QKeyEvent *event)
@@ -648,7 +731,7 @@ void ModelWidget::mousePressEvent(QMouseEvent *event)
 	{
 		/* If the user is adding a graphical object, the left click will set the initial position and
 		show the editing form related to the object type */
-		if(!simple_obj_creation && (new_obj_type==OBJ_TABLE || new_obj_type==OBJ_TEXTBOX || new_obj_type==OBJ_VIEW))
+		if(!simple_obj_creation && (BaseTable::isBaseTable(new_obj_type) || new_obj_type==ObjectType::Textbox))
 		{
 			this->scene->enableRangeSelection(false);
 			this->showObjectForm(new_obj_type, nullptr, nullptr, viewport->mapToScene(event->pos()));
@@ -663,7 +746,7 @@ void ModelWidget::hideEvent(QHideEvent *)
 	magnifier_area_lbl->hide();
 }
 
-bool ModelWidget::saveLastCanvasPosition(void)
+bool ModelWidget::saveLastCanvasPosition()
 {
 	if(save_restore_pos)
 	{
@@ -678,11 +761,11 @@ bool ModelWidget::saveLastCanvasPosition(void)
 			db_model->setLastPosition(QPoint(viewport->horizontalScrollBar()->value(),
 											 viewport->verticalScrollBar()->value()));
 			db_model->setLastZoomFactor(this->current_zoom);
-			return(true);
+			return true;
 		}
 	}
 
-	return(false);
+	return false;
 }
 
 void ModelWidget::setUpdatesEnabled(bool value)
@@ -691,7 +774,7 @@ void ModelWidget::setUpdatesEnabled(bool value)
 	QWidget::setUpdatesEnabled(value);
 }
 
-void ModelWidget::restoreLastCanvasPosition(void)
+void ModelWidget::restoreLastCanvasPosition()
 {
 	if(save_restore_pos)
 	{
@@ -710,25 +793,25 @@ void ModelWidget::restoreLastCanvasPosition(void)
 
 void ModelWidget::applyZoom(double zoom)
 {
-	if(zoom < MINIMUM_ZOOM)
-		zoom = MINIMUM_ZOOM;
-	else if(zoom > MAXIMUM_ZOOM)
-		zoom = MAXIMUM_ZOOM;
+	if(zoom < MinimumZoom)
+		zoom = MinimumZoom;
+	else if(zoom > MaximumZoom)
+		zoom = MaximumZoom;
 
 	viewport->resetTransform();
 	viewport->scale(zoom, zoom);
 	this->current_zoom=zoom;
 
-	zoom_info_lbl->setText(trUtf8("Zoom: %1%").arg(QString::number(this->current_zoom * 100, 'g' , 3)));
+	zoom_info_lbl->setText(tr("Zoom: %1%").arg(QString::number(this->current_zoom * 100, 'g' , 3)));
 	zoom_info_lbl->setVisible(true);
 	zoom_info_timer.start();
 
 	emit s_zoomModified(zoom);
 }
 
-double ModelWidget::getCurrentZoom(void)
+double ModelWidget::getCurrentZoom()
 {
-	return(current_zoom);
+	return current_zoom;
 }
 
 void ModelWidget::handleObjectAddition(BaseObject *object)
@@ -742,20 +825,21 @@ void ModelWidget::handleObjectAddition(BaseObject *object)
 
 		switch(obj_type)
 		{
-			case OBJ_TABLE:
-				item=new TableView(dynamic_cast<Table *>(graph_obj));
+			case ObjectType::ForeignTable:
+			case ObjectType::Table:
+				item=new TableView(dynamic_cast<PhysicalTable *>(graph_obj));
 			break;
 
-			case OBJ_VIEW:
+			case ObjectType::View:
 				item=new GraphicalView(dynamic_cast<View *>(graph_obj));
 			break;
 
-			case OBJ_RELATIONSHIP:
-			case BASE_RELATIONSHIP:
-				item=new RelationshipView(dynamic_cast<BaseRelationship *>(graph_obj)); break;
+			case ObjectType::Relationship:
+			case ObjectType::BaseRelationship:
+				item=new RelationshipView(dynamic_cast<BaseRelationship *>(graph_obj));
 			break;
 
-			case OBJ_SCHEMA:
+			case ObjectType::Schema:
 				if(!graph_obj->isSystemObject() ||
 						(graph_obj->isSystemObject() && graph_obj->getName()==QString("public")))
 				{
@@ -764,19 +848,19 @@ void ModelWidget::handleObjectAddition(BaseObject *object)
 			break;
 
 			default:
-				item=new StyledTextboxView(dynamic_cast<Textbox *>(graph_obj)); break;
+				item=new StyledTextboxView(dynamic_cast<Textbox *>(graph_obj));
 			break;
 		}
 
 		if(item)
 		{
 			scene->addItem(item);
-			this->modified=true;
+			setModified(true);
 		}
 	}
 }
 
-void ModelWidget::addNewObject(void)
+void ModelWidget::addNewObject()
 {
 	QAction *action=dynamic_cast<QAction *>(sender());
 
@@ -790,13 +874,13 @@ void ModelWidget::addNewObject(void)
 		these types after select a table or schema, respectively */
 		if(selected_objects.size()==1 &&
 				(TableObject::isTableObject(obj_type) ||
-				 selected_objects[0]->getObjectType()==OBJ_SCHEMA))
+				 selected_objects[0]->getObjectType()==ObjectType::Schema))
 			parent_obj=selected_objects[0];
 
 		//Creating a table or view inside a schema
-		if(parent_obj && parent_obj->getObjectType()==OBJ_SCHEMA &&	 (obj_type==OBJ_TABLE || obj_type==OBJ_VIEW))
+		if(parent_obj && parent_obj->getObjectType()==ObjectType::Schema && BaseTable::isBaseTable(obj_type))
 		{
-			BaseObjectView *sch_graph=dynamic_cast<BaseObjectView *>(dynamic_cast<Schema *>(parent_obj)->getReceiverObject());
+			BaseObjectView *sch_graph=dynamic_cast<BaseObjectView *>(dynamic_cast<Schema *>(parent_obj)->getOverlyingObject());
 			QSizeF size = sch_graph->boundingRect().size();
 			QPointF pos, menu_pos = viewport->mapToScene(this->mapFromGlobal(popup_menu.pos()));
 			QRectF rect = QRectF(sch_graph->pos(), size);
@@ -806,22 +890,22 @@ void ModelWidget::addNewObject(void)
 				pos=menu_pos;
 			//Otherwise inserts the new object at the middle of bounding rect
 			else
-				pos=QPointF(sch_graph->pos().x() + (size.width()/2.0f),
-							sch_graph->pos().y() + (size.height()/2.0f));
+				pos=QPointF(sch_graph->pos().x() + (size.width()/2.0),
+							sch_graph->pos().y() + (size.height()/2.0));
 
 			this->showObjectForm(obj_type, nullptr, parent_obj, pos);
 		}
-		else if(obj_type!=OBJ_TABLE && obj_type!=OBJ_VIEW &&
-				obj_type!=OBJ_TEXTBOX && obj_type <= BASE_TABLE)
+		else if(!BaseTable::isBaseTable(obj_type) &&
+						obj_type!=ObjectType::Textbox && obj_type <= ObjectType::BaseTable)
 			this->showObjectForm(obj_type, nullptr, parent_obj);
 		else
 		{
 			/* A small checking to enable the overlay widget to create relationships and
 		 other graphical objects without the user click on the canvas area */
-			if((obj_type > BASE_OBJECT &&
+			if((obj_type > ObjectType::BaseObject &&
 				selected_objects.size()==2 &&
-				selected_objects.at(0)->getObjectType()==OBJ_TABLE &&
-				selected_objects.at(1)->getObjectType()==OBJ_TABLE))
+				selected_objects.at(0)->getObjectType()==ObjectType::Table &&
+				selected_objects.at(1)->getObjectType()==ObjectType::Table))
 			{
 				this->showObjectForm(obj_type);
 			}
@@ -829,7 +913,7 @@ void ModelWidget::addNewObject(void)
 			{
 				//Simple table|view|textbox creation
 				if(simple_obj_creation &&
-						(obj_type==OBJ_TABLE || obj_type==OBJ_VIEW || obj_type==OBJ_TEXTBOX))
+						(BaseTable::isBaseTable(obj_type) || obj_type==ObjectType::Textbox))
 					this->showObjectForm(obj_type, nullptr, parent_obj, viewport->mapToScene(viewport->rect().center()));
 				else
 				{
@@ -837,6 +921,13 @@ void ModelWidget::addNewObject(void)
 					viewport->setCursor(QCursor(action->icon().pixmap(QSize(22,22)),0,0));
 					this->new_obj_type=obj_type;
 					this->enableModelActions(false);
+
+					/* If a single table is selected and the user triggered a relationship creation action via popup menu,
+					 * we force the enabling of the relationship creation steps. This will automatically selects the current table
+					 * as source table of the relationship */
+					if(selected_objects.size() == 1 &&
+						 PhysicalTable::isPhysicalTable(selected_objects[0]->getObjectType()) && new_obj_type > ObjectType::BaseTable)
+						configureObjectSelection();
 				}
 			}
 		}
@@ -849,15 +940,15 @@ void ModelWidget::handleObjectRemoval(BaseObject *object)
 
 	if(graph_obj)
 	{
-		scene->removeItem(dynamic_cast<QGraphicsItem *>(graph_obj->getReceiverObject()));
+		scene->removeItem(dynamic_cast<QGraphicsItem *>(graph_obj->getOverlyingObject()));
 
 		//Updates the parent schema if the removed object were a table or view
 		if(graph_obj->getSchema() &&
-				(graph_obj->getObjectType()==OBJ_TABLE || graph_obj->getObjectType()==OBJ_VIEW))
+				(graph_obj->getObjectType()==ObjectType::Table || graph_obj->getObjectType()==ObjectType::View))
 			dynamic_cast<Schema *>(graph_obj->getSchema())->setModified(true);
 	}
 
-	this->modified=true;
+	setModified(true);
 }
 
 void ModelWidget::handleObjectDoubleClick(BaseGraphicObject *object)
@@ -865,7 +956,7 @@ void ModelWidget::handleObjectDoubleClick(BaseGraphicObject *object)
 	if(object)
 		this->showObjectForm(object->getObjectType(), object, nullptr, object->getPosition());
 	else
-		this->showObjectForm(OBJ_DATABASE, db_model);
+		this->showObjectForm(ObjectType::Database, db_model);
 }
 
 void ModelWidget::handleObjectsMovement(bool end_moviment)
@@ -886,6 +977,8 @@ void ModelWidget::handleObjectsMovement(bool end_moviment)
 		while(itr!=itr_end)
 		{
 			obj=dynamic_cast<BaseGraphicObject *>(*itr);
+			itr++;
+			if(!obj)	continue;
 
 			if(!dynamic_cast<BaseRelationship *>(obj) && (obj && !obj->isProtected()))
 			{
@@ -893,22 +986,20 @@ void ModelWidget::handleObjectsMovement(bool end_moviment)
 
 				//Register the object if it is not a schema or a table already registered
 				if(!schema && std::find(reg_tables.begin(), reg_tables.end(), obj)==reg_tables.end())
-					op_list->registerObject(obj, Operation::OBJECT_MOVED);
+					op_list->registerObject(obj, Operation::ObjectMoved);
 				else if(schema)
 				{
 					//For schemas, when they are moved, the original position of tables are registered instead of the position of schema itself
-					tables=dynamic_cast<SchemaView *>(schema->getReceiverObject())->getChildren();
+					tables=dynamic_cast<SchemaView *>(schema->getOverlyingObject())->getChildren();
 					for(auto &tab : tables)
 					{
-						op_list->registerObject(tab->getSourceObject(), Operation::OBJECT_MOVED);
+						op_list->registerObject(tab->getUnderlyingObject(), Operation::ObjectMoved);
 
 						//Registers the table on a auxiliary list to avoid multiple registration on operation history
-						reg_tables.push_back(tab->getSourceObject());
+						reg_tables.push_back(tab->getUnderlyingObject());
 					}
 				}
-			}
-
-			itr++;
+			}			
 		}
 	}
 	else
@@ -917,10 +1008,11 @@ void ModelWidget::handleObjectsMovement(bool end_moviment)
 
 		while(itr!=itr_end)
 		{
-			obj=dynamic_cast<BaseGraphicObject *>(*itr);
+			obj = dynamic_cast<BaseGraphicObject *>(*itr);
 			itr++;
+			if(!obj) continue;
 
-			if(obj->getObjectType()==OBJ_TABLE || obj->getObjectType()==OBJ_VIEW)
+			if(BaseTable::isBaseTable(obj->getObjectType()))
 			{
 				Schema *schema=dynamic_cast<Schema *>(dynamic_cast<BaseTable *>(obj)->getSchema());
 
@@ -936,7 +1028,7 @@ void ModelWidget::handleObjectsMovement(bool end_moviment)
 		}
 
 		op_list->finishOperationChain();
-		this->modified=true;
+		setModified(true);
 
 		emit s_objectsMoved();
 	}
@@ -944,8 +1036,8 @@ void ModelWidget::handleObjectsMovement(bool end_moviment)
 
 void ModelWidget::handleObjectModification(BaseGraphicObject *object)
 {
-	op_list->registerObject(object, Operation::OBJECT_MODIFIED);
-	this->modified=true;
+	op_list->registerObject(object, Operation::ObjectModified);
+	setModified(true);
 
 	if(object->getSchema())
 		dynamic_cast<Schema *>(object->getSchema())->setModified(true);
@@ -953,24 +1045,27 @@ void ModelWidget::handleObjectModification(BaseGraphicObject *object)
 	emit s_objectModified();
 }
 
-void ModelWidget::emitSceneInteracted(void)
+void ModelWidget::emitSceneInteracted()
 {
 	if(selected_objects.empty())
 		emit s_sceneInteracted(nullptr);
 	else if(selected_objects.size() == 1)
 	{
 		BaseGraphicObject *base_obj = dynamic_cast<BaseGraphicObject *>(selected_objects[0]);
+		TableObject *tab_obj=dynamic_cast<TableObject *>(selected_objects[0]);
 
 		if(base_obj)
-			emit s_sceneInteracted(dynamic_cast<BaseObjectView *>(base_obj->getReceiverObject()));
+			emit s_sceneInteracted(dynamic_cast<BaseObjectView *>(base_obj->getOverlyingObject()));
+		else if(tab_obj)
+			emit s_sceneInteracted(1, QRect());
 		else
 			emit s_sceneInteracted(nullptr);
 	}
 	else
-		emit s_sceneInteracted(selected_objects.size(), scene->itemsBoundingRect(true, true));
+		emit s_sceneInteracted(static_cast<int>(selected_objects.size()), scene->itemsBoundingRect(true, true));
 }
 
-void ModelWidget::configureObjectSelection(void)
+void ModelWidget::configureObjectSelection()
 {
 	QList<QGraphicsItem *> items=scene->selectedItems();
 	BaseObjectView *item=nullptr;
@@ -994,13 +1089,13 @@ void ModelWidget::configureObjectSelection(void)
 	while(itr!=objs_map.end())
 	{
 		item=dynamic_cast<BaseObjectView *>(itr->second);
-		selected_objects.push_back(item->getSourceObject());
+		selected_objects.push_back(item->getUnderlyingObject());
 		itr++;
 	}
 
-	/* Case the new_obj_type is a value greater the BASE_TABLE indicates that the user
+	/* Case the new_obj_type is a value greater the ObjectType::ObjBaseTable indicates that the user
 	(un)selected a object using some "Relationship" action */
-	if(new_obj_type > BASE_TABLE)
+	if(new_obj_type > ObjectType::BaseTable)
 	{
 		unsigned count=selected_objects.size();
 		ObjectType obj_type1, obj_type2;
@@ -1012,32 +1107,36 @@ void ModelWidget::configureObjectSelection(void)
 		{
 			//Get the selected objects types
 			obj_type1=selected_objects[0]->getObjectType();
-			obj_type2=(count==2 ? selected_objects[1]->getObjectType() : BASE_OBJECT);
+			obj_type2=(count==2 ? selected_objects[1]->getObjectType() : ObjectType::BaseObject);
 
 			//If there is only one selected object and this is a table, activates the relationship creation
 			if(!scene->isRelationshipLineVisible() &&
-					count==1 && obj_type1==OBJ_TABLE && new_obj_type > BASE_TABLE &&	 QApplication::keyboardModifiers()==0)
+				 count==1 && PhysicalTable::isPhysicalTable(obj_type1) &&
+				 new_obj_type > ObjectType::BaseTable &&	QApplication::keyboardModifiers() == 0)
 			{
 				BaseGraphicObject *graph_obj=dynamic_cast<BaseGraphicObject *>(selected_objects[0]);
-				BaseObjectView *object=dynamic_cast<BaseObjectView *>(graph_obj->getReceiverObject());
+				BaseObjectView *object=dynamic_cast<BaseObjectView *>(graph_obj->getOverlyingObject());
 
 				scene->showRelationshipLine(true,
-											QPointF(object->scenePos().x() + object->boundingRect().width()/2,
-													object->scenePos().y() + object->boundingRect().height()/2));
+																		QPointF(object->scenePos().x() + object->boundingRect().width()/2,
+																						object->scenePos().y() + object->boundingRect().height()/2));
 			}
 			//If the user has selected object that are not tables, cancel the operation
-			else if(obj_type1!=OBJ_TABLE ||
-					(obj_type2!=OBJ_TABLE && obj_type2!=BASE_OBJECT))
+			else if(!PhysicalTable::isPhysicalTable(obj_type1) || (!PhysicalTable::isPhysicalTable(obj_type2) && obj_type2 != ObjectType::BaseObject))
 			{
 				this->cancelObjectAddition();
 			}
 
 			/* Case there is only one selected object (table) and the SHIFT key is pressed too, creates a self-relationship.
 				 Case there is two selected objects, create a relationship between them */
-			else if((count==1 && obj_type1==OBJ_TABLE &&  QApplication::keyboardModifiers()==Qt::ShiftModifier) ||
-					(count==2 && obj_type1==OBJ_TABLE && obj_type2==OBJ_TABLE))
+			else if((count==1 && PhysicalTable::isPhysicalTable(obj_type1) && QApplication::keyboardModifiers()==Qt::ShiftModifier) ||
+							(count==2 && PhysicalTable::isPhysicalTable(obj_type1) && PhysicalTable::isPhysicalTable(obj_type2)))
 			{
+				/* Forcing no signals to be emitted by the scene while the relationship is being configured to avoid this
+				 * method to be called unecessarily */
+				scene->blockSignals(true);
 				this->showObjectForm(new_obj_type);
+				scene->blockSignals(false);
 
 				//Cancels the operation after showing the relationship editing form
 				scene->clearSelection();
@@ -1051,7 +1150,7 @@ void ModelWidget::configureObjectSelection(void)
 	emitSceneInteracted();
 }
 
-void ModelWidget::selectAllObjects(void)
+void ModelWidget::selectAllObjects()
 {
 	QAction *act = qobject_cast<QAction *>(sender());
 
@@ -1060,42 +1159,51 @@ void ModelWidget::selectAllObjects(void)
 
 	ObjectType obj_type = static_cast<ObjectType>(act->data().toUInt());
 
-	if(obj_type == BASE_OBJECT)
+	if(obj_type == ObjectType::BaseObject)
 	{
 		QPainterPath pth;
 		pth.addRect(scene->sceneRect());
+
+		scene->blockItemsSignals(true);
 		scene->setSelectionArea(pth);
+		scene->blockItemsSignals(false);
 	}
 	else
 	{
 		BaseObjectView *obj_view = nullptr;
 		vector<BaseObject *> objs = *db_model->getObjectList(obj_type);
 
-		if(obj_type == OBJ_RELATIONSHIP)
-			objs.insert(objs.end(), db_model->getObjectList(BASE_RELATIONSHIP)->begin(),  db_model->getObjectList(BASE_RELATIONSHIP)->end());
+		if(obj_type == ObjectType::Relationship)
+			objs.insert(objs.end(), db_model->getObjectList(ObjectType::BaseRelationship)->begin(),  db_model->getObjectList(ObjectType::BaseRelationship)->end());
 
 		for(auto &obj : objs)
 		{
-			obj_view = dynamic_cast<BaseObjectView *>(dynamic_cast<BaseGraphicObject *>(obj)->getReceiverObject());
+			obj_view = dynamic_cast<BaseObjectView *>(dynamic_cast<BaseGraphicObject *>(obj)->getOverlyingObject());
 
 			if(obj_view)
+			{
+				obj_view->blockSignals(true);
 				obj_view->setSelected(true);
+				obj_view->blockSignals(false);
+			}
 		}
 	}
+
+	configureObjectSelection();
 }
 
-void ModelWidget::convertRelationshipNN(void)
+void ModelWidget::convertRelationshipNN()
 {
 	Relationship *rel=reinterpret_cast<Relationship *>(action_convert_relnn->data().value<void *>());
 
 	if(rel)
 	{
 		//Converts only Many-to-Many relationship
-		if(rel->getRelationshipType()==Relationship::RELATIONSHIP_NN)
+		if(rel->getRelationshipType()==Relationship::RelationshipNn)
 		{
 			Messagebox msg_box;
-			msg_box.show(trUtf8("Do you really want to convert the relationship into an intermediate table?"),
-						 Messagebox::CONFIRM_ICON, Messagebox::YES_NO_BUTTONS);
+			msg_box.show(tr("Do you really want to convert the relationship into an intermediate table?"),
+						 Messagebox::ConfirmIcon, Messagebox::YesNoButtons);
 
 			if(msg_box.result()==QDialog::Accepted)
 			{
@@ -1105,8 +1213,8 @@ void ModelWidget::convertRelationshipNN(void)
 				{
 					Relationship *rel1=nullptr, *rel2=nullptr;
 					Table *tab=nullptr, *tab_nn=nullptr,
-							*src_tab=dynamic_cast<Table *>(rel->getTable(Relationship::SRC_TABLE)),
-							*dst_tab=dynamic_cast<Table *>(rel->getTable(Relationship::DST_TABLE));
+							*src_tab=dynamic_cast<Table *>(rel->getTable(Relationship::SrcTable)),
+							*dst_tab=dynamic_cast<Table *>(rel->getTable(Relationship::DstTable));
 					Constraint *constr=nullptr, *aux_constr=nullptr, *pk=nullptr;
 					Column *col=nullptr;
 					bool src_mand=true,	dst_mand=true;
@@ -1120,17 +1228,17 @@ void ModelWidget::convertRelationshipNN(void)
 					op_count=op_list->getCurrentSize();
 
 					//Stores the XML code definition for the table generated by the relationship
-					tab_nn=rel->getReceiverTable();
+					tab_nn=dynamic_cast<Table *>(rel->getReceiverTable());
 					pk=tab_nn->getPrimaryKey();
 
 					if(!rel->isSelfRelationship())
 					{
 						/* Checking if there is some attribute that is a pk too. If so, store their names in a list
 							 in order to create the pk further in this method */
-						count=pk->getColumnCount(Constraint::SOURCE_COLS);
+						count=pk->getColumnCount(Constraint::SourceCols);
 						for(i=0; i < count; i++)
 						{
-							col=pk->getColumn(i, Constraint::SOURCE_COLS);
+							col=pk->getColumn(i, Constraint::SourceCols);
 							attr_idx=rel->getObjectIndex(col);
 
 							if(attr_idx >= 0)
@@ -1138,7 +1246,7 @@ void ModelWidget::convertRelationshipNN(void)
 						}
 					}
 
-					xml_buf=tab_nn->getCodeDefinition(SchemaParser::XML_DEFINITION);
+					xml_buf=tab_nn->getCodeDefinition(SchemaParser::XmlDefinition);
 
 					//Creates the table from the xml code
 					xmlparser->restartParser();
@@ -1150,7 +1258,7 @@ void ModelWidget::convertRelationshipNN(void)
 					if(rel->isSiglePKColumn())
 					{
 						col=new Column;
-						(*col)=(*pk->getColumn(0, Constraint::SOURCE_COLS));
+						(*col)=(*pk->getColumn(0, Constraint::SourceCols));
 						col->setParentTable(nullptr);
 						tab->addColumn(col);
 						pk_cols.push_back(col->getName());
@@ -1173,7 +1281,7 @@ void ModelWidget::convertRelationshipNN(void)
 						count=tab_nn->getConstraintCount();
 						for(idx=0; idx < count; idx++)
 						{
-							xml_buf=tab_nn->getConstraint(idx)->getCodeDefinition(SchemaParser::XML_DEFINITION,true);
+							xml_buf=tab_nn->getConstraint(idx)->getCodeDefinition(SchemaParser::XmlDefinition,true);
 
 							xmlparser->restartParser();
 							xmlparser->loadXMLBuffer(xml_buf);
@@ -1205,7 +1313,7 @@ void ModelWidget::convertRelationshipNN(void)
 							constr->removeColumns();
 							constr->setParentTable(nullptr);
 
-							for(x=Constraint::SOURCE_COLS; x <= Constraint::REFERENCED_COLS; x++)
+							for(x=Constraint::SourceCols; x <= Constraint::ReferencedCols; x++)
 							{
 								count1=aux_constr->getColumnCount(x);
 								for(idx1=0; idx1 < count1; idx1++)
@@ -1220,28 +1328,28 @@ void ModelWidget::convertRelationshipNN(void)
 
 					//Renames the table if there is other with the same name on the model avoiding conflicts
 					tab->setName(tab_name);
-					tab->setName(PgModelerNS::generateUniqueName(tab, *db_model->getObjectList(OBJ_TABLE)));
+					tab->setName(PgModelerNs::generateUniqueName(tab, *db_model->getObjectList(ObjectType::Table)));
 
 					op_list->startOperationChain();
 
 					//Removes the many-to-many relationship from the model
-					op_list->registerObject(rel, Operation::OBJECT_REMOVED);
+					op_list->registerObject(rel, Operation::ObjectRemoved);
 
 					//The default position for the table will be the middle point between the relationship participant tables
-					pnt.setX((src_tab->getPosition().x() + dst_tab->getPosition().x())/2.0f);
-					pnt.setY((src_tab->getPosition().y() + dst_tab->getPosition().y())/2.0f);
+					pnt.setX((src_tab->getPosition().x() + dst_tab->getPosition().x())/2.0);
+					pnt.setY((src_tab->getPosition().y() + dst_tab->getPosition().y())/2.0);
 					tab->setPosition(pnt);
 
 					//Adds the new table to the model
 					db_model->addObject(tab);
-					op_list->registerObject(tab, Operation::OBJECT_CREATED);
+					op_list->registerObject(tab, Operation::ObjectCreated);
 
 					if(rel->isSelfRelationship())
 					{
 						//For self relationships register the created foreign keys on the operation list
 						while(!fks.empty())
 						{
-							op_list->registerObject(fks.back(), Operation::OBJECT_CREATED, -1, fks.back()->getParentTable());
+							op_list->registerObject(fks.back(), Operation::ObjectCreated, -1, fks.back()->getParentTable());
 							fks.pop_back();
 						}
 					}
@@ -1254,27 +1362,27 @@ void ModelWidget::convertRelationshipNN(void)
 							aux_constr=new Constraint;
 
 							for(QString pk_col : pk_cols)
-								aux_constr->addColumn(tab->getColumn(pk_col), Constraint::SOURCE_COLS);
+								aux_constr->addColumn(tab->getColumn(pk_col), Constraint::SourceCols);
 
-							aux_constr->setName(PgModelerNS::generateUniqueName(tab, *tab->getObjectList(OBJ_CONSTRAINT), false, QString("_pk")));
+							aux_constr->setName(PgModelerNs::generateUniqueName(tab, *tab->getObjectList(ObjectType::Constraint), false, QString("_pk")));
 							tab->addConstraint(aux_constr);
 
-							op_list->registerObject(aux_constr, Operation::OBJECT_CREATED, -1, tab);
+							op_list->registerObject(aux_constr, Operation::ObjectCreated, -1, tab);
 						}
 
 						/* Creates a one-to-many relationship that links the source table of the many-to-many rel. to the created table
-			   The relationship will be identifier if the single pk column attribute of the original relationship is false */
-						rel1=new Relationship(Relationship::RELATIONSHIP_1N,
-											  src_tab, tab, src_mand, false, !rel->isSiglePKColumn());
+				 The relationship will be identifier if the single pk column attribute of the original relationship is false */
+						rel1=new Relationship(Relationship::Relationship1n,
+												src_tab, tab, src_mand, false, !rel->isSiglePKColumn());
 						db_model->addRelationship(rel1);
-						op_list->registerObject(rel1, Operation::OBJECT_CREATED);
+						op_list->registerObject(rel1, Operation::ObjectCreated);
 
 						/*Creates a one-to-many relationship that links the destination table of the many-to-many rel. to the created table
-			  The relationship will be identifier if the single pk column attribute of the original relationship is false */
-						rel2=new Relationship(Relationship::RELATIONSHIP_1N,
-											  dst_tab, tab, dst_mand, false, !rel->isSiglePKColumn());
+				The relationship will be identifier if the single pk column attribute of the original relationship is false */
+						rel2=new Relationship(Relationship::Relationship1n,
+												dst_tab, tab, dst_mand, false, !rel->isSiglePKColumn());
 						db_model->addRelationship(rel2);
-						op_list->registerObject(rel2, Operation::OBJECT_CREATED);
+						op_list->registerObject(rel2, Operation::ObjectCreated);
 					}
 
 					op_list->finishOperationChain();
@@ -1300,10 +1408,170 @@ void ModelWidget::convertRelationshipNN(void)
 						op_list->ignoreOperationChain(false);
 					}
 
-					throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__,&e);
+					throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__,&e);
 				}
 			}
 		}
+	}
+}
+
+void ModelWidget::convertRelationship1N()
+{
+	Relationship *rel=reinterpret_cast<Relationship *>(action_convert_rel1n->data().value<void *>());
+
+	if(!rel || (rel &&
+							rel->getRelationshipType() != Relationship::Relationship11 &&
+							rel->getRelationshipType() != Relationship::Relationship1n))
+		return;
+
+	Messagebox msg_box;
+
+	msg_box.show(tr("<strong>WARNING:</strong> Converting a <strong>one-to-one</strong> or <strong>one-to-many</strong>\
+ relationship can lead to unreversible changes or break other relationships in the linking chain! Do you want to proceed?"),
+							 Messagebox::AlertIcon, Messagebox::YesNoButtons);
+
+	if(msg_box.result() == QDialog::Rejected)
+		return;
+
+	unsigned op_count = op_list->getCurrentSize();
+
+	try
+	{
+		Table *recv_tab = dynamic_cast<Table *>(rel->getReceiverTable()),
+				*ref_tab = dynamic_cast<Table *>(rel->getReferenceTable());
+		QStringList constrs_xmls;
+		Column *column = nullptr;
+		Constraint *constr = nullptr, *pk = recv_tab->getPrimaryKey();
+		vector<Column *> columns;
+		QString pk_name, orig_name, rel_name = rel->getName();
+		bool register_pk = false;
+		QColor rel_color = rel->getCustomColor();
+
+		// Storing the XML definition of table's PK
+		if(pk && (pk->isReferRelationshipAddedColumn() || pk->isAddedByRelationship()))
+		{
+			/* This flag indicates that the pk removal (further in this method) should be registered in the operations list
+			 * This will happen only if the pk wasn't added by the relationship */
+			register_pk = !pk->isAddedByRelationship();
+			pk_name = pk->getName();
+
+			// Storing the pk XML definition so it can be recreated correctly even after the disconnection of all relationships
+			constrs_xmls.append(recv_tab->getPrimaryKey()->getCodeDefinition(SchemaParser::XmlDefinition, true));
+		}
+
+		// Stores the XML definition of all generated constraints
+		for(auto &constr : rel->getGeneratedConstraints())
+		{
+			if(constr->getConstraintType() == ConstraintType::PrimaryKey)
+				continue;
+
+			constrs_xmls.append(constr->getCodeDefinition(SchemaParser::XmlDefinition, true));
+		}
+
+		// Stores the XML definition of all relationship's constraints (added by the user)
+		for(auto &obj : rel->getConstraints())
+		{
+			constr = dynamic_cast<Constraint *>(obj);
+			constrs_xmls.append(constr->getCodeDefinition(SchemaParser::XmlDefinition, true));
+		}
+
+		// Copying all generated columns
+		for(auto &col : rel->getGeneratedColumns())
+		{
+			column = new Column;
+			*column = *col;
+			columns.push_back(column);
+		}
+
+		// Copying all relationship attributes
+		for(auto &col : rel->getAttributes())
+		{
+			column = new Column;
+			*column = *(dynamic_cast<Column *>(col));
+			columns.push_back(column);
+		}
+
+		QApplication::setOverrideCursor(Qt::WaitCursor);
+		op_list->startOperationChain();
+
+		db_model->storeSpecialObjectsXML();
+		db_model->disconnectRelationships();
+		db_model->__removeObject(rel);
+
+		// Register the exclusion of the original relationship
+		op_list->registerObject(rel, Operation::ObjectRemoved);
+
+		/* If after the relationships disconnection the table still have a PK
+		 * it means that it was not added by relationship so we can remove it from the table
+		 * so it can be recreated further with the correct settings */
+		 pk = recv_tab->getConstraint(pk_name);
+
+		if(pk)
+		{
+			if(register_pk)
+				op_list->registerObject(pk, Operation::ObjectRemoved, -1, recv_tab);
+
+			recv_tab->removeObject(pk);
+		}
+
+		// Adding the copied columns to the receiver table
+		for(auto &col : columns)
+		{
+			col->setParentRelationship(nullptr);
+			col->setParentTable(nullptr);
+			recv_tab->addColumn(col);
+			op_list->registerObject(col, Operation::ObjectCreated, - 1, recv_tab);
+		}
+
+		// Recreating the constraints from XML code
+		for(auto &constr_xml : constrs_xmls)
+		{
+			xmlparser->restartParser();
+			xmlparser->loadXMLBuffer(constr_xml);
+			constr = db_model->createConstraint(recv_tab);
+			recv_tab->addConstraint(constr);
+			op_list->registerObject(constr, Operation::ObjectCreated, - 1, recv_tab);
+		}
+
+		/* Resetting the relatinship added columns/constraint indexes in the table
+		 * in order to avoid invalid indexes causing crashes */
+		recv_tab->resetRelObjectsIndexes();
+		recv_tab->setModified(true);
+
+		db_model->validateRelationships();
+		db_model->updateTableFKRelationships(recv_tab);
+
+		// Setting up the same name and color of the generated relationship
+		BaseRelationship *fk_rel = db_model->getRelationship(recv_tab, ref_tab);
+		fk_rel->setName(rel_name);
+		fk_rel->setCustomColor(rel_color);
+		fk_rel->setModified(true);
+
+		op_list->registerObject(fk_rel, Operation::ObjectModified);
+		op_list->finishOperationChain();
+
+		QApplication::restoreOverrideCursor();
+		emit s_objectCreated();
+	}
+	catch(Exception &e)
+	{
+		QApplication::restoreOverrideCursor();
+
+		if(op_count < op_list->getCurrentSize())
+		{
+			unsigned qtd = op_list->getCurrentSize() - op_count;
+			op_list->ignoreOperationChain(true);
+
+			for(unsigned i=0; i < qtd; i++)
+			{
+				op_list->undoOperation();
+				op_list->removeLastOperation();
+			}
+
+			op_list->ignoreOperationChain(false);
+		}
+
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
@@ -1314,7 +1582,8 @@ void ModelWidget::loadModel(const QString &filename)
 	try
 	{
 		connect(db_model, SIGNAL(s_objectLoaded(int,QString,unsigned)), &task_prog_wgt, SLOT(updateProgress(int,QString,unsigned)));
-		task_prog_wgt.setWindowTitle(trUtf8("Loading database model"));
+		task_prog_wgt.addIcon(enum_cast(ObjectType::BaseObject), QPixmap(PgModelerUiNs::getIconPath("design")));
+		task_prog_wgt.setWindowTitle(tr("Loading database model"));
 		task_prog_wgt.show();
 
 		db_model->loadModel(filename);
@@ -1322,24 +1591,29 @@ void ModelWidget::loadModel(const QString &filename)
 		this->adjustSceneSize();
 		this->updateObjectsOpacity();
 
+		scene->blockSignals(true);
+
+		for(auto &layer : db_model->getLayers())
+			scene->addLayer(layer);
+
+		scene->setActiveLayers(db_model->getActiveLayers());
+		scene->blockSignals(false);
+
 		task_prog_wgt.close();
 		protected_model_frm->setVisible(db_model->isProtected());
-		this->modified=false;
+		setModified(false);
 	}
 	catch(Exception &e)
 	{
 		task_prog_wgt.close();
-		this->modified=false;
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		setModified(false);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void ModelWidget::adjustSceneSize(void)
+void ModelWidget::adjustSceneSize()
 {
 	QRectF scene_rect, objs_rect;
-	bool align_objs, show_grid, show_delims;
-
-	ObjectsScene::getGridOptions(show_grid, align_objs, show_delims);
 
 	scene_rect=scene->sceneRect();
 	objs_rect=scene->itemsBoundingRect();
@@ -1353,8 +1627,11 @@ void ModelWidget::adjustSceneSize(void)
 	scene->setSceneRect(scene_rect);
 	viewport->centerOn(0,0);
 
-	if(align_objs)
+	if(ObjectsScene::isAlignObjectsToGrid())
+	{
 		scene->alignObjectsToGrid();
+		db_model->setObjectsModified({ ObjectType::Relationship, ObjectType::BaseRelationship });
+	}
 
 	emit s_sceneInteracted(scene_rect.size());
 }
@@ -1366,7 +1643,7 @@ void ModelWidget::printModel(QPrinter *printer, bool print_grid, bool print_page
 		bool show_grid, align_objs, show_delims;
 		unsigned page_cnt, page, h_page_cnt, v_page_cnt, h_pg_id, v_pg_id;
 		vector<QRectF> pages;
-		QRectF margins, page_rect;
+		QRectF margins;
 		QPrinter::PaperSize paper_size_id;
 		QPrinter::Orientation orient;
 		QSizeF paper_size, custom_p_size;
@@ -1377,7 +1654,9 @@ void ModelWidget::printModel(QPrinter *printer, bool print_grid, bool print_page
 				h_top_mid, h_bottom_mid, v_left_mid, v_right_mid, dx, dy, dx1, dy1;
 
 		//Make a backup of the current grid options
-		ObjectsScene::getGridOptions(show_grid, align_objs, show_delims);
+		show_grid = ObjectsScene::isShowGrid();
+		align_objs = ObjectsScene::isAlignObjectsToGrid();
+		show_delims = ObjectsScene::isShowPageDelimiters();
 
 		//Reconfigure the grid options based upon the passed settings
 		ObjectsScene::setGridOptions(print_grid, align_objs, false);
@@ -1399,9 +1678,9 @@ void ModelWidget::printModel(QPrinter *printer, bool print_grid, bool print_page
 		//Creates a painter to draw the model directly on the printer
 		QPainter painter(printer);
 		painter.setRenderHint(QPainter::Antialiasing);
-		font.setPointSizeF(7.5f);
+		font.setPointSizeF(7.5);
 		pen.setColor(QColor(120,120,120));
-		pen.setWidthF(1.0f);
+		pen.setWidthF(1.0);
 
 		//Calculates the auxiliary points to draw the page delimiter lines
 		top_left.setX(0); top_left.setY(0);
@@ -1502,21 +1781,31 @@ void ModelWidget::printModel(QPrinter *printer, bool print_grid, bool print_page
 	}
 }
 
-void ModelWidget::updateRenderHints(void)
+void ModelWidget::updateRenderHints()
 {
 	viewport->setRenderHint(QPainter::Antialiasing, !disable_render_smooth);
 	viewport->setRenderHint(QPainter::TextAntialiasing, !disable_render_smooth);
 	viewport->setRenderHint(QPainter::SmoothPixmapTransform, !disable_render_smooth);
 }
 
-void ModelWidget::update(void)
+void ModelWidget::update()
 {
 	updateRenderHints();
 	scene->update();
 	QWidget::update();
 }
 
-void ModelWidget::saveModel(void)
+void ModelWidget::bringToFront()
+{
+	moveObjectsInZStack(BringToFront);
+}
+
+void ModelWidget::sendToBack()
+{
+	moveObjectsInZStack(SendToBack);
+}
+
+void ModelWidget::saveModel()
 {
 	saveModel(this->filename);
 }
@@ -1524,52 +1813,103 @@ void ModelWidget::saveModel(void)
 void ModelWidget::saveModel(const QString &filename)
 {
 	TaskProgressWidget task_prog_wgt(this);
+	QString bkpfile;
+	QTemporaryFile tmpfile;
+	bool exists = QFile::exists(filename);
 
 	try
 	{
 		connect(db_model, SIGNAL(s_objectLoaded(int,QString,unsigned)), &task_prog_wgt, SLOT(updateProgress(int,QString,unsigned)));
-		task_prog_wgt.setWindowTitle(trUtf8("Saving database model"));
+		task_prog_wgt.setWindowTitle(tr("Saving database model"));
 		task_prog_wgt.show();
 
-		saveLastCanvasPosition();
-		db_model->saveModel(filename, SchemaParser::XML_DEFINITION);
+		/* If the original file exists we need to make a back first to avoid
+		 * in order to recover it in case of failures */
+		if(exists)
+		{
+			// Generate a temporary backup file
+			tmpfile.setAutoRemove(false);
+			tmpfile.setFileTemplate(GlobalAttributes::getTemporaryFilePath(QString("%1_XXXXXX.dbk").arg(this->db_model->getName())));
+			tmpfile.open();
+			bkpfile = tmpfile.fileName();
+			tmpfile.close();
+			tmpfile.remove();
 
+			/* Copy the original database model file prior to the saving to store
+			 * its last state in a safe place (temporary storage of the tool ~/.config/pgmodeler by default */
+			QFile::copy(filename, bkpfile);
+
+			// Remove the original filename before create a new one in the same path
+			QFile::remove(filename);
+		}
+
+		saveLastCanvasPosition();
+		db_model->saveModel(filename, SchemaParser::XmlDefinition);
 		this->filename=filename;
 
 		task_prog_wgt.close();
 		disconnect(db_model, nullptr, &task_prog_wgt, nullptr);
-		this->modified=false;
+		setModified(false);
+
+		/* Doing a final check to the file regarding its size.
+		 * If we have a zero-byte file something went wrong during the saving process (disk failure, thread errors, etc)
+		 * so we raise an error to the user and restore the backup file to its original path */
+		if(QFileInfo(filename).size() == 0)
+			throw Exception(Exception::getErrorMessage(ErrorCode::ModelFileInvalidSize).arg(filename).arg(bkpfile),
+											ErrorCode::ModelFileInvalidSize,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+
+		if(exists)
+			QFile::remove(bkpfile);
 	}
 	catch(Exception &e)
 	{
+		if(exists && QFile::exists(bkpfile))
+		{
+			QFile::remove(filename);
+			QFile::copy(bkpfile, filename);
+		}
+
 		task_prog_wgt.close();
 		disconnect(db_model, nullptr, &task_prog_wgt, nullptr);
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-QString ModelWidget::getFilename(void)
+QString ModelWidget::getFilename()
 {
-	return(this->filename);
+	return this->filename;
 }
 
-QString ModelWidget::getTempFilename(void)
+QString ModelWidget::getTempFilename()
 {
-	return(this->tmp_filename);
+	return this->tmp_filename;
 }
 
 int ModelWidget::openEditingForm(QWidget *widget, unsigned button_conf)
 {
 	BaseForm editing_form(this);
 	BaseObjectWidget *base_obj_wgt=qobject_cast<BaseObjectWidget *>(widget);
+	QString class_name = widget->metaObject()->className();
+	int res = 0;
 
 	if(base_obj_wgt)
+	{
+		BaseRelationship *rel = dynamic_cast<BaseRelationship *>(base_obj_wgt->getHandledObject());
 		editing_form.setMainWidget(base_obj_wgt);
+
+		if(rel)
+			class_name.prepend(rel->getRelationshipTypeName().replace(QRegExp("( )+|(\\-)+"), ""));
+	}
 	else
 		editing_form.setMainWidget(widget);
 
 	editing_form.setButtonConfiguration(button_conf);
-	return(editing_form.exec());
+
+	GeneralConfigWidget::restoreWidgetGeometry(&editing_form, class_name);
+	res = editing_form.exec();
+	GeneralConfigWidget::saveWidgetGeometry(&editing_form, class_name);
+
+	return res;
 }
 
 template<class Class, class WidgetClass>
@@ -1577,7 +1917,7 @@ int ModelWidget::openEditingForm(BaseObject *object)
 {
 	WidgetClass *object_wgt=new WidgetClass;
 	object_wgt->setAttributes(db_model, op_list, dynamic_cast<Class *>(object));
-	return(openEditingForm(object_wgt));
+	return openEditingForm(object_wgt);
 }
 
 template<class Class, class WidgetClass, class ParentClass>
@@ -1585,7 +1925,7 @@ int ModelWidget::openEditingForm(BaseObject *object, BaseObject *parent_obj)
 {
 	WidgetClass *object_wgt=new WidgetClass;
 	object_wgt->setAttributes(db_model, op_list, dynamic_cast<ParentClass *>(parent_obj), dynamic_cast<Class *>(object));
-	return(openEditingForm(object_wgt));
+	return openEditingForm(object_wgt);
 }
 
 template<class Class, class WidgetClass, class ParentClass>
@@ -1593,34 +1933,47 @@ int ModelWidget::openEditingForm(BaseObject *object, BaseObject *parent_obj, con
 {
 	WidgetClass *object_wgt=new WidgetClass;
 	object_wgt->setAttributes(db_model, op_list, dynamic_cast<ParentClass *>(parent_obj), dynamic_cast<Class *>(object), pos.x(), pos.y());
-	return(openEditingForm(object_wgt));
+	return openEditingForm(object_wgt);
+}
+
+int ModelWidget::openTableEditingForm(ObjectType tab_type, PhysicalTable *object, Schema *schema, const QPointF &pos)
+{
+	TableWidget *tab_wgt=new TableWidget(nullptr, tab_type);
+
+	if(tab_type == ObjectType::Table)
+		tab_wgt->setAttributes(db_model, op_list, schema, dynamic_cast<Table *>(object), pos.x(), pos.y());
+	else
+		tab_wgt->setAttributes(db_model, op_list, schema, dynamic_cast<ForeignTable *>(object), pos.x(), pos.y());
+
+	return openEditingForm(tab_wgt);
 }
 
 void ModelWidget::showObjectForm(ObjectType obj_type, BaseObject *object, BaseObject *parent_obj, const QPointF &pos)
 {
 	try
 	{
-		unsigned rel_type=0, res = QDialog::Rejected;
+		unsigned rel_type=0;
+		int res = QDialog::Rejected;
 		Schema *sel_schema=dynamic_cast<Schema *>(parent_obj);
 		QPointF obj_pos=pos;
 
-		/* Case the obj_type is greater than BASE_TABLE indicates that the object type is a
+		/* Case the obj_type is greater than ObjectType::ObjBaseTable indicates that the object type is a
 		 relationship. To get the specific relationship id (1-1, 1-n, n-n, gen, dep) is necessary
-		 to subtract the OBJ_RELATIONSHIP from the obj_type parameter, the result will point
+		 to subtract the ObjectType::ObjRelationship from the obj_type parameter, the result will point
 		 to the BaseRelationship::RELATIONSHIP_??? constant. */
-		if(obj_type > BASE_TABLE)
+		if(obj_type > ObjectType::BaseTable)
 		{
-			rel_type=obj_type - OBJ_RELATIONSHIP;
-			obj_type=OBJ_RELATIONSHIP;
+			rel_type=enum_cast(obj_type) - enum_cast(ObjectType::Relationship);
+			obj_type=ObjectType::Relationship;
 		}
 
-		if(obj_type!=OBJ_PERMISSION)
+		if(obj_type!=ObjectType::Permission)
 		{
 			if(object && obj_type!=object->getObjectType())
-				throw Exception(ERR_OPR_OBJ_INV_TYPE,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+				throw Exception(ErrorCode::OprObjectInvalidType,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 			//If the user try to call the table object form without specify a parent object
 			else if(!parent_obj && TableObject::isTableObject(obj_type))
-				throw Exception(ERR_OPR_NOT_ALOC_OBJECT,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+				throw Exception(ErrorCode::OprNotAllocatedObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 		}
 
 		if(object && dynamic_cast<BaseGraphicObject *>(object))
@@ -1629,85 +1982,89 @@ void ModelWidget::showObjectForm(ObjectType obj_type, BaseObject *object, BaseOb
 		/* Raises an error if the user try to edit a reserverd object. The only exception is for "public" schema
 		that can be edited only on its fill color an rectangle attributes */
 		if(object && object->isSystemObject() &&
-				(object->getObjectType()!=OBJ_SCHEMA || object->getName()!="public"))
-			throw Exception(Exception::getErrorMessage(ERR_OPR_RESERVED_OBJECT)
-							.arg(object->getName()).arg(object->getTypeName()),
-							ERR_OPR_RESERVED_OBJECT,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+				(object->getObjectType()!=ObjectType::Schema || object->getName()!="public"))
+			throw Exception(Exception::getErrorMessage(ErrorCode::OprReservedObject)
+											.arg(object->getName()).arg(object->getTypeName()),
+											ErrorCode::OprReservedObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
-		if(obj_type==OBJ_SCHEMA)
+		if(obj_type==ObjectType::Schema)
 			res=openEditingForm<Schema,SchemaWidget>(object);
-		else if(obj_type==OBJ_ROLE)
+		else if(obj_type==ObjectType::Role)
 			res=openEditingForm<Role,RoleWidget>(object);
-		else if(obj_type==OBJ_TABLESPACE)
+		else if(obj_type==ObjectType::Tablespace)
 			res=openEditingForm<Tablespace,TablespaceWidget>(object);
-		else if(obj_type==OBJ_LANGUAGE)
+		else if(obj_type==ObjectType::Language)
 			res=openEditingForm<Language,LanguageWidget>(object);
-		else if(obj_type==OBJ_CAST)
+		else if(obj_type==ObjectType::Cast)
 			res=openEditingForm<Cast, CastWidget>(object);
-		else if(obj_type==OBJ_TAG)
+		else if(obj_type==ObjectType::Tag)
 			res=openEditingForm<Tag,TagWidget>(object);
-		else if(obj_type== OBJ_EVENT_TRIGGER)
+		else if(obj_type== ObjectType::EventTrigger)
 			res=openEditingForm<EventTrigger,EventTriggerWidget>(object);
-		else if(obj_type==OBJ_FUNCTION)
+		else if(obj_type==ObjectType::Function)
 			res=openEditingForm<Function, FunctionWidget, Schema>(object, sel_schema);
-		else if(obj_type==OBJ_CONVERSION)
+		else if(obj_type==ObjectType::Conversion)
 			res=openEditingForm<Conversion, ConversionWidget, Schema>(object, sel_schema);
-		else if(obj_type==OBJ_DOMAIN)
+		else if(obj_type==ObjectType::Domain)
 			res=openEditingForm<Domain, DomainWidget, Schema>(object, sel_schema);
-		else if(obj_type==OBJ_AGGREGATE)
+		else if(obj_type==ObjectType::Aggregate)
 			res=openEditingForm<Aggregate, AggregateWidget, Schema>(object, sel_schema);
-		else if(obj_type==OBJ_SEQUENCE)
+		else if(obj_type==ObjectType::Sequence)
 			res=openEditingForm<Sequence, SequenceWidget, Schema>(object, sel_schema);
-		else if(obj_type==OBJ_OPERATOR)
+		else if(obj_type==ObjectType::Operator)
 			res=openEditingForm<Operator, OperatorWidget, Schema>(object, sel_schema);
-		else if(obj_type==OBJ_OPFAMILY)
+		else if(obj_type==ObjectType::OpFamily)
 			res=openEditingForm<OperatorFamily, OperatorFamilyWidget, Schema>(object, sel_schema);
-		else if(obj_type==OBJ_OPCLASS)
+		else if(obj_type==ObjectType::OpClass)
 			res=openEditingForm<OperatorClass, OperatorClassWidget, Schema>(object, sel_schema);
-		else if(obj_type==OBJ_TYPE)
+		else if(obj_type==ObjectType::Type)
 			res=openEditingForm<Type, TypeWidget, Schema>(object, sel_schema);
-		else if(obj_type==OBJ_COLLATION)
+		else if(obj_type==ObjectType::Collation)
 			res=openEditingForm<Collation, CollationWidget, Schema>(object, sel_schema);
-		else if(obj_type==OBJ_EXTENSION)
+		else if(obj_type==ObjectType::Extension)
 			res=openEditingForm<Extension, ExtensionWidget, Schema>(object, sel_schema);
-		else if(obj_type==OBJ_TABLE)
-			res=openEditingForm<Table,TableWidget,Schema>(object, sel_schema, obj_pos);
-		else if(obj_type==OBJ_VIEW)
+		else if(obj_type==ObjectType::Table)
+			res=openTableEditingForm(obj_type, dynamic_cast<Table *>(object), sel_schema, obj_pos);
+		else if(obj_type==ObjectType::ForeignTable)
+			res=openTableEditingForm(obj_type, dynamic_cast<ForeignTable *>(object), sel_schema, obj_pos);
+		else if(obj_type==ObjectType::View)
 			res=openEditingForm<View,ViewWidget,Schema>(object, sel_schema, obj_pos);
-		else if(obj_type==OBJ_RULE)
+		else if(obj_type==ObjectType::Rule)
 			res=openEditingForm<Rule, RuleWidget, BaseTable>(object, parent_obj);
-		else if(obj_type== OBJ_TRIGGER)
+		else if(obj_type== ObjectType::Trigger)
 			res=openEditingForm<Trigger, TriggerWidget, BaseTable>(object, parent_obj);
-		else if(obj_type== OBJ_INDEX)
+		else if(obj_type== ObjectType::Index)
 			res=openEditingForm<Index, IndexWidget, BaseTable>(object, parent_obj);
-		else if(obj_type==OBJ_COLUMN || obj_type==OBJ_CONSTRAINT)
+		else if(obj_type== ObjectType::Policy)
+			res=openEditingForm<Policy, PolicyWidget, BaseTable>(object, parent_obj);
+		else if(obj_type==ObjectType::Column || obj_type==ObjectType::Constraint)
 		{
 			TableObject *tab_obj=dynamic_cast<TableObject *>(object);
 
-			if(obj_type==OBJ_COLUMN)
+			if(obj_type==ObjectType::Column)
 				res=openEditingForm<Column, ColumnWidget, BaseObject>(object, parent_obj);
 			else
 				res=openEditingForm<Constraint, ConstraintWidget, BaseObject>(object, parent_obj);
 
 			if(res==QDialog::Accepted)
 			{
-				if(tab_obj && parent_obj->getObjectType()==OBJ_TABLE)
+				if(tab_obj && parent_obj->getObjectType()==ObjectType::Table)
 					db_model->validateRelationships(tab_obj, dynamic_cast<Table *>(parent_obj));
 				else
 					db_model->validateRelationships();
 			}
 		}
-		else if(obj_type==BASE_RELATIONSHIP || obj_type==OBJ_RELATIONSHIP)
+		else if(obj_type==ObjectType::BaseRelationship || obj_type==ObjectType::Relationship)
 		{
 			RelationshipWidget *relationship_wgt=new RelationshipWidget;
 
 			if(!object && rel_type > 0 &&
 					selected_objects.size() > 0 &&
-					selected_objects[0]->getObjectType()==OBJ_TABLE)
+					PhysicalTable::isPhysicalTable(selected_objects[0]->getObjectType()))
 			{
-				Table *tab1=dynamic_cast<Table *>(selected_objects[0]),
-						*tab2=(selected_objects.size()==2 ?
-								   dynamic_cast<Table *>(selected_objects[1]) : tab1);
+				PhysicalTable *tab1 = dynamic_cast<PhysicalTable *>(selected_objects[0]),
+											*tab2 = (selected_objects.size()==2 ?
+															 dynamic_cast<PhysicalTable *>(selected_objects[1]) : tab1);
 				relationship_wgt->setAttributes(db_model, op_list, tab1, tab2, rel_type);
 			}
 			else
@@ -1716,25 +2073,31 @@ void ModelWidget::showObjectForm(ObjectType obj_type, BaseObject *object, BaseOb
 			res=openEditingForm(relationship_wgt);
 			scene->clearSelection();
 		}
-		else if(obj_type==OBJ_TEXTBOX)
+		else if(obj_type==ObjectType::Textbox)
 		{
 			TextboxWidget *textbox_wgt=new TextboxWidget;
 			textbox_wgt->setAttributes(db_model, op_list, dynamic_cast<Textbox *>(object), obj_pos.x(), obj_pos.y());
 			res=openEditingForm(textbox_wgt);
 		}
-		else if(obj_type==OBJ_PERMISSION)
+		else if(obj_type==ObjectType::Permission)
 		{
 			PermissionWidget *permission_wgt=new PermissionWidget;
 			Permission *perm=dynamic_cast<Permission *>(object);
 			permission_wgt->setAttributes(db_model, nullptr, (perm ? perm->getObject() : object));
-			res=openEditingForm(permission_wgt, Messagebox::OK_BUTTON);
+			res=openEditingForm(permission_wgt, Messagebox::OkButton);
 		}
-		else if(obj_type==OBJ_GENERIC_SQL)
+		else if(obj_type==ObjectType::GenericSql)
 		{
 			GenericSQLWidget *genericsql_wgt=new GenericSQLWidget;
 			genericsql_wgt->setAttributes(db_model, op_list, dynamic_cast<GenericSQL *>(object));
 			res=openEditingForm(genericsql_wgt);
 		}
+		else if(obj_type==ObjectType::ForeignDataWrapper)
+			res = openEditingForm<ForeignDataWrapper, ForeignDataWrapperWidget>(object);
+		else if(obj_type==ObjectType::ForeignServer)
+			res = openEditingForm<ForeignServer, ForeignServerWidget>(object);
+		else if(obj_type==ObjectType::UserMapping)
+			res = openEditingForm<UserMapping, UserMappingWidget>(object);
 		else
 		{
 			DatabaseWidget *database_wgt=new DatabaseWidget;
@@ -1744,12 +2107,12 @@ void ModelWidget::showObjectForm(ObjectType obj_type, BaseObject *object, BaseOb
 
 		if(res==QDialog::Accepted)
 		{
-			this->modified=true;
+			setModified(true);
 			this->db_model->setInvalidated(true);
 			emit s_objectManipulated();
 		}
 		else
-			emit s_manipulationCanceled();
+		  emit s_manipulationCanceled();
 
 		this->setFocus();
 	}
@@ -1760,7 +2123,7 @@ void ModelWidget::showObjectForm(ObjectType obj_type, BaseObject *object, BaseOb
 	}
 }
 
-void ModelWidget::showDependenciesReferences(void)
+void ModelWidget::showDependenciesReferences()
 {
 	QAction *obj_sender=dynamic_cast<QAction *>(sender());
 
@@ -1772,12 +2135,12 @@ void ModelWidget::showDependenciesReferences(void)
 		{
 			ObjectDepsRefsWidget *deps_refs_wgt=new ObjectDepsRefsWidget;
 			deps_refs_wgt->setAttributes(this, object);
-			openEditingForm(deps_refs_wgt, Messagebox::OK_BUTTON);
+			openEditingForm(deps_refs_wgt, Messagebox::OkButton);
 		}
 	}
 }
 
-void ModelWidget::showSourceCode(void)
+void ModelWidget::showSourceCode()
 {
 	QAction *obj_sender=dynamic_cast<QAction *>(sender());
 
@@ -1789,15 +2152,15 @@ void ModelWidget::showSourceCode(void)
 		{
 			SourceCodeWidget *sourcecode_wgt=new SourceCodeWidget;
 			sourcecode_wgt->setAttributes(this->db_model, object);
-			openEditingForm(sourcecode_wgt, Messagebox::OK_BUTTON);
+			openEditingForm(sourcecode_wgt, Messagebox::OkButton);
 		}
 	}
 }
 
-void ModelWidget::cancelObjectAddition(void)
+void ModelWidget::cancelObjectAddition()
 {
 	//Reset the new object type to a invalid one forcing the user to select a correct type again
-	new_obj_type=BASE_OBJECT;
+	new_obj_type=ObjectType::BaseObject;
 
 	//Restore the cursor icon
 	viewport->setCursor(QCursor(Qt::ArrowCursor));
@@ -1808,39 +2171,36 @@ void ModelWidget::cancelObjectAddition(void)
 	this->configurePopupMenu(this->selected_objects);
 }
 
-void ModelWidget::renameObject(void)
+void ModelWidget::renameObjects()
 {
-	QAction *act=dynamic_cast<QAction *>(sender());
-	BaseObject *obj=reinterpret_cast<BaseObject *>(act->data().value<void *>());
-
-	if(obj->isSystemObject())
-		throw Exception(Exception::getErrorMessage(ERR_OPR_RESERVED_OBJECT)
-						.arg(obj->getName()).arg(obj->getTypeName()),
-						ERR_OPR_RESERVED_OBJECT,__PRETTY_FUNCTION__,__FILE__,__LINE__);
-
 	ObjectRenameWidget objectrename_wgt(this);
-	objectrename_wgt.setAttributes(obj, this->db_model, this->op_list);
+
+	if(selected_objects.empty())
+		objectrename_wgt.setAttributes({ db_model }, db_model, op_list);
+	else
+		objectrename_wgt.setAttributes(selected_objects, db_model, op_list);
+
 	objectrename_wgt.exec();
 
-	if(objectrename_wgt.result()==QDialog::Accepted)
+	if(objectrename_wgt.result() == QDialog::Accepted)
 	{
-		this->modified=true;
+		setModified(true);
 		emit s_objectModified();
 	}
 }
 
-void ModelWidget::moveToSchema(void)
+void ModelWidget::moveToSchema()
 {
 	QAction *act=dynamic_cast<QAction *>(sender());
-	Schema *schema=dynamic_cast<Schema *>(reinterpret_cast<BaseObject *>(act->data().value<void *>())),
-			*prev_schema=nullptr;
+	Schema *schema=dynamic_cast<Schema *>(reinterpret_cast<BaseObject *>(act->data().value<void *>()));
 	BaseGraphicObject *obj_graph=nullptr;
 	vector<BaseObject *> ref_objs;
-	vector<BaseRelationship *>rels;
 	int op_id=-1, op_curr_idx=op_list->getCurrentIndex();
 
 	try
 	{
+		QApplication::setOverrideCursor(Qt::WaitCursor);
+
 		op_list->startOperationChain();
 
 		for(BaseObject *obj : selected_objects)
@@ -1848,8 +2208,7 @@ void ModelWidget::moveToSchema(void)
 			//Change the object's schema only if the new schema is different from the current
 			if(obj->acceptsSchema() && obj->getSchema()!=schema)
 			{
-				prev_schema=dynamic_cast<Schema *>(obj->getSchema());
-				op_id=op_list->registerObject(obj, Operation::OBJECT_MODIFIED, -1);
+				op_id=op_list->registerObject(obj, Operation::ObjectModified, -1);
 
 				obj->setSchema(schema);
 				obj_graph=dynamic_cast<BaseGraphicObject *>(obj);
@@ -1857,72 +2216,66 @@ void ModelWidget::moveToSchema(void)
 				//If the object is a graphical one, move it to a position near to the new schema box
 				if(obj_graph)
 				{
-					SchemaView *dst_schema=dynamic_cast<SchemaView *>(schema->getReceiverObject());
+					SchemaView *dst_schema=dynamic_cast<SchemaView *>(schema->getOverlyingObject());
 					QPointF p;
 
 					if(dst_schema && dst_schema->isVisible())
 					{
 						p.setX(dst_schema->pos().x());
-						p.setY(dst_schema->pos().y() + dst_schema->boundingRect().height() + BaseObjectView::VERT_SPACING);
-						dynamic_cast<BaseObjectView *>(obj_graph->getReceiverObject())->setPos(p);
+						p.setY(dst_schema->pos().y() + dst_schema->boundingRect().height() + BaseObjectView::VertSpacing);
+						dynamic_cast<BaseObjectView *>(obj_graph->getOverlyingObject())->setPos(p);
 					}
-
-					obj_graph->setModified(true);
-					schema->setModified(true);
-					prev_schema->setModified(true);
 				}
 
 				//Invalidating the code of the object's references
 				db_model->getObjectReferences(obj, ref_objs);
+
 				for(BaseObject *ref_obj : ref_objs)
-				{
 					ref_obj->setCodeInvalidated(true);
-
-					//If the ref object is an table child object
-					if(TableObject::isTableObject(ref_obj->getObjectType()))
-					{
-						//Updates the parent table instead of the object
-						obj_graph=dynamic_cast<BaseGraphicObject *>(dynamic_cast<TableObject *>(ref_obj)->getParentTable());
-
-						//Get the relationships that the table participate
-						rels=db_model->getRelationships(dynamic_cast<BaseTable *>(obj_graph));
-
-						obj_graph->setModified(true);
-
-						if(!rels.empty())
-						{
-							//Updating the tables from relationships
-							for(auto &rel : rels)
-							{
-								if(rel->getTable(BaseRelationship::SRC_TABLE)!=obj_graph)
-									rel->getTable(BaseRelationship::SRC_TABLE)->setModified(true);
-
-								if(rel->getTable(BaseRelationship::DST_TABLE)!=obj_graph)
-									rel->getTable(BaseRelationship::DST_TABLE)->setModified(true);
-							}
-						}
-					}
-					else
-						dynamic_cast<BaseGraphicObject *>(ref_obj)->setModified(true);
-				}
 			}
 		}
 
 		op_list->finishOperationChain();
-
+		db_model->setObjectsModified();
 		this->setModified(true);
+
 		emit s_objectModified();
+
+		QApplication::restoreOverrideCursor();
 	}
 	catch(Exception &e)
 	{
+		QApplication::restoreOverrideCursor();
+
 		if(op_id >=0 && op_id > op_curr_idx)
 			op_list->removeLastOperation();
 
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void ModelWidget::changeOwner(void)
+void ModelWidget::moveToLayer()
+{
+	QAction *act = dynamic_cast<QAction *>(sender());
+	BaseGraphicObject *graph_obj = nullptr;
+	unsigned layer_id = act->data().toUInt();
+
+	for(auto &obj : selected_objects)
+	{
+		graph_obj = dynamic_cast<BaseGraphicObject *>(obj);
+
+		if(!graph_obj)
+			continue;
+
+		graph_obj->setLayer(layer_id);
+	}
+
+	QApplication::setOverrideCursor(Qt::WaitCursor);
+	scene->updateActiveLayers();
+	QApplication::restoreOverrideCursor();
+}
+
+void ModelWidget::changeOwner()
 {
 	QAction *act=dynamic_cast<QAction *>(sender());
 	BaseObject *owner=reinterpret_cast<BaseObject *>(act->data().value<void *>());
@@ -1943,14 +2296,14 @@ void ModelWidget::changeOwner(void)
 			if(obj->acceptsOwner() && obj->getOwner()!=owner)
 			{
 				if(obj->isSystemObject())
-					throw Exception(Exception::getErrorMessage(ERR_OPR_RESERVED_OBJECT)
+					throw Exception(Exception::getErrorMessage(ErrorCode::OprReservedObject)
 									.arg(obj->getName())
 									.arg(obj->getTypeName()),
-									ERR_OPR_RESERVED_OBJECT,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+									ErrorCode::OprReservedObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
 				//Register an operation only if the object is not the database itself
-				if(obj->getObjectType()!=OBJ_DATABASE)
-					op_id=op_list->registerObject(obj, Operation::OBJECT_MODIFIED, -1);
+				if(obj->getObjectType()!=ObjectType::Database)
+					op_id=op_list->registerObject(obj, Operation::ObjectModified, -1);
 
 				obj->setOwner(owner);
 			}
@@ -1964,11 +2317,11 @@ void ModelWidget::changeOwner(void)
 		if(op_id >=0 && op_id >= op_curr_idx)
 			op_list->removeLastOperation();
 
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void ModelWidget::setTag(void)
+void ModelWidget::setTag()
 {
 	QAction *act=dynamic_cast<QAction *>(sender());
 	BaseObject *tag=reinterpret_cast<BaseObject *>(act->data().value<void *>());
@@ -1985,13 +2338,15 @@ void ModelWidget::setTag(void)
 
 			if(tab)
 			{
-				op_id=op_list->registerObject(obj, Operation::OBJECT_MODIFIED, -1);
+				op_id=op_list->registerObject(obj, Operation::ObjectModified, -1);
 				tab->setTag(dynamic_cast<Tag *>(tag));
-				tab->setModified(true);
 			}
 		}
 
 		op_list->finishOperationChain();
+		db_model->setObjectsModified(selected_objects);
+		scene->clearSelection();
+
 		emit s_objectModified();
 	}
 	catch(Exception &e)
@@ -1999,24 +2354,24 @@ void ModelWidget::setTag(void)
 		if(op_id >=0 &&  op_id > op_curr_idx)
 			op_list->removeLastOperation();
 
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void ModelWidget::editPermissions(void)
+void ModelWidget::editPermissions()
 {
 	PermissionWidget *permission_wgt=new PermissionWidget;
 	QAction *act=dynamic_cast<QAction *>(sender());
 	BaseObject *obj=reinterpret_cast<BaseObject *>(act->data().value<void *>());
 
 	permission_wgt->setAttributes(this->db_model, nullptr, obj);
-	openEditingForm(permission_wgt, Messagebox::OK_BUTTON);
+	openEditingForm(permission_wgt, Messagebox::OkButton);
 
 	this->setModified(true);
 	emit s_objectManipulated();
 }
 
-void ModelWidget::editObject(void)
+void ModelWidget::editObject()
 {
 	QObject *obj_sender=dynamic_cast<QAction *>(sender());
 	TableObject *tab_obj=nullptr;
@@ -2034,22 +2389,22 @@ void ModelWidget::editObject(void)
 		showObjectForm(object->getObjectType(), object, (tab_obj ? tab_obj->getParentTable() : nullptr));
 }
 
-void ModelWidget::selectSchemaChildren(void)
+void ModelWidget::selectSchemaChildren()
 {
 	QObject *obj_sender=dynamic_cast<QAction *>(sender());
 	Schema *schema=nullptr;
 
 	schema=dynamic_cast<Schema *>(
-			   reinterpret_cast<BaseObject *>(
-				   dynamic_cast<QAction *>(obj_sender)->data().value<void *>()));
+				 reinterpret_cast<BaseObject *>(
+					 dynamic_cast<QAction *>(obj_sender)->data().value<void *>()));
 
 	scene->clearSelection();
 
 	dynamic_cast<SchemaView *>(
-				dynamic_cast<BaseObjectView *>(schema->getReceiverObject()))->selectChildren();
+				dynamic_cast<BaseObjectView *>(schema->getOverlyingObject()))->selectChildren();
 }
 
-void ModelWidget::selectTaggedTables(void)
+void ModelWidget::selectTaggedTables()
 {
 	QObject *obj_sender=dynamic_cast<QAction *>(sender());
 	Tag *tag=nullptr;
@@ -2065,65 +2420,26 @@ void ModelWidget::selectTaggedTables(void)
 
 	for(auto object : objects)
 	{
-		obj_view = dynamic_cast<BaseObjectView *>(dynamic_cast<BaseGraphicObject *>(object)->getReceiverObject());
+		obj_view = dynamic_cast<BaseObjectView *>(dynamic_cast<BaseGraphicObject *>(object)->getOverlyingObject());
 		obj_view->setSelected(true);
 	}
 }
 
-void ModelWidget::protectObject(void)
+void ModelWidget::protectObject()
 {
 	try
 	{
 		QObject *obj_sender=sender();
 		ObjectType obj_type;
 		TableObject *tab_obj=nullptr;
-		BaseObject *object=nullptr;
-		BaseGraphicObject *graph_obj=nullptr;
 		bool protect=false;
-		vector<BaseObject *>::iterator itr, itr_end;
+		QList<BaseGraphicObject *> upd_objects;
+		Messagebox msgbox;
 
 		scene->blockSignals(true);
 
-		if(this->selected_objects.size()==1)
-		{
-			tab_obj=dynamic_cast<TableObject *>(this->selected_objects[0]);
-			graph_obj=dynamic_cast<BaseGraphicObject *>(this->selected_objects[0]);
-
-			if(graph_obj)
-			{
-				bool protect=!graph_obj->isProtected();
-
-				if(graph_obj->getObjectType()==OBJ_SCHEMA)
-				{
-					Messagebox msgbox;
-					msgbox.show(QString(QT_TR_NOOP("Do you want to %1 the selected schema's children too?")).arg(protect ? QT_TR_NOOP("protect") : QT_TR_NOOP("unprotect")),
-								Messagebox::CONFIRM_ICON, Messagebox::YES_NO_BUTTONS);
-
-					if(msgbox.result()==QDialog::Accepted)
-					{
-						vector<BaseObject *> objects(db_model->getObjects(this->selected_objects[0]));
-
-						for(BaseObject *obj : objects)
-							obj->setProtected(protect);
-					}
-				}
-
-				graph_obj->setProtected(protect);
-			}
-			else if(tab_obj)
-			{
-				tab_obj->setProtected(!tab_obj->isProtected());
-
-				//Force the update of the parent table
-				dynamic_cast<Table *>(tab_obj->getParentTable())->setModified(true);
-			}
-			else
-			{
-				this->selected_objects[0]->setProtected(!this->selected_objects[0]->isProtected());
-			}
-		}
 		//Protects the whole model if there is no selected object
-		else if(this->selected_objects.empty())
+		if(this->selected_objects.empty())
 		{
 			if(obj_sender==action_protect || obj_sender==action_unprotect)
 				db_model->setProtected(!db_model->isProtected());
@@ -2131,33 +2447,54 @@ void ModelWidget::protectObject(void)
 		//If there is more than one selected object, make a batch protection/unprotection
 		else
 		{
-			itr=this->selected_objects.begin();
-			itr_end=this->selected_objects.end();
 			protect=(!this->selected_objects[0]->isProtected());
 
-			while(itr!=itr_end)
+			for(auto &object : selected_objects)
 			{
-				object=(*itr);
-
-				itr++;
-
 				obj_type=object->getObjectType();
 
-				if(obj_type==OBJ_COLUMN || obj_type==OBJ_CONSTRAINT)
+				if(obj_type==ObjectType::Column || obj_type==ObjectType::Constraint)
 				{
 					tab_obj=dynamic_cast<TableObject *>(object);
 
 					if(tab_obj->isAddedByRelationship())
 					{
-						throw Exception(QString(Exception::getErrorMessage(ERR_OPR_REL_INCL_OBJECT))
+						throw Exception(Exception::getErrorMessage(ErrorCode::OprRelationshipAddedObject)
 										.arg(object->getName()).arg(object->getTypeName()),
-										ERR_OPR_REL_INCL_OBJECT,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+										ErrorCode::OprRelationshipAddedObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+					}
+				}
+
+				// Applying protection status for the schema children objects
+				if(obj_type==ObjectType::Schema)
+				{
+					if(!msgbox.isCustomOptionChecked())
+					{
+						msgbox.setCustomOptionText("Apply to all other selected schemas");
+						msgbox.show(QString(QT_TR_NOOP("Do you want to %1 the children of the schema <strong>%2</strong> too?"))
+												.arg(protect ? QT_TR_NOOP("protect") : QT_TR_NOOP("unprotect")).arg(object->getName()),
+												Messagebox::ConfirmIcon, Messagebox::YesNoButtons);
+					}
+
+					if(msgbox.result()==QDialog::Accepted || msgbox.isCustomOptionChecked())
+					{
+						vector<BaseObject *> objects(db_model->getObjects(object));
+
+						for(BaseObject *obj : objects)
+							obj->setProtected(protect);
 					}
 				}
 
 				object->setProtected(protect);
+				tab_obj = dynamic_cast<TableObject *>(object);
+
+				if(tab_obj && !upd_objects.contains(tab_obj->getParentTable()))
+					upd_objects.push_back(tab_obj->getParentTable());
 			}
 		}
+
+		for(auto &obj : upd_objects)
+			obj->setModified(true);
 
 		protected_model_frm->setVisible(db_model->isProtected());
 		scene->blockSignals(false);
@@ -2168,11 +2505,11 @@ void ModelWidget::protectObject(void)
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void ModelWidget::cutObjects(void)
+void ModelWidget::cutObjects()
 {
 	/* Store the source model as 'this'. This attribute is used on the paste method
 	to remove the selected object and updated the source model */
@@ -2191,9 +2528,9 @@ void ModelWidget::copyObjects(bool duplicate_mode)
 	vector<BaseObject *> deps;
 	BaseObject *object=nullptr;
 	TableObject *tab_obj=nullptr;
-	Table *table=nullptr;
+	BaseTable *table=nullptr;
 	Constraint *constr=nullptr;
-	ObjectType types[]={ OBJ_TRIGGER, OBJ_INDEX, OBJ_CONSTRAINT };
+	ObjectType types[]={ ObjectType::Trigger, ObjectType::Rule, ObjectType::Index, ObjectType::Constraint, ObjectType::Policy };
 	unsigned i, type_id, count;
 	Messagebox msg_box;
 
@@ -2201,16 +2538,16 @@ void ModelWidget::copyObjects(bool duplicate_mode)
 	{
 		//Raise an error if the user try to copy a reserved object
 		if(selected_objects[0]->isSystemObject())
-			throw Exception(Exception::getErrorMessage(ERR_OPR_RESERVED_OBJECT)
-							.arg(selected_objects[0]->getName()).arg(selected_objects[0]->getTypeName()),
-				ERR_OPR_RESERVED_OBJECT,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+			throw Exception(Exception::getErrorMessage(ErrorCode::OprReservedObject)
+											.arg(selected_objects[0]->getName()).arg(selected_objects[0]->getTypeName()),
+											ErrorCode::OprReservedObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 	}
 
 	if(!duplicate_mode)
 	{
 		//Ask for confirmation to copy the dependencies of the object(s)
-		msg_box.show(trUtf8("Also copy all dependencies of selected objects? This minimizes the breakdown of references when copied objects are pasted into another model."),
-					 Messagebox::CONFIRM_ICON, Messagebox::YES_NO_BUTTONS);
+		msg_box.show(tr("Also copy all dependencies of selected objects? This minimizes the breakdown of references when copied objects are pasted into another model."),
+					 Messagebox::ConfirmIcon, Messagebox::YesNoButtons);
 	}
 
 	/* When in cut operation is necessary to store the selected objects in a separeted list
@@ -2226,7 +2563,7 @@ void ModelWidget::copyObjects(bool duplicate_mode)
 		object=(*itr);
 
 		//Table-view relationships and FK relationship aren't copied since they are created automatically when pasting the tables/views
-		if(object->getObjectType()!=BASE_RELATIONSHIP)
+		if(object->getObjectType()!=ObjectType::BaseRelationship)
 		{
 			if(msg_box.result()==QDialog::Accepted)
 				db_model->getObjectDependecies(object, deps, true);
@@ -2235,11 +2572,11 @@ void ModelWidget::copyObjects(bool duplicate_mode)
 
 			/* Copying the special objects (which references columns added by relationship) in order
 			to be correclty created when pasted */
-			if(object->getObjectType()==OBJ_TABLE)
+			if(object->getObjectType()==ObjectType::Table || object->getObjectType() == ObjectType::View)
 			{
-				table=dynamic_cast<Table *>(object);
+				table=dynamic_cast<BaseTable *>(object);
 
-				for(type_id=0; type_id < 3; type_id++)
+				for(type_id=0; type_id <= 4; type_id++)
 				{
 					count=table->getObjectCount(types[type_id]);
 
@@ -2251,15 +2588,19 @@ void ModelWidget::copyObjects(bool duplicate_mode)
 						/* The object is only inserted at the list when it was not included by relationship but references
 						columns added by relationship. Case the object is a constraint, it cannot be a primary key because
 						this type of constraint is treated separetely by relationships */
-						if(!tab_obj->isAddedByRelationship() &&
-								((constr &&
-								  (constr->getConstraintType()==ConstraintType::foreign_key ||
-								   (constr->getConstraintType()==ConstraintType::unique &&
-									constr->isReferRelationshipAddedColumn()))) ||
-								 (types[type_id]==OBJ_TRIGGER && dynamic_cast<Trigger *>(tab_obj)->isReferRelationshipAddedColumn()) ||
-								 (types[type_id]==OBJ_INDEX && dynamic_cast<Index *>(tab_obj)->isReferRelationshipAddedColumn())))
+						if(duplicate_mode ||
+						   (!duplicate_mode &&
+							!tab_obj->isAddedByRelationship() &&
+							 (!constr ||
+								(((constr &&
+									(constr->getConstraintType()==ConstraintType::ForeignKey ||
+									 (constr->getConstraintType()==ConstraintType::Unique &&
+									constr->isReferRelationshipAddedColumn()))))))))
 							deps.push_back(tab_obj);
 					}
+
+					if(object->getObjectType() == ObjectType::View && type_id >= 2)
+						break;
 				}
 			}
 		}
@@ -2291,7 +2632,7 @@ void ModelWidget::copyObjects(bool duplicate_mode)
 	}
 }
 
-void ModelWidget::pasteObjects(void)
+void ModelWidget::pasteObjects(bool duplicate_mode)
 {
 	map<BaseObject *, QString> xml_objs;
 	BaseTable *orig_parent_tab=nullptr;
@@ -2299,7 +2640,7 @@ void ModelWidget::pasteObjects(void)
 	map<BaseObject *, QString> orig_obj_names;
 	BaseObject *object=nullptr, *aux_object=nullptr;
 	TableObject *tab_obj=nullptr;
-	Table *sel_table=nullptr;
+	Table *sel_table=nullptr, *aux_table = nullptr;
 	View *sel_view=nullptr;
 	BaseTable *parent=nullptr;
 	Function *func=nullptr;
@@ -2307,11 +2648,11 @@ void ModelWidget::pasteObjects(void)
 	Operator *oper=nullptr;
 	QString aux_name, copy_obj_name;
 	ObjectType obj_type;
-	Exception error;
+	vector<Exception> errors;
 	unsigned pos=0;
 	TaskProgressWidget task_prog_wgt(this);
 
-	task_prog_wgt.setWindowTitle(trUtf8("Pasting objects..."));
+	task_prog_wgt.setWindowTitle(tr("Pasting objects..."));
 	task_prog_wgt.show();
 
 	itr=copied_objects.begin();
@@ -2333,17 +2674,17 @@ void ModelWidget::pasteObjects(void)
 		tab_obj=dynamic_cast<TableObject *>(object);
 		itr++;
 		pos++;
-		task_prog_wgt.updateProgress((pos/static_cast<float>(copied_objects.size()))*100,
-									 trUtf8("Validating object: `%1' (%2)").arg(object->getName())
+		task_prog_wgt.updateProgress((pos/static_cast<double>(copied_objects.size()))*100,
+									 tr("Validating object: `%1' (%2)").arg(object->getName())
 									 .arg(object->getTypeName()),
-									 object->getObjectType());
+									 enum_cast(object->getObjectType()));
 
 		if(!tab_obj || ((sel_table || sel_view) && tab_obj))
 		{
 			/* The first validation is to check if the object to be pasted does not conflict
 			with any other object of the same type on the model */
 
-			if(obj_type==OBJ_FUNCTION)
+			if(obj_type==ObjectType::Function)
 				dynamic_cast<Function *>(object)->createSignature(true);
 			else if(tab_obj)
 				aux_name=tab_obj->getName(true);
@@ -2355,7 +2696,7 @@ void ModelWidget::pasteObjects(void)
 				aux_object=db_model->getObject(aux_name, obj_type);
 			else
 			{
-				if(sel_view && (obj_type==OBJ_TRIGGER || obj_type==OBJ_RULE))
+				if(sel_view && (obj_type==ObjectType::Trigger || obj_type==ObjectType::Rule || obj_type==ObjectType::Index))
 					aux_object=sel_view->getObject(aux_name, obj_type);
 				else if(sel_table)
 					aux_object=sel_table->getObject(aux_name, obj_type);
@@ -2369,12 +2710,12 @@ void ModelWidget::pasteObjects(void)
 			if(tab_obj ||
 					(aux_object &&
 					 (dynamic_cast<BaseGraphicObject *>(object) ||
-					  (aux_object->getDatabase()==object->getDatabase()) ||
-					  (aux_object->getCodeDefinition(SchemaParser::SchemaParser::XML_DEFINITION) !=
-					   object->getCodeDefinition(SchemaParser::SchemaParser::XML_DEFINITION)))))
+						(aux_object->getDatabase()==object->getDatabase()) ||
+						(aux_object->getCodeDefinition(SchemaParser::SchemaParser::XmlDefinition) !=
+						 object->getCodeDefinition(SchemaParser::SchemaParser::XmlDefinition)))))
 			{
 				//Resolving name conflicts
-				if(obj_type!=OBJ_CAST)
+				if(obj_type!=ObjectType::Cast)
 				{
 					func=nullptr; oper=nullptr;
 
@@ -2384,26 +2725,31 @@ void ModelWidget::pasteObjects(void)
 					/* For each object type as follow configures the name and the suffix and store them on the
 						'copy_obj_name' variable. This string is used to check if there are objects with the same name
 						on model. While the 'copy_obj_name' conflicts with other objects (of same type) this validation is made */
-					if(obj_type==OBJ_FUNCTION)
+					if(obj_type==ObjectType::Function)
 					{
 						func=dynamic_cast<Function *>(object);
-						func->setName(PgModelerNS::generateUniqueName(func, (*db_model->getObjectList(OBJ_FUNCTION)), false, QString("_cp")));
+						func->setName(PgModelerNs::generateUniqueName(func, (*db_model->getObjectList(ObjectType::Function)), false, QString("_cp")));
 						copy_obj_name=func->getName();
 						func->setName(orig_obj_names[object]);
 					}
-					else if(obj_type==OBJ_OPERATOR)
+					else if(obj_type==ObjectType::Operator)
 					{
 						oper=dynamic_cast<Operator *>(object);
-						oper->setName(PgModelerNS::generateUniqueName(oper, (*db_model->getObjectList(OBJ_OPERATOR))));
+						oper->setName(PgModelerNs::generateUniqueName(oper, (*db_model->getObjectList(ObjectType::Operator))));
 						copy_obj_name=oper->getName();
 						oper->setName(orig_obj_names[object]);
 					}
 					else
 					{
 						if(tab_obj)
-							tab_obj->setName(PgModelerNS::generateUniqueName(tab_obj, (*sel_table->getObjectList(tab_obj->getObjectType())), false, QString("_cp")));
+						{
+							if(sel_table)
+								tab_obj->setName(PgModelerNs::generateUniqueName(tab_obj, (*sel_table->getObjectList(tab_obj->getObjectType())), false, QString("_cp"), true));
+							else
+								tab_obj->setName(PgModelerNs::generateUniqueName(tab_obj, (*sel_view->getObjectList(tab_obj->getObjectType())), false, QString("_cp"), true));
+						}
 						else
-							object->setName(PgModelerNS::generateUniqueName(object, (*db_model->getObjectList(object->getObjectType())), false, QString("_cp")));
+							object->setName(PgModelerNs::generateUniqueName(object, (*db_model->getObjectList(object->getObjectType())), false, QString("_cp"), true));
 
 						copy_obj_name=object->getName();
 						object->setName(orig_obj_names[object]);
@@ -2430,14 +2776,24 @@ void ModelWidget::pasteObjects(void)
 		itr++;
 
 		pos++;
-		task_prog_wgt.updateProgress((pos/static_cast<float>(copied_objects.size()))*100,
-									 trUtf8("Generating XML for: `%1' (%2)").arg(object->getName())
+		task_prog_wgt.updateProgress((pos/static_cast<double>(copied_objects.size()))*100,
+									 tr("Generating XML for: `%1' (%2)").arg(object->getName())
 									 .arg(object->getTypeName()),
-									 object->getObjectType());
+									 enum_cast(object->getObjectType()));
 
 		if(!tab_obj)
+		{
+			aux_table =  dynamic_cast<Table *>(object);;
+
 			//Stores the XML definition on a xml buffer map
-			xml_objs[object]=object->getCodeDefinition(SchemaParser::XML_DEFINITION);
+			if(duplicate_mode && aux_table)
+			{
+				xml_objs[object] = aux_table->__getCodeDefinition(SchemaParser::XmlDefinition, true);
+			  object->setCodeInvalidated(true);
+			}
+			else
+				xml_objs[object]=object->getCodeDefinition(SchemaParser::XmlDefinition);
+		}
 
 		//Store the original parent table of the object
 		else if(tab_obj && (sel_table || sel_view))
@@ -2448,20 +2804,29 @@ void ModelWidget::pasteObjects(void)
 				parent=sel_view;
 
 			/* Only generates the XML for a table object when the selected receiver object
-	  is a table or is a view and the current object is a trigger or rule (because
-	  view's only accepts this two types) */
+			 * is a table or is a view and the current object is a trigger, index, or rule (because
+			 * view's only accepts this two types) */
 			if(sel_table ||
-					(sel_view && (tab_obj->getObjectType()==OBJ_TRIGGER ||
-								  tab_obj->getObjectType()==OBJ_RULE)))
+					(sel_view && (tab_obj->getObjectType()==ObjectType::Trigger ||
+									tab_obj->getObjectType()==ObjectType::Rule ||
+									tab_obj->getObjectType()==ObjectType::Index)))
 			{
 				//Backups the original parent table
 				orig_parent_tab=tab_obj->getParentTable();
+
+				constr = dynamic_cast<Constraint *>(tab_obj);
 
 				//Set the parent table as the selected table/view
 				tab_obj->setParentTable(parent);
 
 				//Generates the XML code with the new parent table
-				xml_objs[object]=object->getCodeDefinition(SchemaParser::XML_DEFINITION);
+				if(constr)
+				{
+					xml_objs[object]=constr->getCodeDefinition(SchemaParser::XmlDefinition, duplicate_mode);
+				  tab_obj->setCodeInvalidated(true);
+				}
+				else
+					xml_objs[object]=object->getCodeDefinition(SchemaParser::XmlDefinition);
 
 				//Restore the original parent table
 				tab_obj->setParentTable(orig_parent_tab);
@@ -2470,7 +2835,15 @@ void ModelWidget::pasteObjects(void)
 		else if(tab_obj)
 		{
 			//Generates the XML code with the new parent table
-			xml_objs[object]=tab_obj->getCodeDefinition(SchemaParser::XML_DEFINITION);
+			constr = dynamic_cast<Constraint *>(tab_obj);
+
+			if(constr)
+			{
+				xml_objs[object]=constr->getCodeDefinition(SchemaParser::XmlDefinition, duplicate_mode);
+			  tab_obj->setCodeInvalidated(true);
+			}
+			else
+				xml_objs[object]=tab_obj->getCodeDefinition(SchemaParser::XmlDefinition);
 		}
 	}
 
@@ -2480,10 +2853,11 @@ void ModelWidget::pasteObjects(void)
 
 	while(itr!=itr_end)
 	{
-		object=(*itr);
+		object = (*itr);
+		obj_type = object->getObjectType();
 		itr++;
 
-		if(orig_obj_names[object].count() && obj_type!=OBJ_CAST)
+		if(orig_obj_names[object].count() && obj_type!=ObjectType::Cast)
 			object->setName(orig_obj_names[object]);
 	}
 
@@ -2496,18 +2870,21 @@ void ModelWidget::pasteObjects(void)
 
 	while(itr!=itr_end)
 	{
-		if(xml_objs.count(*itr))
+		object = *itr;
+		itr++;
+
+		if(xml_objs.count(object))
 		{
 			xmlparser->restartParser();
-			xmlparser->loadXMLBuffer(xml_objs[*itr]);
+			xmlparser->loadXMLBuffer(xml_objs[object]);
 
 			try
 			{
 				pos++;
-				task_prog_wgt.updateProgress((pos/static_cast<float>(copied_objects.size()))*100,
-											 trUtf8("Pasting object: `%1' (%2)").arg(object->getName())
+				task_prog_wgt.updateProgress((pos/static_cast<double>(copied_objects.size()))*100,
+											 tr("Pasting object: `%1' (%2)").arg(object->getName())
 											 .arg(object->getTypeName()),
-											 object->getObjectType());
+											 enum_cast(object->getObjectType()));
 
 				//Creates the object from the XML
 				object=db_model->createObject(BaseObject::getObjectType(xmlparser->getElementName()));
@@ -2515,11 +2892,11 @@ void ModelWidget::pasteObjects(void)
 				constr=dynamic_cast<Constraint *>(tab_obj);
 
 				/* Once created, the object is added on the model, except for relationships and table objects
-		because they are inserted automatically */
+				 * because they are inserted automatically */
 				if(object && !tab_obj && !dynamic_cast<Relationship *>(object))
 				{
 					if(db_model->getObjectIndex(object->getSignature(), object->getObjectType()) >= 0)
-						object->setName(PgModelerNS::generateUniqueName(object, *db_model->getObjectList(object->getObjectType()), false, QString("_cp")));
+						object->setName(PgModelerNs::generateUniqueName(object, *db_model->getObjectList(object->getObjectType()), false, QString("_cp")));
 
 					db_model->addObject(object);
 				}
@@ -2527,34 +2904,33 @@ void ModelWidget::pasteObjects(void)
 				//Special case for table objects
 				if(tab_obj)
 				{
-					if(sel_table &&
-							(tab_obj->getObjectType()==OBJ_COLUMN ||	tab_obj->getObjectType()==OBJ_RULE))
+					if(sel_table && tab_obj->getObjectType()==ObjectType::Column)
 					{
 						sel_table->addObject(tab_obj);
 						sel_table->setModified(true);
 					}
-					else if(sel_view && tab_obj->getObjectType()==OBJ_RULE)
+					else if(constr && duplicate_mode &&
+							constr->getConstraintType() == ConstraintType::PrimaryKey &&
+							constr->getParentTable()->getObjectIndex(constr) < 0)
 					{
-						sel_view->addObject(tab_obj);
-						sel_view->setModified(true);
+					  constr->getParentTable()->addObject(constr);
+					  constr->getParentTable()->setModified(true);
 					}
 
 					//Updates the fk relationships if the constraint is a foreign-key
-					if(constr && constr->getConstraintType()==ConstraintType::foreign_key)
+					if(constr && constr->getConstraintType()==ConstraintType::ForeignKey)
 						db_model->updateTableFKRelationships(dynamic_cast<Table *>(tab_obj->getParentTable()));
 
-					op_list->registerObject(tab_obj, Operation::OBJECT_CREATED, -1, tab_obj->getParentTable());
+					op_list->registerObject(tab_obj, Operation::ObjectCreated, -1, tab_obj->getParentTable());
 				}
 				else
-					op_list->registerObject(object, Operation::OBJECT_CREATED);
+					op_list->registerObject(object, Operation::ObjectCreated);
 			}
 			catch(Exception &e)
 			{
-				error=e;
+				errors.push_back(e);
 			}
 		}
-
-		itr++;
 	}
 	op_list->finishOperationChain();
 
@@ -2565,17 +2941,17 @@ void ModelWidget::pasteObjects(void)
 	task_prog_wgt.close();
 
 	//If some error occur during the process show it to the user
-	if(error.getErrorType()!=ERR_CUSTOM)
+	if(!errors.empty())
 	{
 		Messagebox msg_box;
-		msg_box.show(error,
-					 trUtf8("Not all objects were pasted to the model due to errors returned during the process! Refer to error stack for more details!"),
-					 Messagebox::ALERT_ICON);
+		msg_box.show(Exception(tr("Not all objects were pasted to the model due to errors returned during the process! Refer to error stack for more details!"),
+								 ErrorCode::Custom,__PRETTY_FUNCTION__,__FILE__,__LINE__, errors), "",
+								 Messagebox::AlertIcon);
 	}
 
 	if(!ModelWidget::cut_operation)
 	{
-		copied_objects.clear();
+		//copied_objects.clear();
 		emit s_objectCreated();
 	}
 	//If its a cut operatoin
@@ -2598,43 +2974,95 @@ void ModelWidget::pasteObjects(void)
 	}
 
 	this->configurePopupMenu();
-	this->modified=true;
+	setModified(true);
 
 	//Restoring the viewport position after paste objects
 	viewport->verticalScrollBar()->setValue(db_model->getLastPosition().y());
 	viewport->horizontalScrollBar()->setValue(db_model->getLastPosition().x());
 }
 
-void ModelWidget::duplicateObject(void)
+void ModelWidget::duplicateObject()
 {
 	int op_id = -1;
 
 	try
 	{
-		if(selected_objects.size() == 1 && TableObject::isTableObject(selected_objects[0]->getObjectType()))
+		if(scene->hasOnlyTableChildrenSelection() ||
+			 (selected_objects.size() == 1 && TableObject::isTableObject(selected_objects[0]->getObjectType())))
 		{
-			BaseObject *object = selected_objects[0], *dup_object=nullptr;
+			Schema *schema = nullptr;
+			BaseObject *dup_object=nullptr;
 			BaseTable *table = nullptr;
-			ObjectType obj_type = object->getObjectType();
+			ObjectType obj_type;
+			QList<Schema *> upd_schemas;
+			QList<BaseTable *> upd_view_ref_tables;
+			QList<BaseTable *> upd_tables;
+			QList<BaseTable *> upd_fk_rels;
 
-			table = dynamic_cast<TableObject *>(object)->getParentTable();
-			PgModelerNS::copyObject(&dup_object, object, obj_type);
-			dup_object->setName(PgModelerNS::generateUniqueName(dup_object, *dynamic_cast<Table *>(table)->getObjectList(obj_type), false, QString("_cp")));
+			op_list->startOperationChain();
 
-			op_id=op_list->registerObject(dup_object, Operation::OBJECT_CREATED, -1, table);
-			table->addObject(dup_object);
-			table->setModified(true);
+			for(auto &tab_obj : selected_objects)
+			{
+				dup_object=nullptr;
+				obj_type = tab_obj->getObjectType();
+				table = dynamic_cast<TableObject *>(tab_obj)->getParentTable();
+				schema = dynamic_cast<Schema *>(table->getSchema());
+				PgModelerNs::copyObject(&dup_object, tab_obj, obj_type);
 
-			if(obj_type == OBJ_COLUMN)
+				if(PhysicalTable::isPhysicalTable(table->getObjectType()))
+					dup_object->setName(PgModelerNs::generateUniqueName(dup_object, *dynamic_cast<PhysicalTable *>(table)->getObjectList(obj_type), false, QString("_cp")));
+				else
+					dup_object->setName(PgModelerNs::generateUniqueName(dup_object, *dynamic_cast<View *>(table)->getObjectList(obj_type), false, QString("_cp")));
+
+				op_id=op_list->registerObject(dup_object, Operation::ObjectCreated, -1, table);
+				table->addObject(dup_object);
+
+				// Flagging the table to be repainted
+				if(!upd_tables.contains(table))
+					upd_tables.append(table);
+
+				// Flagging the schema to be repainted
+				if(!upd_schemas.contains(schema))
+					upd_schemas.append(schema);
+
+				// Flagging the table to have the view references (relationships) updated
+				if(!upd_view_ref_tables.contains(table) && obj_type == ObjectType::Column)
+					upd_view_ref_tables.append(table);
+				// Flagging the table to have its fk relationships updated
+				else if(!upd_fk_rels.contains(table) &&
+								obj_type == ObjectType::Constraint &&
+								dynamic_cast<Constraint *>(tab_obj)->getConstraintType() == ConstraintType::ForeignKey)
+					upd_fk_rels.append(table);
+			}
+
+			op_list->finishOperationChain();
+			scene->clearSelection();
+
+			for(auto &tab : upd_tables)
+				tab->setModified(true);
+
+			for(auto &sch : upd_schemas)
+				sch->setModified(true);
+
+			for(auto &tab : upd_view_ref_tables)
+			{
 				db_model->validateRelationships();
+				db_model->updateViewsReferencingTable(dynamic_cast<PhysicalTable *>(tab));
+			}
 
+			for(auto &tab : upd_fk_rels)
+				db_model->updateTableFKRelationships(dynamic_cast<Table *>(tab));
+
+			this->setModified(true);
 			emit s_objectCreated();
 		}
 		else if(!selected_objects.empty())
 		{
 			copyObjects(true);
-			pasteObjects();
+			pasteObjects(true);
 		}
+
+		selected_objects.clear();
 	}
 	catch(Exception &e)
 	{
@@ -2642,7 +3070,7 @@ void ModelWidget::duplicateObject(void)
 		if(op_id >= 0)
 			op_list->removeLastOperation();
 
-		throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
@@ -2654,10 +3082,10 @@ void ModelWidget::removeObjects(bool cascade)
 	BaseTable *table=nullptr, *src_table=nullptr, *dst_table=nullptr;
 	BaseRelationship *rel=nullptr;
 	TableObject *tab_obj=nullptr;
-	ObjectType obj_type=BASE_OBJECT, parent_type=BASE_OBJECT;
+	ObjectType obj_type=ObjectType::BaseObject, parent_type=ObjectType::BaseObject;
 	BaseObject *object=nullptr, *aux_obj=nullptr;
 	vector<BaseObject *> sel_objs, aux_sel_objs;
-	vector<Constraint *> constrs;
+
 	map<unsigned, tuple<BaseObject *, QString, ObjectType, QString, ObjectType>> objs_map;
 	map<unsigned, tuple<BaseObject *, QString, ObjectType, QString, ObjectType>>::reverse_iterator ritr, ritr_end;
 	QAction *obj_sender=dynamic_cast<QAction *>(sender());
@@ -2687,21 +3115,21 @@ void ModelWidget::removeObjects(bool cascade)
 		if(!ModelWidget::cut_operation)
 		{
 			if(cascade)
-				msg_box.show(trUtf8("<strong>CAUTION:</strong> You are about to delete objects in cascade mode which means more objects than the selected will be dropped too. Do you really want to proceed?"),
-							 Messagebox::ALERT_ICON, Messagebox::YES_NO_BUTTONS);
+				msg_box.show(tr("<strong>CAUTION:</strong> You are about to delete objects in cascade mode which means more objects than the selected will be dropped too. Do you really want to proceed?"),
+							 Messagebox::AlertIcon, Messagebox::YesNoButtons);
 			else if(sel_objs.size() > 1)
 			{
-				msg_box.show(trUtf8("<strong>CAUTION:</strong> Remove multiple objects at once can cause irreversible invalidations to other objects in the model causing such invalid objects to be deleted too. Do you really want to proceed?"),
-							 Messagebox::ALERT_ICON, Messagebox::YES_NO_BUTTONS);
+				msg_box.show(tr("<strong>CAUTION:</strong> Remove multiple objects at once can cause irreversible invalidations to other objects in the model causing such invalid objects to be deleted too. Do you really want to proceed?"),
+							 Messagebox::AlertIcon, Messagebox::YesNoButtons);
 			}
 			else
 			{
-				if(sel_objs[0]->getObjectType()==OBJ_RELATIONSHIP)
-					msg_box.show(trUtf8("<strong>CAUTION:</strong> Remove a relationship can cause irreversible invalidations to other objects in the model causing such invalid objects to be deleted too. Do you really want to proceed?"),
-								 Messagebox::ALERT_ICON, Messagebox::YES_NO_BUTTONS);
+				if(sel_objs[0]->getObjectType()==ObjectType::Relationship)
+					msg_box.show(tr("<strong>CAUTION:</strong> Remove a relationship can cause irreversible invalidations to other objects in the model causing such invalid objects to be deleted too. Do you really want to proceed?"),
+								 Messagebox::AlertIcon, Messagebox::YesNoButtons);
 				else
-					msg_box.show(trUtf8("Do you really want to delete the selected object?"),
-								 Messagebox::CONFIRM_ICON, Messagebox::YES_NO_BUTTONS);
+					msg_box.show(tr("Do you really want to delete the selected object?"),
+								 Messagebox::ConfirmIcon, Messagebox::YesNoButtons);
 			}
 		}
 
@@ -2726,7 +3154,7 @@ void ModelWidget::removeObjects(bool cascade)
 							tab_obj=dynamic_cast<TableObject *>(ref_obj);
 
 							//Store the base relationships in a auxiliary list to be processed ahead
-							if(ref_obj->getObjectType()==BASE_RELATIONSHIP)
+							if(ref_obj->getObjectType()==ObjectType::BaseRelationship)
 							{
 								aux_sel_objs.push_back(ref_obj);
 							}
@@ -2734,8 +3162,8 @@ void ModelWidget::removeObjects(bool cascade)
 							else if(objs_map.count(obj_id)==0 &&
 									(!tab_obj || (tab_obj && !tab_obj->isAddedByRelationship())))
 							{
-								parent_type=(tab_obj ? tab_obj->getParentTable()->getObjectType() : OBJ_DATABASE);
-								parent_name=(tab_obj ? tab_obj->getParentTable()->getName(true) : QString());
+								parent_type=(tab_obj ? tab_obj->getParentTable()->getObjectType() : ObjectType::Database);
+								parent_name=(tab_obj ? tab_obj->getParentTable()->getName(true) : "");
 								obj_name=(tab_obj ? tab_obj->getName() : ref_obj->getSignature());
 
 								objs_map[ref_obj->getObjectId()]=std::make_tuple(ref_obj,
@@ -2756,36 +3184,23 @@ void ModelWidget::removeObjects(bool cascade)
 					obj_id=object->getObjectId();
 
 					//If the object is as FK relationship remove the foreign keys that generates it
-					if(obj_type==BASE_RELATIONSHIP)
+					if(obj_type==ObjectType::BaseRelationship)
 					{
-						rel=dynamic_cast<BaseRelationship *>(object);
-						if(rel->getRelationshipType()==BaseRelationship::RELATIONSHIP_FK)
+						rel = dynamic_cast<BaseRelationship *>(object);
+
+						if(rel->getRelationshipType()==BaseRelationship::RelationshipFk)
 						{
-							aux_table=dynamic_cast<Table *>(rel->getTable(BaseRelationship::DST_TABLE));
-							dynamic_cast<Table *>(rel->getTable(BaseRelationship::SRC_TABLE))->getForeignKeys(constrs,false, aux_table);
+							tab_obj=rel->getReferenceForeignKey();
+							obj_id=tab_obj->getObjectId();
 
-							if(!rel->isSelfRelationship())
+							if(objs_map.count(obj_id)==0)
 							{
-								aux_table=dynamic_cast<Table *>(rel->getTable(BaseRelationship::SRC_TABLE));
-								dynamic_cast<Table *>(rel->getTable(BaseRelationship::DST_TABLE))->getForeignKeys(constrs,false, aux_table);
-							}
+								objs_map[tab_obj->getObjectId()]=std::make_tuple(tab_obj,
+																				 tab_obj->getName(true),
+																				 tab_obj->getObjectType(),
+																				 tab_obj->getParentTable()->getName(true),
+																				 ObjectType::Table);
 
-							//Adds the fks to the map of objects to be removed
-							while(!constrs.empty())
-							{
-								tab_obj=constrs.back();
-								obj_id=tab_obj->getObjectId();
-
-								if(objs_map.count(obj_id)==0)
-								{
-									objs_map[tab_obj->getObjectId()]=std::make_tuple(tab_obj,
-																					 tab_obj->getName(true),
-																					 tab_obj->getObjectType(),
-																					 tab_obj->getParentTable()->getName(true),
-																					 tab_obj->getParentTable()->getObjectType());
-
-								}
-								constrs.pop_back();
 							}
 						}
 					}
@@ -2794,8 +3209,8 @@ void ModelWidget::removeObjects(bool cascade)
 						tab_obj=dynamic_cast<TableObject *>(object);
 						obj_name=(tab_obj ? object->getName(true) : object->getSignature());
 
-						parent_name=(tab_obj ? tab_obj->getParentTable()->getName(true) : QString());
-						parent_type=(tab_obj ? tab_obj->getParentTable()->getObjectType() : OBJ_DATABASE);
+						parent_name=(tab_obj ? tab_obj->getParentTable()->getName(true) : "");
+						parent_type=(tab_obj ? tab_obj->getParentTable()->getObjectType() : ObjectType::Database);
 
 						objs_map[object->getObjectId()]=std::make_tuple(object,
 																		obj_name,
@@ -2821,12 +3236,12 @@ void ModelWidget::removeObjects(bool cascade)
 					parent_type=std::get<4>(ritr->second);
 					ritr++;
 
-					if(obj_type==BASE_RELATIONSHIP)
+					if(obj_type==ObjectType::BaseRelationship)
 						continue;
-					else if(parent_type!=OBJ_DATABASE)
+					else if(parent_type!=ObjectType::Database)
 					{
 						/* If the parent table does not exist on the model of the object to be removed
-			   does not exists in parent table, it'll not be processed */
+						 * does not exists in parent table, it'll not be processed */
 						table=dynamic_cast<BaseTable *>(db_model->getObject(parent_name, parent_type));
 						if(!table || (table && table->getObjectIndex(obj_name, obj_type) < 0))
 							continue;
@@ -2841,16 +3256,16 @@ void ModelWidget::removeObjects(bool cascade)
 
 					//Raises an error if the user try to remove a reserved object
 					if(object->isSystemObject())
-						throw Exception(Exception::getErrorMessage(ERR_OPR_RESERVED_OBJECT)
-										.arg(object->getName()).arg(object->getTypeName()),
-										ERR_OPR_RESERVED_OBJECT,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+						throw Exception(Exception::getErrorMessage(ErrorCode::OprReservedObject)
+														.arg(object->getName()).arg(object->getTypeName()),
+														ErrorCode::OprReservedObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 					//Raises an error if the user try to remove a protected object
 					else if(object->isProtected())
 					{
-						throw Exception(QString(Exception::getErrorMessage(ERR_REM_PROTECTED_OBJECT))
-										.arg(object->getName(true))
-										.arg(object->getTypeName()),
-										ERR_REM_PROTECTED_OBJECT,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+						throw Exception(Exception::getErrorMessage(ErrorCode::RemProtectedObject)
+														.arg(object->getName(true))
+														.arg(object->getTypeName()),
+														ErrorCode::RemProtectedObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 					}
 					else
 					{
@@ -2858,24 +3273,33 @@ void ModelWidget::removeObjects(bool cascade)
 
 						if(tab_obj)
 						{
+							if(tab_obj->isAddedByRelationship())
+							{
+								throw Exception(Exception::getErrorMessage(ErrorCode::RemProtectedObject)
+																.arg(tab_obj->getName(true))
+																.arg(tab_obj->getTypeName()),
+																ErrorCode::RemProtectedObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+							}
+
 							table=dynamic_cast<BaseTable *>(tab_obj->getParentTable());
 							obj_idx=table->getObjectIndex(tab_obj->getName(true), obj_type);
 
 							try
 							{
 								//If the object is a column validates the column removal before remove it
-								if(!cascade && obj_type==OBJ_COLUMN)
+								if(!cascade && obj_type==ObjectType::Column)
 									db_model->validateColumnRemoval(dynamic_cast<Column *>(tab_obj));
 
 								//Register the removed object on the operation list
+								op_list->registerObject(tab_obj, Operation::ObjectRemoved, obj_idx, table);
 								table->removeObject(obj_idx, obj_type);
-								op_list->registerObject(tab_obj, Operation::OBJECT_REMOVED, obj_idx, table);
-
 								db_model->removePermissions(tab_obj);
 
 								aux_table=dynamic_cast<Table *>(table);
-								if(aux_table && obj_type==OBJ_CONSTRAINT &&
-										dynamic_cast<Constraint *>(tab_obj)->getConstraintType()==ConstraintType::foreign_key)
+
+								if(aux_table && obj_type==ObjectType::Constraint &&
+									 (dynamic_cast<Constraint *>(tab_obj)->getConstraintType()==ConstraintType::ForeignKey ||
+										dynamic_cast<Constraint *>(tab_obj)->getConstraintType()==ConstraintType::Unique))
 									db_model->updateTableFKRelationships(aux_table);
 
 								table->setModified(true);
@@ -2883,17 +3307,20 @@ void ModelWidget::removeObjects(bool cascade)
 
 								if(aux_table)
 									db_model->validateRelationships(tab_obj, aux_table);
+
+								if(obj_type == ObjectType::Column)
+									db_model->updateViewsReferencingTable(aux_table);
 							}
 							catch(Exception &e)
 							{
-								if(cascade && (e.getErrorType()==ERR_INVALIDATED_OBJECTS ||
-											   e.getErrorType()==ERR_REM_DIRECT_REFERENCE ||
-											   e.getErrorType()==ERR_REM_INDIRECT_REFERENCE ||
-											   e.getErrorType()==ERR_REM_PROTECTED_OBJECT ||
-											   e.getErrorType()==ERR_OPR_RESERVED_OBJECT))
+								if(cascade && (e.getErrorCode()==ErrorCode::RemInvalidatedObjects ||
+															 e.getErrorCode()==ErrorCode::RemDirectReference ||
+															 e.getErrorCode()==ErrorCode::RemInderectReference ||
+															 e.getErrorCode()==ErrorCode::RemProtectedObject ||
+															 e.getErrorCode()==ErrorCode::OprReservedObject))
 									errors.push_back(e);
 								else
-									throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__,&e);
+									throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__,&e);
 							}
 						}
 						else
@@ -2902,28 +3329,28 @@ void ModelWidget::removeObjects(bool cascade)
 
 							if(obj_idx >=0 )
 							{
-								if(obj_type==OBJ_RELATIONSHIP)
+								if(obj_type==ObjectType::Relationship)
 								{
 									rel=dynamic_cast<BaseRelationship *>(object);
-									src_table=rel->getTable(BaseRelationship::SRC_TABLE);
-									dst_table=rel->getTable(BaseRelationship::DST_TABLE);
+									src_table=rel->getTable(BaseRelationship::SrcTable);
+									dst_table=rel->getTable(BaseRelationship::DstTable);
 								}
 
 								try
 								{
 									db_model->removeObject(object, obj_idx);
-									op_list->registerObject(object, Operation::OBJECT_REMOVED, obj_idx);
+									op_list->registerObject(object, Operation::ObjectRemoved, obj_idx);
 								}
 								catch(Exception &e)
 								{
-									if(cascade && (e.getErrorType()==ERR_INVALIDATED_OBJECTS ||
-												   e.getErrorType()==ERR_REM_DIRECT_REFERENCE ||
-												   e.getErrorType()==ERR_REM_INDIRECT_REFERENCE ||
-												   e.getErrorType()==ERR_REM_PROTECTED_OBJECT ||
-												   e.getErrorType()==ERR_OPR_RESERVED_OBJECT))
+									if(cascade && (e.getErrorCode()==ErrorCode::RemInvalidatedObjects ||
+																 e.getErrorCode()==ErrorCode::RemDirectReference ||
+																 e.getErrorCode()==ErrorCode::RemInderectReference ||
+																 e.getErrorCode()==ErrorCode::RemProtectedObject ||
+																 e.getErrorCode()==ErrorCode::OprReservedObject))
 										errors.push_back(e);
 									else
-										throw Exception(e.getErrorMessage(),e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__,&e);
+										throw Exception(e.getErrorMessage(),e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__,&e);
 								}
 
 								if(rel)
@@ -2942,21 +3369,18 @@ void ModelWidget::removeObjects(bool cascade)
 				op_list->finishOperationChain();
 				scene->clearSelection();
 				this->configurePopupMenu();
-				this->modified=true;
+				setModified(true);
 				emit s_objectRemoved();
 
 				if(!errors.empty())
 				{
-					msg_box.show(Exception(ERR_INVALIDATED_OBJECTS, __PRETTY_FUNCTION__,__FILE__,__LINE__, errors),
-								 trUtf8("The cascade deletion found some problems when running! Some objects could not be deleted or registered in the operation's history! Please, refer to error stack for more details."),
-								 Messagebox::ALERT_ICON);
+					msg_box.show(Exception(ErrorCode::RemInvalidatedObjects, __PRETTY_FUNCTION__,__FILE__,__LINE__, errors),
+								 tr("The cascade deletion found some problems when running! Some objects could not be deleted or registered in the operation's history! Please, refer to error stack for more details."),
+								 Messagebox::AlertIcon);
 				}
 			}
 			catch(Exception &e)
 			{
-				//if(e.getErrorType()==ERR_INVALIDATED_OBJECTS)
-				//  op_list->removeOperations();
-
 				if(op_list->isOperationChainStarted())
 					op_list->finishOperationChain();
 
@@ -2972,30 +3396,34 @@ void ModelWidget::removeObjects(bool cascade)
 				}
 
 				scene->clearSelection();
-				this->modified=true;
+				setModified(true);
 				emit s_objectRemoved();
 				msg_box.show(e);
 			}
+
+			/* In case of any object removal we clear the copied objects list in order to avoid
+			 * segfaults when trying to paste an object that was removed previously */
+			copied_objects.clear();
 		}
 	}
 }
 
-void ModelWidget::removeObjectsCascade(void)
+void ModelWidget::removeObjectsCascade()
 {
 	removeObjects(true);
 }
 
-void ModelWidget::editCustomSQL(void)
+void ModelWidget::editCustomSQL()
 {
 	QAction *act=dynamic_cast<QAction *>(sender());
 	BaseObject *obj=reinterpret_cast<BaseObject *>(act->data().value<void *>());
 	CustomSQLWidget *customsql_wgt=new CustomSQLWidget;
 
 	customsql_wgt->setAttributes(db_model, obj);
-	this->modified=(openEditingForm(customsql_wgt)==QDialog::Accepted);
+	setModified((openEditingForm(customsql_wgt)==QDialog::Accepted));
 }
 
-void ModelWidget::showObjectMenu(void)
+void ModelWidget::showObjectMenu()
 {
 	BaseTableView *tab=nullptr;
 
@@ -3008,7 +3436,7 @@ void ModelWidget::showObjectMenu(void)
 
 		if(tab_obj && tab_obj->getParentTable())
 			//Get the graphical representation for table
-			tab=dynamic_cast<BaseTableView *>(tab_obj->getParentTable()->getReceiverObject());
+			tab=dynamic_cast<BaseTableView *>(tab_obj->getParentTable()->getOverlyingObject());
 	}
 
 	magnifier_area_lbl->hide();
@@ -3024,11 +3452,14 @@ void ModelWidget::showObjectMenu(void)
 	}
 }
 
-void ModelWidget::configureObjectMenu(BaseObject *object)
+void ModelWidget::configurePopupMenu(BaseObject *object)
 {
-	vector<BaseObject *> vet;
-	vet.push_back(object);
-	this->configurePopupMenu(vet);
+	vector<BaseObject *> vet_obj;
+
+	if(object)
+		vet_obj.push_back(object);
+
+	configurePopupMenu(vet_obj);
 }
 
 void ModelWidget::enableModelActions(bool value)
@@ -3039,6 +3470,7 @@ void ModelWidget::enableModelActions(bool value)
 	action_unprotect->setEnabled(value);
 	action_select_all->setEnabled(value);
 	action_convert_relnn->setEnabled(value);
+	action_convert_rel1n->setEnabled(value);
 	action_deps_refs->setEnabled(value);
 	action_new_object->setEnabled(value);
 	action_copy->setEnabled(value);
@@ -3050,16 +3482,17 @@ void ModelWidget::enableModelActions(bool value)
 	action_quick_actions->setEnabled(value);
 }
 
-void ModelWidget::configureSubmenu(BaseObject *object)
+void ModelWidget::configureQuickMenu(BaseObject *object)
 {
+	QAction *act=nullptr;
 	vector<BaseObject *> sel_objs;
-	ObjectType obj_type=BASE_OBJECT;
-	bool tab_or_view=false, accepts_owner=false, accepts_schema=false;
+	ObjectType obj_type=ObjectType::BaseObject;
+	bool tab_or_view=false, is_graph_obj = false, accepts_owner=false, accepts_schema=false;
 
 	if(object)
 		sel_objs.push_back(object);
 	else
-		sel_objs=selected_objects;
+		sel_objs = selected_objects;
 
 	/* Determining if one or more selected objects accepts schema, owner or are table/views,
 	 this is done to correctly show the actions to the user */
@@ -3068,7 +3501,10 @@ void ModelWidget::configureSubmenu(BaseObject *object)
 		obj_type=obj->getObjectType();
 
 		if(!tab_or_view)
-			tab_or_view=(obj_type==OBJ_TABLE || obj_type==OBJ_VIEW);
+			tab_or_view=BaseTable::isBaseTable(obj_type);
+
+		if(!is_graph_obj)
+			is_graph_obj = BaseGraphicObject::isGraphicObject(obj_type);
 
 		if(!accepts_owner)
 			accepts_owner=obj->acceptsOwner();
@@ -3084,53 +3520,63 @@ void ModelWidget::configureSubmenu(BaseObject *object)
 	{
 		if(accepts_owner || accepts_schema)
 		{
-			QAction *act=nullptr;
 			vector<BaseObject *> obj_list;
 			map<QString, QAction *> act_map;
 			QStringList name_list;
 			QMenu *menus[]={ &schemas_menu, &owners_menu, &tags_menu };
-			ObjectType types[]={ OBJ_SCHEMA, OBJ_ROLE, OBJ_TAG };
+			ObjectType types[]={ ObjectType::Schema, ObjectType::Role, ObjectType::Tag };
 
 			for(unsigned i=0; i < 3; i++)
 			{
 				menus[i]->clear();
 
 				//Configuring actions "Move to schema", "Change Owner" and "Set tag"
-				if((i==0 && accepts_schema) ||
-						(i==1 && accepts_owner) ||
-						(i==2 && tab_or_view))
+				if((types[i] == ObjectType::Schema && accepts_schema) ||
+						(types[i] == ObjectType::Role && accepts_owner) ||
+						(types[i]==ObjectType::Tag && tab_or_view))
 				{
 					obj_list=db_model->getObjects(types[i]);
 
 					if(obj_list.empty())
 					{
-						menus[i]->addAction(trUtf8("(no objects)"));
+						menus[i]->addAction(tr("(no objects)"));
 						menus[i]->actions().at(0)->setEnabled(false);
 					}
 					else
 					{
+						if(types[i] == ObjectType::Tag)
+						{
+							menus[i]->addAction(tr("None"), this, SLOT(setTag()));
+							menus[i]->addSeparator();
+						}
+						else if(types[i] == ObjectType::Role)
+						{
+							act = menus[i]->addAction(tr("None"), this, SLOT(changeOwner()));
+							menus[i]->addSeparator();
+						}
+
 						while(!obj_list.empty())
 						{
 							act=new QAction(obj_list.back()->getName(), menus[i]);
-							act->setIcon(QPixmap(PgModelerUiNS::getIconPath(types[i])));
+							act->setIcon(QPixmap(PgModelerUiNs::getIconPath(types[i])));
 
 							/* Check the current action only if there is only one selected object and the object representing
 								 the action is assigned to the selected object */
-							act->setCheckable(sel_objs.size()==1);
-							act->setChecked(sel_objs.size()==1 &&
-											(object->getSchema()==obj_list.back() ||
-											 object->getOwner()==obj_list.back() ||
-											 (tab_or_view && dynamic_cast<BaseTable *>(sel_objs[0])->getTag()==obj_list.back())));
+							act->setCheckable(sel_objs.size() == 1);
+							act->setChecked(sel_objs.size() == 1 &&
+															(object->getSchema() == obj_list.back() ||
+															 object->getOwner() == obj_list.back() ||
+															 (tab_or_view && dynamic_cast<BaseTable *>(sel_objs[0])->getTag()==obj_list.back())));
 
 							act->setEnabled(!act->isChecked());
 							act->setData(QVariant::fromValue<void *>(obj_list.back()));
 
 							if(i==0)
-								connect(act, SIGNAL(triggered(bool)), this, SLOT(moveToSchema(void)));
+								connect(act, SIGNAL(triggered(bool)), this, SLOT(moveToSchema()));
 							else if(i==1)
-								connect(act, SIGNAL(triggered(bool)), this, SLOT(changeOwner(void)));
+								connect(act, SIGNAL(triggered(bool)), this, SLOT(changeOwner()));
 							else
-								connect(act, SIGNAL(triggered(bool)), this, SLOT(setTag(void)));
+								connect(act, SIGNAL(triggered(bool)), this, SLOT(setTag()));
 
 							act_map[obj_list.back()->getName()]=act;
 							name_list.push_back(obj_list.back()->getName());
@@ -3150,15 +3596,32 @@ void ModelWidget::configureSubmenu(BaseObject *object)
 			}
 		}
 
-		//Display the quick rename action is a single object is selected
-		if(object && obj_type!=OBJ_CAST)
+		// Configuring the layers menu
+		if(is_graph_obj)
 		{
-			quick_actions_menu.addAction(action_rename);
+			unsigned layer_id = ObjectsScene::DefaultLayer;
+			layers_menu.clear();
+
+			for(auto &layer : scene->getLayers())
+			{
+				act = layers_menu.addAction(layer);
+				act->setData(layer_id++);
+				connect(act, SIGNAL(triggered(bool)), this, SLOT(moveToLayer()));
+			}
+		}
+
+		//Display the quick rename action is a single object is selected
+		if((object && obj_type != ObjectType::Cast) || (sel_objs.size() > 1))
+		{
+			quick_actions_menu.addAction(action_rename);			
 			action_rename->setData(QVariant::fromValue<void *>(object));
 		}
 
 		if(accepts_schema)
 			quick_actions_menu.addAction(action_moveto_schema);
+
+		if(is_graph_obj)
+			quick_actions_menu.addAction(action_moveto_layer);
 
 		if(accepts_owner)
 			quick_actions_menu.addAction(action_change_owner);
@@ -3166,14 +3629,15 @@ void ModelWidget::configureSubmenu(BaseObject *object)
 		if(tab_or_view)
 			quick_actions_menu.addAction(action_set_tag);
 
-		//Display the "Edit permissions" action a single object is selected and it accepts permissions
-		if(object && Permission::objectAcceptsPermission(obj_type))
+		if(object && Permission::acceptsPermission(obj_type))
 		{
 			quick_actions_menu.addAction(action_edit_perms);
 			action_edit_perms->setData(QVariant::fromValue<void *>(object));
 		}
 
-		//Display the "Edit permissions" action a single object is selected and it accepts permissions
+		if(object && PhysicalTable::isPhysicalTable(obj_type))
+			quick_actions_menu.addAction(action_edit_data);
+
 		if(object && BaseObject::acceptsCustomSQL(obj_type))
 		{
 			action_append_sql->setData(QVariant::fromValue<void *>(object));
@@ -3181,7 +3645,7 @@ void ModelWidget::configureSubmenu(BaseObject *object)
 		}
 
 		if(object &&
-				((!TableObject::isTableObject(obj_type) && obj_type!=OBJ_TEXTBOX && obj_type!=BASE_RELATIONSHIP) ||
+				((!TableObject::isTableObject(obj_type) && obj_type!=ObjectType::Textbox && obj_type!=ObjectType::BaseRelationship) ||
 				 (TableObject::isTableObject(obj_type) && !dynamic_cast<TableObject*>(object)->isAddedByRelationship())))
 		{
 			action_enable_sql->setData(QVariant::fromValue<void *>(object));
@@ -3199,15 +3663,15 @@ void ModelWidget::configureSubmenu(BaseObject *object)
 	}
 }
 
-void ModelWidget::configureFadeMenu(void)
+void ModelWidget::configureFadeMenu()
 {
 	bool is_db_selected = (selected_objects.empty() ||
-												 (selected_objects.size() == 1 && selected_objects[0]->getObjectType() == OBJ_DATABASE));
+												 (selected_objects.size() == 1 && selected_objects[0]->getObjectType() == ObjectType::Database));
 	fade_menu.clear();
 	fade_in_menu.clear();
 	fade_out_menu.clear();
 
-	if(is_db_selected || selected_objects.size() > 1)
+	if(is_db_selected || (selected_objects.size() > 1 && !scene->hasOnlyTableChildrenSelection()))
 	{
 		fade_menu.addAction(action_fade_in);
 		fade_menu.addAction(action_fade_out);
@@ -3217,50 +3681,50 @@ void ModelWidget::configureFadeMenu(void)
 		if(is_db_selected)
 		{
 			QAction *action = nullptr;
-			vector<ObjectType> types = { OBJ_SCHEMA, OBJ_TABLE, OBJ_VIEW, OBJ_RELATIONSHIP, OBJ_TEXTBOX };
-			QStringList labels = { trUtf8("Schemas"), trUtf8("Tables"), trUtf8("Views"), trUtf8("Relationships"), trUtf8("Textboxes") };
+			vector<ObjectType> types = { ObjectType::Schema, ObjectType::Table, ObjectType::View, ObjectType::Relationship, ObjectType::Textbox };
+			QStringList labels = { tr("Schemas"), tr("Tables"), tr("Views"), tr("Relationships"), tr("Textboxes") };
 			unsigned id = 0;
 
 			for(ObjectType type : types)
 			{
-				action = new QAction(QPixmap(PgModelerUiNS::getIconPath(BaseObject::getSchemaName(type) + QString("_grp"))),
+				action = new QAction(QPixmap(PgModelerUiNs::getIconPath(BaseObject::getSchemaName(type) + QString("_grp"))),
 																		 labels[id], &fade_in_menu);
-				action->setData(type);
+				action->setData(enum_cast(type));
 				fade_in_menu.addAction(action);
 				connect(action, SIGNAL(triggered(bool)), this, SLOT(fadeObjectsIn()));
 
-				action = new QAction(QPixmap(PgModelerUiNS::getIconPath(BaseObject::getSchemaName(type) + QString("_grp"))),
+				action = new QAction(QPixmap(PgModelerUiNs::getIconPath(BaseObject::getSchemaName(type) + QString("_grp"))),
 																		 labels[id], &fade_out_menu);
-				action->setData(type);
+				action->setData(enum_cast(type));
 				fade_out_menu.addAction(action);
 
 				id++;
 				connect(action, SIGNAL(triggered(bool)), this, SLOT(fadeObjectsOut()));
 			}
 
-			action = new QAction(trUtf8("All objects"), &fade_in_menu);
-			action->setData(BASE_OBJECT);
+			action = new QAction(tr("All objects"), &fade_in_menu);
+			action->setData(enum_cast(ObjectType::BaseObject));
 			connect(action, SIGNAL(triggered(bool)), this, SLOT(fadeObjectsIn()));
 			fade_in_menu.addSeparator();
 			fade_in_menu.addAction(action);
 
-			action = new QAction(trUtf8("All objects"), &fade_out_menu);
-			action->setData(BASE_OBJECT);
+			action = new QAction(tr("All objects"), &fade_out_menu);
+			action->setData(enum_cast(ObjectType::BaseObject));
 			connect(action, SIGNAL(triggered(bool)), this, SLOT(fadeObjectsOut()));
 			fade_out_menu.addSeparator();
 			fade_out_menu.addAction(action);
 		}
 		else
-		{			
+		{
 			action_fade_in->setMenu(nullptr);
 			action_fade_out->setMenu(nullptr);
 		}
 	}
-	else
+	else if(selected_objects.size() == 1)
 	{
 		ObjectType obj_type = selected_objects[0]->getObjectType();
 
-		if(obj_type == OBJ_TAG)
+		if(obj_type == ObjectType::Tag)
 		{
 			fade_menu.addAction(action_fade_in);
 			fade_menu.addAction(action_fade_out);
@@ -3269,7 +3733,7 @@ void ModelWidget::configureFadeMenu(void)
 		}
 		else
 		{
-			BaseObjectView *obj_view = dynamic_cast<BaseObjectView *>(dynamic_cast<BaseGraphicObject *>(selected_objects[0])->getReceiverObject());
+			BaseObjectView *obj_view = dynamic_cast<BaseObjectView *>(dynamic_cast<BaseGraphicObject *>(selected_objects[0])->getOverlyingObject());
 
 			if(obj_view)
 			{
@@ -3285,10 +3749,44 @@ void ModelWidget::configureFadeMenu(void)
 				}
 			}
 
-			if(obj_type == OBJ_TABLE || obj_type == OBJ_VIEW)
+			if(obj_type == ObjectType::Table || obj_type == ObjectType::View)
+			{
 				fade_menu.addAction(action_fade_rels);
+				action_fade_rels->setText(tr("Table && Relationships"));
+			}
 		}
 	}
+}
+
+void ModelWidget::fadeObjects(const vector<BaseObject *> &objects, bool fade_in)
+{
+	BaseObjectView *obj_view = nullptr;
+	Schema *schema = nullptr;
+
+	for(auto obj : objects)
+	{
+	  schema = dynamic_cast<Schema *>(obj);
+
+	  if(!BaseGraphicObject::isGraphicObject(obj->getObjectType()) ||
+		 (schema && !schema->isRectVisible()))
+			continue;
+
+		obj_view = dynamic_cast<BaseObjectView *>(dynamic_cast<BaseGraphicObject *>(obj)->getOverlyingObject());
+
+		if(obj_view)
+		{
+			dynamic_cast<BaseGraphicObject *>(obj)->setFadedOut(!fade_in);
+
+			obj_view->setOpacity(fade_in ? 1 : min_object_opacity);
+
+			//If the minimum opacity is zero the object hidden
+			obj_view->setVisible(scene->isLayerActive(obj_view->getLayer()) && (fade_in || (!fade_in && min_object_opacity > 0)));
+
+			setModified(true);
+		}
+	}
+
+	scene->clearSelection();
 }
 
 void ModelWidget::fadeObjects(QAction *action, bool fade_in)
@@ -3297,18 +3795,17 @@ void ModelWidget::fadeObjects(QAction *action, bool fade_in)
 		return;
 
 	vector<BaseObject *> list;
-	BaseObjectView *obj_view = nullptr;
 
 	//If the database object is selected or there is no object select
-	if(selected_objects.empty() || (selected_objects.size() == 1 && selected_objects[0]->getObjectType() == OBJ_DATABASE))
+	if(selected_objects.empty() || (selected_objects.size() == 1 && selected_objects[0]->getObjectType() == ObjectType::Database))
 	{
 		ObjectType obj_type = static_cast<ObjectType>(action->data().toUInt());
 
-		//If the action contains a data of type BASE_OBJECT means that the user wants to fade all objects
-		if(obj_type == BASE_OBJECT)
+		//If the action contains a data of type ObjectType::ObjBaseObject means that the user wants to fade all objects
+		if(obj_type == ObjectType::BaseObject)
 		{
-			vector<ObjectType> types = { OBJ_SCHEMA, OBJ_TABLE, OBJ_VIEW,
-																	 OBJ_RELATIONSHIP, BASE_RELATIONSHIP, OBJ_TEXTBOX};
+			vector<ObjectType> types = { ObjectType::Schema, ObjectType::Table, ObjectType::View,
+																	 ObjectType::Relationship, ObjectType::BaseRelationship, ObjectType::Textbox};
 
 			for(ObjectType type : types)
 			{
@@ -3322,18 +3819,18 @@ void ModelWidget::fadeObjects(QAction *action, bool fade_in)
 			//Fading objects of a certain type
 			list = *db_model->getObjectList(obj_type);
 
-			if(obj_type == OBJ_RELATIONSHIP)
+			if(obj_type == ObjectType::Relationship)
 			{
 				list.insert(list.end(),
-										db_model->getObjectList(BASE_RELATIONSHIP)->begin(),
-										db_model->getObjectList(BASE_RELATIONSHIP)->end());
+										db_model->getObjectList(ObjectType::BaseRelationship)->begin(),
+										db_model->getObjectList(ObjectType::BaseRelationship)->end());
 			}
 		}
 	}
 	else
 	{
 		//For tag object the fade is applied in the tables/views related to it
-		if(selected_objects.size() == 1 && selected_objects[0]->getObjectType() == OBJ_TAG)
+		if(selected_objects.size() == 1 && selected_objects[0]->getObjectType() == ObjectType::Tag)
 			db_model->getObjectReferences(selected_objects[0], list);
 		else
 		{
@@ -3343,7 +3840,16 @@ void ModelWidget::fadeObjects(QAction *action, bool fade_in)
 				vector<BaseRelationship *> rel_list = db_model->getRelationships(dynamic_cast<BaseTable *>(selected_objects[0]));
 
 				for(auto rel : rel_list)
+				{
 					list.push_back(rel);
+					list.push_back(rel->getTable(BaseRelationship::SrcTable));
+					list.push_back(rel->getTable(BaseRelationship::DstTable));
+				}
+
+				vector<BaseObject *>::iterator end;
+				std::sort(list.begin(), list.end());
+				end=std::unique(list.begin(), list.end());
+				list.erase(end, list.end());
 			}
 			else
 				//Applying fade to the selected objects
@@ -3351,47 +3857,113 @@ void ModelWidget::fadeObjects(QAction *action, bool fade_in)
 		}
 	}
 
-	for(auto obj : list)
-	{
-		obj_view = dynamic_cast<BaseObjectView *>(dynamic_cast<BaseGraphicObject *>(obj)->getReceiverObject());
-
-		if(obj_view)
-		{
-			dynamic_cast<BaseGraphicObject *>(obj)->setFadedOut(!fade_in);
-
-			obj_view->setOpacity(fade_in ? 1 : min_object_opacity);
-
-			//If the minimum opacity is zero the object hidden
-			obj_view->setVisible(fade_in || (!fade_in && min_object_opacity > 0));
-
-			this->modified = true;
-		}
-	}
-
+	fadeObjects(list, fade_in);
 	scene->clearSelection();
 }
 
-void ModelWidget::fadeObjectsIn(void)
+void ModelWidget::fadeObjectsIn()
 {
 	fadeObjects(qobject_cast<QAction *>(sender()), true);
 }
 
-void ModelWidget::fadeObjectsOut(void)
+void ModelWidget::fadeObjectsOut()
 {
 	fadeObjects(qobject_cast<QAction *>(sender()), false);
 }
 
-void ModelWidget::toggleExtendedAttributes(void)
+void ModelWidget::setAllCollapseMode(CollapseMode mode)
 {
-	bool hide = sender() == action_hide_ext_attribs;
+	BaseTable *base_tab = nullptr;
+	vector<BaseObject *> objects;
+
+	this->scene->clearSelection();
+	objects.assign(db_model->getObjectList(ObjectType::Table)->begin(), db_model->getObjectList(ObjectType::Table)->end());
+	objects.insert(objects.end(), db_model->getObjectList(ObjectType::View)->begin(), db_model->getObjectList(ObjectType::View)->end());
+
+	for(auto obj : objects)
+	{
+		base_tab = dynamic_cast<BaseTable *>(obj);
+
+		if(base_tab)
+			base_tab->setCollapseMode(mode);
+	}
+
+	this->setModified(true);
+}
+
+void ModelWidget::moveObjectsInZStack(int direction)
+{
+	BaseObjectView *obj_view = nullptr;
+	BaseTableView *tab_view = nullptr;
+	TextboxView *tbox_view = nullptr;
+	QList<QGraphicsItem *> items;
+	int zval = 0;
+	bool changed = false;
+
+	op_list->startOperationChain();
+
+	for(auto &obj : selected_objects)
+	{
+		// Ignoring if the object is not a table or textbox
+		if(!BaseTable::isBaseTable(obj->getObjectType()) &&
+			 obj->getObjectType() != ObjectType::Textbox)
+			continue;
+
+		obj_view = dynamic_cast<BaseObjectView *>(dynamic_cast<BaseGraphicObject *>(obj)->getOverlyingObject());
+
+		// We'll check the items around the one we selected to move in the z stack
+		items = obj_view->collidingItems();
+
+		if(!obj_view->collidingItems().isEmpty())
+		{
+			zval = obj_view->zValue();
+
+			for(auto &item : items)
+			{
+				tab_view  = dynamic_cast<BaseTableView *>(item);
+				tbox_view  = dynamic_cast<TextboxView *>(item);
+
+				// Ignoring if the object is not a table or textbox
+				if(!tab_view && !tbox_view)
+					continue;
+
+				if((direction == BringToFront && zval < item->zValue()) ||
+					 (direction == SendToBack && zval > item->zValue()))
+					zval = item->zValue();
+			}
+
+			op_list->registerObject(obj_view->getUnderlyingObject(), Operation::ObjectModified);
+
+			zval += (1 * direction);
+
+			if(zval < BaseGraphicObject::MinZValue)
+				zval = BaseGraphicObject::MinZValue;
+			else if(zval > BaseGraphicObject::MaxZValue)
+				zval = BaseGraphicObject::MaxZValue;
+
+			obj_view->setZValue(zval);
+			changed = true;
+		}
+	}
+
+	op_list->finishOperationChain();
+	setModified(changed);
+
+	if(changed)
+		emit s_objectModified();
+}
+
+void ModelWidget::setCollapseMode()
+{
+	CollapseMode mode = static_cast<CollapseMode>(dynamic_cast<QAction *>(sender())->data().toUInt());
 	BaseTable *base_tab = nullptr;
 	vector<BaseObject *> objects;
 
 	if(selected_objects.empty() || (selected_objects.size() == 1 && selected_objects[0] == db_model))
 	{
-
-		objects.assign(db_model->getObjectList(OBJ_TABLE)->begin(), db_model->getObjectList(OBJ_TABLE)->end());
-		objects.insert(objects.end(), db_model->getObjectList(OBJ_VIEW)->begin(), db_model->getObjectList(OBJ_VIEW)->end());
+		objects.assign(db_model->getObjectList(ObjectType::Table)->begin(), db_model->getObjectList(ObjectType::Table)->end());
+		objects.insert(objects.end(), db_model->getObjectList(ObjectType::ForeignTable)->begin(), db_model->getObjectList(ObjectType::ForeignTable)->end());
+		objects.insert(objects.end(), db_model->getObjectList(ObjectType::View)->begin(), db_model->getObjectList(ObjectType::View)->end());
 	}
 	else
 		objects = selected_objects;
@@ -3400,20 +3972,70 @@ void ModelWidget::toggleExtendedAttributes(void)
 	{
 		base_tab = dynamic_cast<BaseTable *>(obj);
 
-		if(base_tab && base_tab->isExtAttribsHidden() != hide)
+		if(base_tab && base_tab->getCollapseMode() != mode)
 		{
-			base_tab->setExtAttribsHidden(hide);
+			base_tab->setCollapseMode(mode);
 			base_tab->setModified(true);
+		}
+	}
+
+	db_model->setObjectsModified({ ObjectType::Schema });
+	this->setModified(true);
+}
+
+void ModelWidget::togglePagination()
+{
+	bool enable = dynamic_cast<QAction *>(sender())->data().toBool();
+	BaseTable *base_tab = nullptr;
+	vector<BaseObject *> objects;
+
+	if(selected_objects.empty() || (selected_objects.size() == 1 && selected_objects[0] == db_model))
+	{
+		objects.assign(db_model->getObjectList(ObjectType::Table)->begin(), db_model->getObjectList(ObjectType::Table)->end());
+		objects.insert(objects.end(), db_model->getObjectList(ObjectType::ForeignTable)->begin(), db_model->getObjectList(ObjectType::ForeignTable)->end());
+		objects.insert(objects.end(), db_model->getObjectList(ObjectType::View)->begin(), db_model->getObjectList(ObjectType::View)->end());
+	}
+	else
+		objects = selected_objects;
+
+	for(auto obj : objects)
+	{
+		base_tab = dynamic_cast<BaseTable *>(obj);
+
+		if(base_tab && base_tab->isPaginationEnabled() != enable)
+		{
+			base_tab->setPaginationEnabled(enable);
+			base_tab->setModified(true);
+		}
+	}
+
+	db_model->setObjectsModified({ ObjectType::Schema });
+	this->setModified(true);
+}
+
+void ModelWidget::toggleSchemasRectangles()
+{
+	bool visible = sender() == action_show_schemas_rects;
+	Schema *schema = nullptr;
+
+	for(auto obj : *db_model->getObjectList(ObjectType::Schema))
+	{
+		schema = dynamic_cast<Schema *>(obj);
+
+		if(schema && schema->isRectVisible() != visible)
+		{
+			schema->setRectVisible(visible);
+			schema->setModified(true);
 		}
 	}
 
 	this->setModified(true);
 }
 
-void ModelWidget::updateObjectsOpacity(void)
+void ModelWidget::updateObjectsOpacity()
 {
-	vector<ObjectType> types = { OBJ_SCHEMA, OBJ_TABLE, OBJ_VIEW,
-															 OBJ_RELATIONSHIP, BASE_RELATIONSHIP, OBJ_TEXTBOX};
+	vector<ObjectType> types = { ObjectType::Schema, ObjectType::Table, ObjectType::View,
+															 ObjectType::Relationship, ObjectType::BaseRelationship, ObjectType::Textbox};
 	BaseObjectView *obj_view = nullptr;
 	BaseGraphicObject *base_obj = nullptr;
 
@@ -3422,7 +4044,7 @@ void ModelWidget::updateObjectsOpacity(void)
 		for(auto object : *db_model->getObjectList(type))
 		{
 			base_obj = dynamic_cast<BaseGraphicObject *>(object);
-			obj_view = dynamic_cast<BaseObjectView *>(base_obj->getReceiverObject());
+			obj_view = dynamic_cast<BaseObjectView *>(base_obj->getOverlyingObject());
 
 			if(obj_view &&
 				 ((base_obj->isFadedOut() && obj_view->opacity() == 1) ||
@@ -3435,14 +4057,281 @@ void ModelWidget::updateObjectsOpacity(void)
 	}
 }
 
-void ModelWidget::configurePopupMenu(vector<BaseObject *> objects)
+void ModelWidget::configureConstraintsMenu(TableObject *tab_obj)
 {
-	QMenu *submenu=nullptr;
-	Table *table=nullptr;
+	if(!tab_obj)
+		return;
+
+	PhysicalTable *table=dynamic_cast<PhysicalTable *>(tab_obj->getParentTable());
+
+	if(tab_obj->getObjectType()==ObjectType::Column)
+	{
+		unsigned count = table->getConstraintCount();
+		Constraint *constr = nullptr;
+		QString str_aux;
+		QAction *action = nullptr;
+		QMenu *submenu;
+		QList<QMenu *> submenus;
+
+		for(unsigned i=0; i < count; i++)
+		{
+			constr=table->getConstraint(i);
+			if(constr->isColumnReferenced(dynamic_cast<Column *>(tab_obj), false))
+			{
+				switch(!constr->getConstraintType())
+				{
+					case ConstraintType::PrimaryKey: str_aux=QString("_%1").arg(TableObjectView::TextPrimaryKey); break;
+					case ConstraintType::ForeignKey: str_aux=QString("_%1").arg(TableObjectView::TextForeignKey); break;
+					case ConstraintType::Check: str_aux=QString("_%1").arg(TableObjectView::TextCheck); break;
+					case ConstraintType::Unique: str_aux=QString("_%1").arg(TableObjectView::TextUnique); break;
+					case ConstraintType::Exclude: str_aux=QString("_%1").arg(TableObjectView::TextExclude); break;
+				}
+
+				//For each constaint is created a menu with the edit, source code, protect/unprotect and delete actions
+				submenu=new QMenu(&popup_menu);
+				submenu->setIcon(QPixmap(PgModelerUiNs::getIconPath(BaseObject::getSchemaName(ObjectType::Constraint) + str_aux)));
+				submenu->setTitle(constr->getName());
+
+				action=new QAction(dynamic_cast<QObject *>(submenu));
+				action->setIcon(QPixmap(PgModelerUiNs::getIconPath("editar")));
+				action->setText(tr("Properties"));
+				action->setData(QVariant::fromValue<void *>(dynamic_cast<BaseObject *>(constr)));
+				connect(action, SIGNAL(triggered(bool)), this, SLOT(editObject()));
+				submenu->addAction(action);
+
+				action=new QAction(dynamic_cast<QObject *>(submenu));
+				action->setIcon(QPixmap(PgModelerUiNs::getIconPath("codigosql")));
+				action->setText(tr("Source code"));
+				action->setData(QVariant::fromValue<void *>(dynamic_cast<BaseObject *>(constr)));
+				connect(action, SIGNAL(triggered(bool)), this, SLOT(showSourceCode()));
+				submenu->addAction(action);
+
+				if(!constr->isAddedByRelationship())
+				{
+					if(!constr->getParentTable()->isProtected())
+					{
+						action=new QAction(dynamic_cast<QObject *>(&popup_menu));
+						action->setData(QVariant::fromValue<void *>(dynamic_cast<BaseObject *>(constr)));
+						connect(action, SIGNAL(triggered(bool)), this, SLOT(protectObject()));
+						submenu->addAction(action);
+
+						if(constr->isProtected())
+						{
+							action->setIcon(QPixmap(PgModelerUiNs::getIconPath("desbloqobjeto")));
+							action->setText(tr("Unprotect"));
+						}
+						else
+						{
+							action->setIcon(QPixmap(PgModelerUiNs::getIconPath("bloqobjeto")));
+							action->setText(tr("Protect"));
+						}
+					}
+
+					action=new QAction(dynamic_cast<QObject *>(submenu));
+					action->setIcon(QPixmap(PgModelerUiNs::getIconPath("excluir")));
+					action->setData(QVariant::fromValue<void *>(dynamic_cast<BaseObject *>(constr)));
+					action->setText(tr("Delete"));
+					submenu->addAction(action);
+					connect(action, SIGNAL(triggered()), this, SLOT(removeObjects()));
+
+					action=new QAction(dynamic_cast<QObject *>(submenu));
+					action->setIcon(QPixmap(PgModelerUiNs::getIconPath("delcascade")));
+					action->setData(QVariant::fromValue<void *>(dynamic_cast<BaseObject *>(constr)));
+					action->setText(tr("Del. cascade"));
+					submenu->addAction(action);
+					connect(action, SIGNAL(triggered()), this, SLOT(removeObjectsCascade()));
+				}
+				submenus.push_back(submenu);
+			}
+		}
+
+		//Adding the constraint submenus to the main popup menu
+		if(!submenus.empty())
+		{
+			submenu=new QMenu(&popup_menu);
+			submenu->setTitle(tr("Constraints"));
+			submenu->setIcon(QPixmap(PgModelerUiNs::getIconPath(BaseObject::getSchemaName(ObjectType::Constraint) + QString("_grp"))));
+
+			for(auto &menu : submenus)
+				submenu->addMenu(menu);
+
+			popup_menu.insertMenu(action_edit, submenu);
+		}
+	}
+
+}
+
+void ModelWidget::configureBasicActions(BaseObject *obj)
+{
+	if(!obj)
+		return;
+
+	BaseRelationship *rel=dynamic_cast<BaseRelationship *>(obj);
+	ObjectType obj_type=obj->getObjectType();
+	QAction *action = nullptr;
+
+	configureQuickMenu(obj);
+	popup_menu.addAction(action_edit);
+
+	if((obj_type==ObjectType::Schema && obj->isSystemObject()) ||
+			(!obj->isProtected() && (BaseTable::isBaseTable(obj_type) || obj_type==ObjectType::BaseRelationship ||
+															 obj_type==ObjectType::Relationship || obj_type==ObjectType::Schema ||
+															 obj_type == ObjectType::Tag)))
+	{
+		if(BaseTable::isBaseTable(obj_type))
+		{
+			for(auto type : BaseObject::getChildObjectTypes(obj_type))
+				new_object_menu.addAction(actions_new_objects[type]);
+
+			if(obj_type==ObjectType::Table)
+				new_object_menu.addAction(actions_new_objects[ObjectType::Relationship]);
+
+			action_new_object->setMenu(&new_object_menu);
+			popup_menu.insertAction(action_quick_actions, action_new_object);
+		}
+		else if(obj_type==ObjectType::Relationship || obj_type==ObjectType::BaseRelationship)
+		{
+			if(obj_type==ObjectType::Relationship)
+			{
+				new_object_menu.addAction(actions_new_objects[ObjectType::Column]);
+				new_object_menu.addAction(actions_new_objects[ObjectType::Constraint]);
+
+				action_new_object->setMenu(&new_object_menu);
+				popup_menu.insertAction(action_quick_actions, action_new_object);
+			}
+
+			if(rel->getRelationshipType()==Relationship::RelationshipNn)
+			{
+				action_convert_relnn->setData(QVariant::fromValue<void *>(rel));
+				popup_menu.addAction(action_convert_relnn);
+			}
+
+			if(rel->getRelationshipType() == Relationship::Relationship11 ||
+				 rel->getRelationshipType() == Relationship::Relationship1n)
+			{
+				action_convert_rel1n->setData(QVariant::fromValue<void *>(rel));
+				popup_menu.addAction(action_convert_rel1n);
+			}
+
+			if(!rel->isSelfRelationship())
+			{
+				if(rel->getPoints().empty())
+				{
+					action_break_rel_line->setData(QVariant::fromValue<void *>(rel));
+					popup_menu.addAction(action_break_rel_line);
+				}
+				else
+				{
+					action_remove_rel_points->setData(QVariant::fromValue<void *>(rel));
+					popup_menu.addAction(action_remove_rel_points);
+				}
+
+				popup_menu.addAction(action_jump_to_table);
+				jump_to_tab_menu.clear();
+
+				action = jump_to_tab_menu.addAction(QIcon(PgModelerUiNs::getIconPath(rel->getTable(BaseRelationship::SrcTable)->getObjectType())),
+																						rel->getTable(BaseRelationship::SrcTable)->getSignature(), this, SLOT(jumpToTable()));
+				action->setData(QVariant::fromValue<void *>(reinterpret_cast<void *>(rel->getTable(BaseRelationship::SrcTable))));
+
+				action = jump_to_tab_menu.addAction(QIcon(PgModelerUiNs::getIconPath(rel->getTable(BaseRelationship::DstTable)->getObjectType())),
+																						rel->getTable(BaseRelationship::DstTable)->getSignature(), this, SLOT(jumpToTable()));
+				action->setData(QVariant::fromValue<void *>(reinterpret_cast<void *>(rel->getTable(BaseRelationship::DstTable))));
+			}
+		}
+		else if(obj_type == ObjectType::Schema)
+		{
+			for(auto type : BaseObject::getChildObjectTypes(ObjectType::Schema))
+				new_object_menu.addAction(actions_new_objects[type]);
+
+			action_new_object->setMenu(&new_object_menu);
+			popup_menu.insertAction(action_quick_actions, action_new_object);
+
+			popup_menu.addAction(action_sel_sch_children);
+			action_sel_sch_children->setData(QVariant::fromValue<void *>(obj));
+		}
+		else if(obj_type == ObjectType::Tag)
+		{
+			popup_menu.addAction(action_sel_tagged_tabs);
+			action_sel_tagged_tabs->setData(QVariant::fromValue<void *>(obj));
+		}
+	}
+
+	/* Adding the action to highlight the object only when the sender is not one of the
+	the objects that calls this method from inside the ModelWidget instance. This action
+	is mainly used when the user wants to find a graphical object from the ModelObjects dockwidget*/
+	if((sender()!=this && sender()!=scene) && dynamic_cast<BaseGraphicObject *>(obj))
+	{
+		popup_menu.addAction(action_select_object);
+		action_select_object->setData(QVariant::fromValue<void *>(obj));
+	}
+
+	action_edit->setData(QVariant::fromValue<void *>(obj));
+	action_source_code->setData(QVariant::fromValue<void *>(obj));
+	action_deps_refs->setData(QVariant::fromValue<void *>(obj));
+	TableObject *tab_obj = dynamic_cast<TableObject *>(obj);
+
+	if(tab_obj &&  tab_obj->getObjectType()==ObjectType::Column)
+	{
+		Column *col=dynamic_cast<Column *>(tab_obj);
+
+		if(tab_obj->isAddedByRelationship())
+		{
+			action_parent_rel->setData(QVariant::fromValue<void *>(dynamic_cast<Column *>(tab_obj)->getParentRelationship()));
+			popup_menu.addAction(action_parent_rel);
+		}
+		else if(col->getType().isSerialType())
+		{
+			action_create_seq_col->setData(QVariant::fromValue<void *>(col));
+			popup_menu.addAction(action_create_seq_col);
+		}
+		else if(col->getType().isIntegerType())
+		{
+			action_conv_int_serial->setData(QVariant::fromValue<void *>(col));
+			popup_menu.addAction(action_conv_int_serial);
+		}
+	}
+
+	popup_menu.addSeparator();
+	popup_menu.addAction(action_source_code);
+
+	if(!tab_obj || (tab_obj && !tab_obj->isAddedByRelationship()))
+		popup_menu.addAction(action_deps_refs);
+}
+
+void ModelWidget::configureDatabaseActions()
+{
+	new_object_menu.addAction(action_database_category);
+	new_object_menu.addAction(action_schema_category);
+	new_object_menu.addAction(actions_new_objects[ObjectType::Relationship]);
+	new_object_menu.addAction(actions_new_objects[ObjectType::GenericSql]);
+	new_object_menu.addAction(actions_new_objects[ObjectType::Tag]);
+	new_object_menu.addAction(actions_new_objects[ObjectType::Textbox]);
+	action_new_object->setMenu(&new_object_menu);
+	popup_menu.addAction(action_new_object);
+
+	configureQuickMenu(db_model);
+
+	action_edit->setData(QVariant::fromValue<void *>(dynamic_cast<BaseObject *>(db_model)));
+	action_source_code->setData(QVariant::fromValue<void *>(dynamic_cast<BaseObject *>(db_model)));
+
+	popup_menu.addAction(action_edit);
+
+	popup_menu.addSeparator();
+	popup_menu.addAction(action_source_code);
+
+	if(db_model->isProtected())
+		popup_menu.addAction(action_unprotect);
+	else
+		popup_menu.addAction(action_protect);
+
+	if(scene->items().count() > 1)
+		popup_menu.addAction(action_select_all);
+}
+
+void ModelWidget::configurePopupMenu(const vector<BaseObject *> &objects)
+{
 	unsigned count, i;
 	vector<QMenu *> submenus;
-	Constraint *constr=nullptr;
-	QAction *action=nullptr;
 	TableObject *tab_obj=nullptr;
 	QString str_aux;
 	bool protected_obj=false, model_protected=db_model->isProtected();
@@ -3451,190 +4340,23 @@ void ModelWidget::configurePopupMenu(vector<BaseObject *> objects)
 	quick_actions_menu.clear();
 	popup_menu.clear();
 
-	this->enableModelActions(false);
-	this->selected_objects=objects;
+	enableModelActions(false);
+	selected_objects=objects;
 	new_object_menu.setEnabled(!this->db_model->isProtected());
 
 	if(objects.size() <= 1)
 	{
 		//Case there is no selected object or the selected object is the database model
 		if(objects.empty() || (objects.size()==1 && objects[0]==db_model))
+			configureDatabaseActions();
+		else if(objects.size() == 1)
 		{
-			ObjectType types[]={ OBJ_AGGREGATE, OBJ_CAST, OBJ_EVENT_TRIGGER, OBJ_COLLATION, OBJ_CONVERSION, OBJ_DOMAIN,
-								 OBJ_EXTENSION, OBJ_FUNCTION, OBJ_GENERIC_SQL, OBJ_LANGUAGE, OBJ_OPCLASS, OBJ_OPERATOR,
-								 OBJ_OPFAMILY, OBJ_RELATIONSHIP, OBJ_ROLE, OBJ_SCHEMA, OBJ_SEQUENCE,
-								 OBJ_TABLE, OBJ_TABLESPACE, OBJ_TEXTBOX, OBJ_TYPE, OBJ_VIEW, OBJ_TAG };
-			unsigned cnt = sizeof(types)/sizeof(ObjectType);
-
-			//Configures the "New object" menu with the types at database level
-			for(i=0; i < cnt; i++)
-			{
-				//actions_new_objects[types[i]]->setShortcut(QKeySequence(shortcuts[i]));
-				new_object_menu.addAction(actions_new_objects[types[i]]);
-			}
-
-			action_new_object->setMenu(&new_object_menu);
-			popup_menu.addAction(action_new_object);
-
-			configureSubmenu(db_model);
-
-			action_edit->setData(QVariant::fromValue<void *>(dynamic_cast<BaseObject *>(db_model)));
-			action_source_code->setData(QVariant::fromValue<void *>(dynamic_cast<BaseObject *>(db_model)));
-
-			popup_menu.addAction(action_edit);
-
-			popup_menu.addSeparator();
-			popup_menu.addAction(action_source_code);
-
-			if(db_model->isProtected())
-				popup_menu.addAction(action_unprotect);
-			else
-				popup_menu.addAction(action_protect);
-
-			if(scene->items().count() > 1)
-				popup_menu.addAction(action_select_all);
-		}
-		else if(objects.size()==1)
-		{
-			BaseObject *obj=objects[0];
-			BaseRelationship *rel=dynamic_cast<BaseRelationship *>(obj);
-			ObjectType obj_type=obj->getObjectType(),
-					types[]={ OBJ_COLUMN, OBJ_CONSTRAINT, OBJ_INDEX,
-							  OBJ_RULE, OBJ_TRIGGER },
-					sch_types[]={ OBJ_AGGREGATE, OBJ_COLLATION, OBJ_CONVERSION,
-								  OBJ_DOMAIN, OBJ_EXTENSION, OBJ_FUNCTION, OBJ_OPCLASS,
-								  OBJ_OPERATOR,	OBJ_OPFAMILY,	OBJ_SEQUENCE,	OBJ_TABLE,
-								  OBJ_TYPE,	OBJ_VIEW };
-			unsigned tab_tp_cnt=sizeof(types)/sizeof(ObjectType),
-					sch_tp_cnt=sizeof(sch_types)/sizeof(ObjectType);
-
-			configureSubmenu(obj);
-			popup_menu.addAction(action_edit);
-
-			if((obj_type==OBJ_SCHEMA && obj->isSystemObject()) ||
-					(!obj->isProtected() && (obj_type==OBJ_TABLE || obj_type==BASE_RELATIONSHIP ||
-																	 obj_type==OBJ_RELATIONSHIP || obj_type==OBJ_SCHEMA ||
-																	 obj_type == OBJ_TAG || obj_type==OBJ_VIEW)))
-			{
-				if(obj_type==OBJ_TABLE || obj_type == OBJ_VIEW)
-				{
-					for(i=0; i < tab_tp_cnt; i++)
-					{
-						if(obj_type == OBJ_VIEW && (types[i] == OBJ_COLUMN || types[i] == OBJ_CONSTRAINT))
-							continue;
-
-						new_object_menu.addAction(actions_new_objects[types[i]]);
-					}
-					action_new_object->setMenu(&new_object_menu);
-					popup_menu.insertAction(action_quick_actions, action_new_object);
-				}
-				else if(obj_type==OBJ_RELATIONSHIP || obj_type==BASE_RELATIONSHIP)
-				{
-
-					if(obj_type==OBJ_RELATIONSHIP)
-					{
-						for(i=0; i < 2; i++)
-							new_object_menu.addAction(actions_new_objects[types[i]]);
-
-						action_new_object->setMenu(&new_object_menu);
-						popup_menu.insertAction(action_quick_actions, action_new_object);
-					}
-
-					if(rel->getRelationshipType()==Relationship::RELATIONSHIP_NN)
-					{
-						action_convert_relnn->setData(QVariant::fromValue<void *>(rel));
-						popup_menu.addAction(action_convert_relnn);
-					}
-
-					if(!rel->isSelfRelationship())
-					{
-						if(rel->getPoints().empty())
-						{
-							action_break_rel_line->setData(QVariant::fromValue<void *>(rel));
-							popup_menu.addAction(action_break_rel_line);
-						}
-						else
-						{
-							action_remove_rel_points->setData(QVariant::fromValue<void *>(rel));
-							popup_menu.addAction(action_remove_rel_points);
-						}
-
-						popup_menu.addAction(action_jump_to_table);
-						jump_to_tab_menu.clear();
-
-						action = jump_to_tab_menu.addAction(QIcon(PgModelerUiNS::getIconPath(rel->getTable(BaseRelationship::SRC_TABLE)->getObjectType())),
-																								rel->getTable(BaseRelationship::SRC_TABLE)->getSignature(), this, SLOT(jumpToTable()));
-						action->setData(QVariant::fromValue<void *>(reinterpret_cast<void *>(rel->getTable(BaseRelationship::SRC_TABLE))));
-
-						action = jump_to_tab_menu.addAction(QIcon(PgModelerUiNS::getIconPath(rel->getTable(BaseRelationship::DST_TABLE)->getObjectType())),
-																								rel->getTable(BaseRelationship::DST_TABLE)->getSignature(), this, SLOT(jumpToTable()));
-						action->setData(QVariant::fromValue<void *>(reinterpret_cast<void *>(rel->getTable(BaseRelationship::DST_TABLE))));
-					}
-				}
-				else if(obj_type == OBJ_SCHEMA)
-				{
-					for(i=0; i < sch_tp_cnt; i++)
-						new_object_menu.addAction(actions_new_objects[sch_types[i]]);
-
-					action_new_object->setMenu(&new_object_menu);
-					popup_menu.insertAction(action_quick_actions, action_new_object);
-
-					popup_menu.addAction(action_sel_sch_children);
-					action_sel_sch_children->setData(QVariant::fromValue<void *>(obj));
-				}
-				else if(obj_type == OBJ_TAG)
-				{
-					popup_menu.addAction(action_sel_tagged_tabs);
-					action_sel_tagged_tabs->setData(QVariant::fromValue<void *>(obj));
-				}
-			}
-
-			/* Adding the action to highlight the object only when the sender is not one of the
-			the objects that calls this method from inside the ModelWidget instance. This action
-			is mainly used when the user wants to find a graphical object from the ModelObjects dockwidget*/
-			if((sender()!=this && sender()!=scene) && dynamic_cast<BaseGraphicObject *>(obj))
-			{
-				popup_menu.addAction(action_highlight_object);
-				action_highlight_object->setData(QVariant::fromValue<void *>(obj));
-			}
-
-			action_edit->setData(QVariant::fromValue<void *>(obj));
-			action_source_code->setData(QVariant::fromValue<void *>(obj));
-			action_deps_refs->setData(QVariant::fromValue<void *>(obj));
-			tab_obj=dynamic_cast<TableObject *>(obj);
-
-			if(tab_obj &&  tab_obj->getObjectType()==OBJ_COLUMN)
-			{
-				Column *col=dynamic_cast<Column *>(tab_obj);
-
-				if(tab_obj->isAddedByRelationship())
-				{
-					action_parent_rel->setData(QVariant::fromValue<void *>(dynamic_cast<Column *>(tab_obj)->getParentRelationship()));
-					popup_menu.addAction(action_parent_rel);
-				}
-				else if(col->getType().isSerialType())
-				{
-					action_create_seq_col->setData(QVariant::fromValue<void *>(col));
-					popup_menu.addAction(action_create_seq_col);
-				}
-				else if(col->getType().isIntegerType())
-				{
-					action_conv_int_serial->setData(QVariant::fromValue<void *>(col));
-					popup_menu.addAction(action_conv_int_serial);
-				}
-			}
-
-			popup_menu.addSeparator();
-			popup_menu.addAction(action_source_code);
-
-			if(!tab_obj || (tab_obj && !tab_obj->isAddedByRelationship()))
-				popup_menu.addAction(action_deps_refs);
+			tab_obj = dynamic_cast<TableObject *>(objects.front());
+			configureBasicActions(objects.front());
 		}
 	}
 	else
-	{
-		configureSubmenu(nullptr);
-	}
+		configureQuickMenu(nullptr);
 
 	if(objects.size() > 1)
 	{
@@ -3642,7 +4364,7 @@ void ModelWidget::configurePopupMenu(vector<BaseObject *> objects)
 
 		for(auto &obj : objects)
 		{
-			rem_points = obj->getObjectType() == OBJ_RELATIONSHIP || obj->getObjectType() == BASE_RELATIONSHIP;
+			rem_points = obj->getObjectType() == ObjectType::Relationship || obj->getObjectType() == ObjectType::BaseRelationship;
 			if(!rem_points) break;
 		}
 
@@ -3660,9 +4382,9 @@ void ModelWidget::configurePopupMenu(vector<BaseObject *> objects)
 			(!tab_obj || (tab_obj && !tab_obj->getParentTable()->isProtected() && !tab_obj->isAddedByRelationship())))
 	{
 		/* Special case for systema objects: The actions protect/unprotect will be displayed only for
-	   system schemas. The rest of system objects those actions aren't available */
+		 system schemas. The rest of system objects those actions aren't available */
 		if(!objects[0]->isSystemObject() ||
-				(objects[0]->isSystemObject() && objects[0]->getObjectType()==OBJ_SCHEMA))
+				(objects[0]->isSystemObject() && objects[0]->getObjectType()==ObjectType::Schema))
 		{
 			if(!objects[0]->isProtected())
 				popup_menu.addAction(action_protect);
@@ -3673,10 +4395,11 @@ void ModelWidget::configurePopupMenu(vector<BaseObject *> objects)
 
 	//Adding the extended attributes action (only for table/view/database)
 	if(objects.size() > 1 ||
-		 (objects.empty() && (db_model->getObjectCount(OBJ_TABLE) > 0 || db_model->getObjectCount(OBJ_VIEW) > 0)) ||
-		 (objects.size() == 1 && (objects[0]->getObjectType() == OBJ_TABLE ||
-															objects[0]->getObjectType() == OBJ_VIEW ||
-															objects[0]->getObjectType() == OBJ_DATABASE)))
+		 (objects.empty() && (db_model->getObjectCount(ObjectType::Table) > 0 ||
+													db_model->getObjectCount(ObjectType::ForeignTable) > 0 ||
+													db_model->getObjectCount(ObjectType::View) > 0)) ||
+		 (objects.size() == 1 && (BaseTable::isBaseTable(objects[0]->getObjectType()) ||
+															objects[0]->getObjectType() == ObjectType::Database)))
 	{
 		bool tab_or_view = false;
 
@@ -3684,19 +4407,31 @@ void ModelWidget::configurePopupMenu(vector<BaseObject *> objects)
 		{
 			if(!tab_or_view)
 			{
-				tab_or_view=(obj->getObjectType()==OBJ_TABLE || obj->getObjectType()==OBJ_VIEW);
+				tab_or_view=(PhysicalTable::isPhysicalTable(obj->getObjectType()) || obj->getObjectType()==ObjectType::View);
 				break;
 			}
 		}
 
 		if(tab_or_view ||  objects.empty() || objects.size() == 1)
-			popup_menu.addAction(action_extended_attribs);
+		{
+			popup_menu.addAction(action_collapse_mode);
+			popup_menu.addAction(action_pagination);
+		}
+
+		if(objects.empty() || (objects.size() == 1 && objects[0]->getObjectType() == ObjectType::Database))
+			popup_menu.addAction(action_schemas_rects);
 	}
 
+	if((objects.size() == 1 &&
+			(BaseTable::isBaseTable(objects[0]->getObjectType()) ||
+			 objects[0]->getObjectType() == ObjectType::Textbox)) ||
+		 (objects.size() > 1 && !scene->hasOnlyTableChildrenSelection()))
+		popup_menu.addAction(action_stacking);
+
 	if(!tab_obj &&
-		 (objects.empty() || objects.size() > 1 ||
-			(objects.size() == 1 && (objects[0]->getObjectType() == OBJ_DATABASE ||
-															 objects[0]->getObjectType() == OBJ_TAG ||
+		 (objects.empty() || (objects.size() > 1 && !scene->hasOnlyTableChildrenSelection()) ||
+			(objects.size() == 1 && (objects[0]->getObjectType() == ObjectType::Database ||
+															 objects[0]->getObjectType() == ObjectType::Tag ||
 															 BaseGraphicObject::isGraphicObject(objects[0]->getObjectType())))))
 	{
 		//Adding fade inout action only for graphical objects or when there is no objects selected or many objects seleted
@@ -3707,7 +4442,7 @@ void ModelWidget::configurePopupMenu(vector<BaseObject *> objects)
 
 	//Adding the copy and paste if there is selected objects
 	if(!model_protected &&
-			!(objects.size()==1 && (objects[0]==db_model || objects[0]->getObjectType()==BASE_RELATIONSHIP)) &&
+			!(objects.size()==1 && (objects[0]==db_model || objects[0]->getObjectType()==ObjectType::BaseRelationship)) &&
 			!objects.empty())
 	{
 		popup_menu.addAction(action_copy);
@@ -3734,9 +4469,9 @@ void ModelWidget::configurePopupMenu(vector<BaseObject *> objects)
 	4) The object is a base relationship (table-view) */
 	if((tab_obj && !tab_obj->isAddedByRelationship() && !tab_obj->isProtected()) ||
 			(objects.size()==1 && objects[0]->isProtected()) ||
-			(!tab_obj && objects.size()==1 && objects[0]!=db_model && objects[0]->getObjectType()!=BASE_RELATIONSHIP) ||
-			(objects.size()==1 && objects[0]->getObjectType()==BASE_RELATIONSHIP &&
-			 dynamic_cast<BaseRelationship *>(objects[0])->getRelationshipType()==BaseRelationship::RELATIONSHIP_FK) ||
+			(!tab_obj && objects.size()==1 && objects[0]!=db_model && objects[0]->getObjectType()!=ObjectType::BaseRelationship) ||
+			(objects.size()==1 && objects[0]->getObjectType()==ObjectType::BaseRelationship &&
+			 dynamic_cast<BaseRelationship *>(objects[0])->getRelationshipType()==BaseRelationship::RelationshipFk) ||
 			objects.size() > 1)
 	{
 		popup_menu.addAction(action_remove);
@@ -3744,101 +4479,7 @@ void ModelWidget::configurePopupMenu(vector<BaseObject *> objects)
 	}
 
 	//If the table object is a column creates a special menu to acess the constraints that is applied to the column
-	if(tab_obj)
-	{
-		table=dynamic_cast<Table *>(tab_obj->getParentTable());
-
-		if(tab_obj->getObjectType()==OBJ_COLUMN)
-		{
-			count=table->getConstraintCount();
-
-			for(i=0; i < count; i++)
-			{
-				constr=table->getConstraint(i);
-				if(constr->isColumnReferenced(dynamic_cast<Column *>(tab_obj), false))
-				{
-					switch(!constr->getConstraintType())
-					{
-						case ConstraintType::primary_key: str_aux=QString("_%1").arg(TableObjectView::TXT_PRIMARY_KEY); break;
-						case ConstraintType::foreign_key: str_aux=QString("_%1").arg(TableObjectView::TXT_FOREIGN_KEY); break;
-						case ConstraintType::check: str_aux=QString("_%1").arg(TableObjectView::TXT_CHECK); break;
-						case ConstraintType::unique: str_aux=QString("_%1").arg(TableObjectView::TXT_UNIQUE); break;
-						case ConstraintType::exclude: str_aux=QString("_%1").arg(TableObjectView::TXT_EXCLUDE); break;
-					}
-
-					//For each constaint is created a menu with the edit, source code, protect/unprotect and delete actions
-					submenu=new QMenu(&popup_menu);
-					submenu->setIcon(QPixmap(PgModelerUiNS::getIconPath(BaseObject::getSchemaName(OBJ_CONSTRAINT) + str_aux)));
-					submenu->setTitle(constr->getName());
-
-					action=new QAction(dynamic_cast<QObject *>(submenu));
-					action->setIcon(QPixmap(PgModelerUiNS::getIconPath("editar")));
-					action->setText(trUtf8("Properties"));
-					action->setData(QVariant::fromValue<void *>(dynamic_cast<BaseObject *>(constr)));
-					connect(action, SIGNAL(triggered(bool)), this, SLOT(editObject(void)));
-					submenu->addAction(action);
-
-					action=new QAction(dynamic_cast<QObject *>(submenu));
-					action->setIcon(QPixmap(PgModelerUiNS::getIconPath("codigosql")));
-					action->setText(trUtf8("Source code"));
-					action->setData(QVariant::fromValue<void *>(dynamic_cast<BaseObject *>(constr)));
-					connect(action, SIGNAL(triggered(bool)), this, SLOT(showSourceCode(void)));
-					submenu->addAction(action);
-
-					if(!constr->isAddedByRelationship())
-					{
-						if(!constr->getParentTable()->isProtected())
-						{
-							action=new QAction(dynamic_cast<QObject *>(&popup_menu));
-							action->setData(QVariant::fromValue<void *>(dynamic_cast<BaseObject *>(constr)));
-							connect(action, SIGNAL(triggered(bool)), this, SLOT(protectObject(void)));
-							submenu->addAction(action);
-
-							if(constr->isProtected())
-							{
-								action->setIcon(QPixmap(PgModelerUiNS::getIconPath("desbloqobjeto")));
-								action->setText(trUtf8("Unprotect"));
-							}
-							else
-							{
-								action->setIcon(QPixmap(PgModelerUiNS::getIconPath("bloqobjeto")));
-								action->setText(trUtf8("Protect"));
-							}
-						}
-
-						action=new QAction(dynamic_cast<QObject *>(submenu));
-						action->setIcon(QPixmap(PgModelerUiNS::getIconPath("excluir")));
-						action->setData(QVariant::fromValue<void *>(dynamic_cast<BaseObject *>(constr)));
-						action->setText(trUtf8("Delete"));
-						submenu->addAction(action);
-						connect(action, SIGNAL(triggered()), this, SLOT(removeObjects()));
-
-						action=new QAction(dynamic_cast<QObject *>(submenu));
-						action->setIcon(QPixmap(PgModelerUiNS::getIconPath("delcascade")));
-						action->setData(QVariant::fromValue<void *>(dynamic_cast<BaseObject *>(constr)));
-						action->setText(trUtf8("Del. cascade"));
-						submenu->addAction(action);
-						connect(action, SIGNAL(triggered()), this, SLOT(removeObjectsCascade()));
-					}
-					submenus.push_back(submenu);
-				}
-			}
-
-			//Adding the constraint submenus to the main popup menu
-			if(!submenus.empty())
-			{
-				submenu=new QMenu(&popup_menu);
-				submenu->setTitle(trUtf8("Constraints"));
-				submenu->setIcon(QPixmap(PgModelerUiNS::getIconPath(BaseObject::getSchemaName(OBJ_CONSTRAINT) + QString("_grp"))));
-				count=submenus.size();
-				for(i=0; i < count; i++)
-					submenu->addMenu(submenus[i]);
-
-				popup_menu.insertMenu(action_edit, submenu);
-			}
-		}
-	}
-
+	configureConstraintsMenu(tab_obj);
 
 	//Enable the popup actions that are visible
 	QList<QAction *> actions=popup_menu.actions();
@@ -3849,26 +4490,36 @@ void ModelWidget::configurePopupMenu(vector<BaseObject *> objects)
 		actions.pop_back();
 	}
 
-	if(objects.empty() || (objects.size()==1 && objects[0]==db_model))
+	if(objects.size() <= 2 && !scene->hasOnlyTableChildrenSelection())
 	{
 		popup_menu.addSeparator();
 		popup_menu.addAction(action_edit_creation_order);
 	}
 }
 
-bool ModelWidget::isModified(void)
+bool ModelWidget::isModified()
 {
-	return(modified);
+	return modified;
 }
 
-DatabaseModel *ModelWidget::getDatabaseModel(void)
+DatabaseModel *ModelWidget::getDatabaseModel()
 {
-	return(db_model);
+	return db_model;
 }
 
-OperationList *ModelWidget::getOperationList(void)
+ObjectsScene *ModelWidget::getObjectsScene()
 {
-	return(op_list);
+	return scene;
+}
+
+QGraphicsView *ModelWidget::getViewport()
+{
+	return viewport;
+}
+
+OperationList *ModelWidget::getOperationList()
+{
+	return op_list;
 }
 
 void ModelWidget::setSaveLastCanvasPosition(bool value)
@@ -3891,10 +4542,10 @@ void ModelWidget::setMinimumObjectOpacity(unsigned min_opacity)
 	if(min_opacity > 70)
 		min_opacity = 70;
 
-	ModelWidget::min_object_opacity = static_cast<float>(min_opacity)/100.0f;
+	ModelWidget::min_object_opacity = static_cast<double>(min_opacity)/100.0;
 }
 
-void ModelWidget::highlightObject(void)
+void ModelWidget::highlightObject()
 {
 	QAction *action=dynamic_cast<QAction *>(sender());
 
@@ -3905,7 +4556,7 @@ void ModelWidget::highlightObject(void)
 
 		if(graph_obj)
 		{
-			BaseObjectView *obj_view=dynamic_cast<BaseObjectView *>(graph_obj->getReceiverObject());
+			BaseObjectView *obj_view=dynamic_cast<BaseObjectView *>(graph_obj->getOverlyingObject());
 
 			scene->clearSelection();
 			obj_view->setSelected(true);
@@ -3914,10 +4565,10 @@ void ModelWidget::highlightObject(void)
 	}
 }
 
-void ModelWidget::toggleNewObjectOverlay(void)
+void ModelWidget::toggleNewObjectOverlay()
 {
-	if(new_obj_overlay_wgt->isHidden() &&
-			(selected_objects.empty() || selected_objects[0]->getObjectType()!=BASE_RELATIONSHIP))
+if(new_obj_overlay_wgt->isHidden() &&
+			(selected_objects.empty() || selected_objects[0]->getObjectType()!=ObjectType::BaseRelationship))
 	{
 		new_obj_overlay_wgt->raise();
 		new_obj_overlay_wgt->show();
@@ -3928,7 +4579,7 @@ void ModelWidget::toggleNewObjectOverlay(void)
 		new_obj_overlay_wgt->hide();
 }
 
-void ModelWidget::adjustOverlayPosition(void)
+void ModelWidget::adjustOverlayPosition()
 {
 	int px=0, py=0;
 
@@ -3937,20 +4588,20 @@ void ModelWidget::adjustOverlayPosition(void)
 	new_obj_overlay_wgt->move(px, py);
 }
 
-void ModelWidget::toggleObjectSQL(void)
+void ModelWidget::toggleObjectSQL()
 {
 	QAction *action=dynamic_cast<QAction *>(sender());
 
 	if(action)
 	{
 		BaseObject *object=reinterpret_cast<BaseObject *>(action->data().value<void *>());
-		PgModelerUiNS::disableObjectSQL(object, !object->isSQLDisabled());
-		this->modified=true;
+		PgModelerUiNs::disableObjectSQL(object, !object->isSQLDisabled());
+		setModified(true);
 		emit s_objectModified();
 	}
 }
 
-void ModelWidget::createSequenceFromColumn(void)
+void ModelWidget::createSequenceFromColumn()
 {
 	try
 	{
@@ -3964,17 +4615,17 @@ void ModelWidget::createSequenceFromColumn(void)
 		//Creates a sequence which name is like the ones auto generated by PostgreSQL
 		seq=new Sequence;
 		seq->setName(BaseObject::formatName(tab->getName() + QString("_") + col->getName() + QString("_seq")));
-		seq->setName(PgModelerNS::generateUniqueName(seq, *db_model->getObjectList(OBJ_SEQUENCE), false));
+		seq->setName(PgModelerNs::generateUniqueName(seq, *db_model->getObjectList(ObjectType::Sequence), false));
 
 		seq->setSchema(tab->getSchema());
 		seq->setDefaultValues(col->getType());
 
-		op_list->registerObject(seq, Operation::OBJECT_CREATED);
+		op_list->registerObject(seq, Operation::ObjectCreated);
 		db_model->addSequence(seq);
 
 		BaseObject::swapObjectsIds(tab, seq, false);
 
-		op_list->registerObject(col, Operation::OBJECT_MODIFIED, -1, tab);
+		op_list->registerObject(col, Operation::ObjectModified, -1, tab);
 		//Changes the column type to the alias for serial type
 		col->setType(col->getType().getAliasType());
 		col->setSequence(seq);
@@ -3991,26 +4642,26 @@ void ModelWidget::createSequenceFromColumn(void)
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(), e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(), e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void ModelWidget::convertIntegerToSerial(void)
+void ModelWidget::convertIntegerToSerial()
 {
 	try
 	{
 		QAction *action=dynamic_cast<QAction *>(sender());
 		Column *col=reinterpret_cast<Column *>(action->data().value<void *>());
 		Table *tab=dynamic_cast<Table *>(col->getParentTable());
-		PgSQLType col_type=col->getType();
+		PgSqlType col_type=col->getType();
 		QRegExp regexp(QString("^nextval\\(.+\\:\\:regclass\\)"));
 		QString serial_tp;
 
 		if(!col_type.isIntegerType() || (!col->getDefaultValue().contains(regexp) && !col->getSequence()))
-			throw Exception(Exception::getErrorMessage(ERR_INV_CONV_INTEGER_TO_SERIAL).arg(col->getName()),
-							ERR_INV_CONV_INTEGER_TO_SERIAL ,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+			throw Exception(Exception::getErrorMessage(ErrorCode::InvConversionIntegerToSerial).arg(col->getName()),
+											ErrorCode::InvConversionIntegerToSerial ,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
-		op_list->registerObject(col, Operation::OBJECT_MODIFIED, -1, tab);
+		op_list->registerObject(col, Operation::ObjectModified, -1, tab);
 
 		if(col_type==QString("integer") || col_type==QString("int4"))
 			serial_tp=QString("serial");
@@ -4019,8 +4670,8 @@ void ModelWidget::convertIntegerToSerial(void)
 		else
 			serial_tp=QString("bigserial");
 
-		col->setType(PgSQLType(serial_tp));
-		col->setDefaultValue(QString());
+		col->setType(PgSqlType(serial_tp));
+		col->setDefaultValue("");
 
 		//Revalidate the relationships since the modified column can be a primary key
 		if(tab->getPrimaryKey()->isColumnReferenced(col))
@@ -4031,18 +4682,18 @@ void ModelWidget::convertIntegerToSerial(void)
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(), e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(), e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void ModelWidget::breakRelationshipLine(void)
+void ModelWidget::breakRelationshipLine()
 {
 	try
 	{
 		QAction *action=dynamic_cast<QAction *>(sender());
 		BaseRelationship *rel=dynamic_cast<BaseRelationship *>(selected_objects[0]);
 
-		op_list->registerObject(rel, Operation::OBJECT_MODIFIED);
+		op_list->registerObject(rel, Operation::ObjectModified);
 		breakRelationshipLine(rel, action->data().toUInt());
 		rel->setModified(true);
 		this->setModified(true);
@@ -4051,7 +4702,7 @@ void ModelWidget::breakRelationshipLine(void)
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(), e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(), e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
@@ -4061,18 +4712,18 @@ void ModelWidget::breakRelationshipLine(BaseRelationship *rel, unsigned break_ty
 
 	try
 	{
-		RelationshipView *rel_view=dynamic_cast<RelationshipView *>(rel->getReceiverObject());
+		RelationshipView *rel_view=dynamic_cast<RelationshipView *>(rel->getOverlyingObject());
 		double dx, dy;
 		QPointF src_pnt, dst_pnt;
 
-		src_pnt=rel_view->getConnectionPoint(BaseRelationship::SRC_TABLE);
-		dst_pnt=rel_view->getConnectionPoint(BaseRelationship::DST_TABLE);
+		src_pnt=rel_view->getConnectionPoint(BaseRelationship::SrcTable);
+		dst_pnt=rel_view->getConnectionPoint(BaseRelationship::DstTable);
 
-		if(break_type==BREAK_VERT_NINETY_DEGREES)
+		if(break_type==BreakVertNinetyDegrees)
 			rel->setPoints({ QPointF(src_pnt.x(), dst_pnt.y()) });
-		else if(break_type==BREAK_HORIZ_NINETY_DEGREES)
+		else if(break_type==BreakHorizNinetyDegrees)
 			rel->setPoints({ QPointF(dst_pnt.x(), src_pnt.y()) });
-		else if(break_type==BREAK_HORIZ_2NINETY_DEGREES)
+		else if(break_type==BreakHoriz2NinetyDegrees)
 		{
 			//Calculates the midle vertical point between the tables centers
 			dy=(src_pnt.y() + dst_pnt.y())/2;
@@ -4091,11 +4742,11 @@ void ModelWidget::breakRelationshipLine(BaseRelationship *rel, unsigned break_ty
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(), e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(), e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void ModelWidget::removeRelationshipPoints(void)
+void ModelWidget::removeRelationshipPoints()
 {
 	try
 	{
@@ -4107,8 +4758,8 @@ void ModelWidget::removeRelationshipPoints(void)
 		{
 			vector<BaseObject *> rels;
 
-			rels = *db_model->getObjectList(BASE_RELATIONSHIP);
-			rels.insert(rels.end(), db_model->getObjectList(OBJ_RELATIONSHIP)->begin(),  db_model->getObjectList(OBJ_RELATIONSHIP)->end());
+			rels = *db_model->getObjectList(ObjectType::BaseRelationship);
+			rels.insert(rels.end(), db_model->getObjectList(ObjectType::Relationship)->begin(),  db_model->getObjectList(ObjectType::Relationship)->end());
 
 			op_list->startOperationChain();
 			for(auto &obj : rels)
@@ -4117,7 +4768,7 @@ void ModelWidget::removeRelationshipPoints(void)
 
 				if(!rel->isProtected())
 				{
-					op_list->registerObject(rel, Operation::OBJECT_MODIFIED);
+					op_list->registerObject(rel, Operation::ObjectModified);
 					rel->setPoints({});
 					rel->setModified(true);
 				}
@@ -4126,7 +4777,7 @@ void ModelWidget::removeRelationshipPoints(void)
 		}
 		else
 		{
-			op_list->registerObject(rel, Operation::OBJECT_MODIFIED);
+			op_list->registerObject(rel, Operation::ObjectModified);
 			rel->setPoints({});
 			rel->setModified(true);
 		}
@@ -4137,19 +4788,35 @@ void ModelWidget::removeRelationshipPoints(void)
 	}
 	catch(Exception &e)
 	{
-		throw Exception(e.getErrorMessage(), e.getErrorType(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
+		throw Exception(e.getErrorMessage(), e.getErrorCode(),__PRETTY_FUNCTION__,__FILE__,__LINE__, &e);
 	}
 }
 
-void ModelWidget::rearrangeSchemas(QPointF origin, unsigned tabs_per_row, unsigned sch_per_row, double obj_spacing)
+void ModelWidget::rearrangeSchemasInGrid(unsigned tabs_per_row, unsigned sch_per_row, QPointF origin, double obj_spacing)
 {
 	vector<BaseObject *> *objects=nullptr;
 	Schema *schema=nullptr;
 	SchemaView *sch_view=nullptr;
-	unsigned sch_id=0;
+	unsigned sch_id=0, min_cnt = 0;
 	double x=origin.x(), y=origin.y(), max_y=-1, cy=0;
 
-	objects=db_model->getObjectList(OBJ_SCHEMA);
+	objects=db_model->getObjectList(ObjectType::Schema);
+
+	/* If schemas per row or tables per row isn't specified
+	 * we calculate an minimal number of objects to be arranged per row */
+	if(sch_per_row == 0)
+	{
+		min_cnt = objects->size() * 0.10;
+		sch_per_row = min_cnt < 3 ? 3 : min_cnt;
+	}
+
+	if(tabs_per_row == 0)
+	{
+		min_cnt = (db_model->getObjectCount(ObjectType::Table) +
+							 db_model->getObjectCount(ObjectType::View) +
+							 db_model->getObjectCount(ObjectType::ForeignTable)) * 0.05;
+		tabs_per_row = min_cnt < 5 ? 5 : min_cnt;
+	}
 
 	for(BaseObject *obj : *objects)
 	{
@@ -4159,14 +4826,14 @@ void ModelWidget::rearrangeSchemas(QPointF origin, unsigned tabs_per_row, unsign
 			 schemas over the screen */
 		schema->setRectVisible(true);
 
-		sch_view=dynamic_cast<SchemaView *>(schema->getReceiverObject());
+		sch_view=dynamic_cast<SchemaView *>(schema->getOverlyingObject());
 		schema->setModified(true);
 
 		//The schema is processed only there are tables inside of it
 		if(sch_view && sch_view->getChildrenCount() > 0)
 		{
 			//Organizing the tables inside the schema
-			rearrangeTables(schema, QPointF(x,y), tabs_per_row, obj_spacing);
+			rearrangeTablesInGrid(schema, tabs_per_row, QPointF(x,y), obj_spacing);
 			schema->setModified(true);
 
 			cy=sch_view->pos().y() + sch_view->boundingRect().height();
@@ -4192,13 +4859,13 @@ void ModelWidget::rearrangeSchemas(QPointF origin, unsigned tabs_per_row, unsign
 		}
 	}
 
-	objects=db_model->getObjectList(OBJ_RELATIONSHIP);
+	objects=db_model->getObjectList(ObjectType::Relationship);
 	for(BaseObject *obj : *objects)
 	{
 		dynamic_cast<BaseRelationship *>(obj)->setModified(true);
 	}
 
-	objects=db_model->getObjectList(BASE_RELATIONSHIP);
+	objects=db_model->getObjectList(ObjectType::BaseRelationship);
 	for(BaseObject *obj : *objects)
 	{
 		dynamic_cast<BaseRelationship *>(obj)->setModified(true);
@@ -4208,11 +4875,11 @@ void ModelWidget::rearrangeSchemas(QPointF origin, unsigned tabs_per_row, unsign
 	this->adjustSceneSize();
 }
 
-void ModelWidget::rearrangeTables(Schema *schema, QPointF origin, unsigned tabs_per_row, double obj_spacing)
+void ModelWidget::rearrangeTablesInGrid(Schema *schema, unsigned tabs_per_row,  QPointF origin, double obj_spacing)
 {
 	if(schema)
 	{
-		vector<BaseObject *> tables, views;
+		vector<BaseObject *> tables, views, ftables;
 		vector<BaseObject *>::iterator itr;
 		BaseTableView *tab_view=nullptr;
 		BaseTable *base_tab=nullptr;
@@ -4220,15 +4887,17 @@ void ModelWidget::rearrangeTables(Schema *schema, QPointF origin, unsigned tabs_
 		double max_y=-1, x=origin.x(), y=origin.y(), cy=0;
 
 		//Get the tables and views for the specified schema
-		tables=db_model->getObjects(OBJ_TABLE, schema);
-		views=db_model->getObjects(OBJ_VIEW, schema);
+		tables=db_model->getObjects(ObjectType::Table, schema);
+		ftables=db_model->getObjects(ObjectType::ForeignTable, schema);
+		views=db_model->getObjects(ObjectType::View, schema);
+		tables.insert(tables.end(), ftables.begin(), ftables.end());
 		tables.insert(tables.end(), views.begin(), views.end());
 
 		itr=tables.begin();
 		while(itr!=tables.end())
 		{
 			base_tab=dynamic_cast<BaseTable *>(*itr);
-			tab_view=dynamic_cast<BaseTableView *>(base_tab->getReceiverObject());
+			tab_view=dynamic_cast<BaseTableView *>(base_tab->getOverlyingObject());
 			tab_view->setPos(QPointF(x,y));
 
 			//Defining the maximum y position to avoid table boxes colliding vertically
@@ -4255,24 +4924,34 @@ void ModelWidget::rearrangeTables(Schema *schema, QPointF origin, unsigned tabs_
 	}
 }
 
-void ModelWidget::editCreationOrder(void)
+void ModelWidget::swapObjectsIds()
 {
 	BaseForm parent_form(this);
 	SwapObjectsIdsWidget *swap_ids_wgt=new SwapObjectsIdsWidget;
 
 	swap_ids_wgt->setModel(this->getDatabaseModel());
 
+	if(!selected_objects.empty())
+		swap_ids_wgt->setSelectedObjects(selected_objects[0], selected_objects.size() == 2 ? selected_objects[1] : nullptr);
+
 	connect(swap_ids_wgt, &SwapObjectsIdsWidget::s_objectsIdsSwapped, [&](){
 			this->op_list->removeOperations();
 			emit s_objectManipulated();
 	});
 
-	parent_form.apply_ok_btn->setVisible(true);
-	parent_form.setMainWidget(swap_ids_wgt);
+	parent_form.setMainWidget(swap_ids_wgt, SLOT(swapObjectsIds()));
+	parent_form.setButtonConfiguration(Messagebox::OkCancelButtons);
+	parent_form.apply_ok_btn->setEnabled(false);
+	parent_form.apply_ok_btn->setIcon(QPixmap(PgModelerUiNs::getIconPath("swapobjs")));
+	parent_form.apply_ok_btn->setText(tr("Swap ids"));
+	connect(swap_ids_wgt, SIGNAL(s_objectsIdsSwapReady(bool)), parent_form.apply_ok_btn, SLOT(setEnabled(bool)));
+
+	GeneralConfigWidget::restoreWidgetGeometry(&parent_form, swap_ids_wgt->metaObject()->className());
 	parent_form.exec();
+	GeneralConfigWidget::saveWidgetGeometry(&parent_form, swap_ids_wgt->metaObject()->className());
 }
 
-void ModelWidget::jumpToTable(void)
+void ModelWidget::jumpToTable()
 {
 	QAction *act = qobject_cast<QAction *>(sender());
 	BaseTable *tab = nullptr;
@@ -4283,12 +4962,32 @@ void ModelWidget::jumpToTable(void)
 
 	tab = reinterpret_cast<BaseTable *>(act->data().value<void *>());
 	scene->clearSelection();
-	tab_view = dynamic_cast<BaseTableView *>(tab->getReceiverObject());
+	tab_view = dynamic_cast<BaseTableView *>(tab->getOverlyingObject());
 	tab_view->setSelected(true);
 	viewport->centerOn(tab_view);
 }
 
-void ModelWidget::rearrangeObjects(void)
+void ModelWidget::editTableData()
+{
+	TableDataWidget *tab_data_wgt=new TableDataWidget;
+
+	tab_data_wgt->setAttributes(db_model, dynamic_cast<PhysicalTable *>(selected_objects.at(0)));
+	openEditingForm(tab_data_wgt);
+	this->setModified(true);
+	emit s_objectManipulated();
+}
+
+void ModelWidget::updateModelLayers()
+{
+	QStringList layers = scene->getLayers();
+
+	layers.removeAt(0);
+	db_model->setLayers(layers);
+	db_model->setActiveLayers(scene->getActiveLayersIds());
+	setModified(true);
+}
+
+void ModelWidget::rearrangeTablesHierarchically()
 {
 	vector<BaseObject *> objects;
 	BaseGraphicObject *graph_obj = nullptr;
@@ -4297,8 +4996,8 @@ void ModelWidget::rearrangeObjects(void)
 
 	scene->clearSelection();
 
-	objects.assign(db_model->getObjectList(OBJ_TABLE)->begin(), db_model->getObjectList(OBJ_TABLE)->end());
-	objects.insert(objects.end(), db_model->getObjectList(OBJ_VIEW)->begin(), db_model->getObjectList(OBJ_VIEW)->end());
+	objects.assign(db_model->getObjectList(ObjectType::Table)->begin(), db_model->getObjectList(ObjectType::Table)->end());
+	objects.insert(objects.end(), db_model->getObjectList(ObjectType::View)->begin(), db_model->getObjectList(ObjectType::View)->end());
 
 	//We determine the root by searching the table/view which contains the more amount of relationships connected
 	for(auto obj : objects)
@@ -4306,7 +5005,7 @@ void ModelWidget::rearrangeObjects(void)
 		graph_obj = dynamic_cast<BaseGraphicObject *>(obj);
 		dynamic_cast<Schema *>(graph_obj->getSchema())->setRectVisible(false);
 
-		tab_view = dynamic_cast<BaseTableView *>(graph_obj->getReceiverObject());
+		tab_view = dynamic_cast<BaseTableView *>(graph_obj->getOverlyingObject());
 
 		if(tab_view->getConnectRelsCount() > num_rels)
 		{
@@ -4325,13 +5024,13 @@ void ModelWidget::rearrangeObjects(void)
 
 		//Positioning the root object at the top-left portion of canvas
 		root->setPos(QPointF(50, 50));
-		evaluated_tabs.push_back(root->getSourceObject());
+		evaluated_tabs.push_back(root->getUnderlyingObject());
 		items_rect = rearrangeTablesHierarchically(root, evaluated_tabs);
 		max_w = items_rect.width();
 
 		objects.clear();
-		objects.assign(db_model->getObjectList(OBJ_TABLE)->begin(), db_model->getObjectList(OBJ_TABLE)->end());
-		objects.insert(objects.end(), db_model->getObjectList(OBJ_VIEW)->begin(), db_model->getObjectList(OBJ_VIEW)->end());
+		objects.assign(db_model->getObjectList(ObjectType::Table)->begin(), db_model->getObjectList(ObjectType::Table)->end());
+		objects.insert(objects.end(), db_model->getObjectList(ObjectType::View)->begin(), db_model->getObjectList(ObjectType::View)->end());
 
 		//Retrieving the rest of tables/views that were not evaluated in the previous iteration
 		std::sort(objects.begin(), objects.end());
@@ -4350,7 +5049,7 @@ void ModelWidget::rearrangeObjects(void)
 			//Determining which table has the greater number of relationships attached
 			for(auto &tab : not_evaluated)
 			{
-				tab_view = dynamic_cast<BaseTableView *>(dynamic_cast<BaseTable *>(tab)->getReceiverObject());
+				tab_view = dynamic_cast<BaseTableView *>(dynamic_cast<BaseTable *>(tab)->getOverlyingObject());
 
 				if(tab_view->getConnectRelsCount() > num_rels)
 				{
@@ -4360,19 +5059,19 @@ void ModelWidget::rearrangeObjects(void)
 			}
 
 			//Once determined the new root we perform the positioning of its "children"
-			if(root && std::find(evaluated_tabs.begin(), evaluated_tabs.end(), root->getSourceObject()) == evaluated_tabs.end())
+			if(root && std::find(evaluated_tabs.begin(), evaluated_tabs.end(), root->getUnderlyingObject()) == evaluated_tabs.end())
 			{
 				root->setPos(QPointF(50, items_rect.bottom() + 50));
-				evaluated_tabs.push_back(root->getSourceObject());
+				evaluated_tabs.push_back(root->getUnderlyingObject());
 				items_rect = rearrangeTablesHierarchically(root, evaluated_tabs);
-				not_evaluated.erase(std::find(not_evaluated.begin(), not_evaluated.end(),  root->getSourceObject()));
+				not_evaluated.erase(std::find(not_evaluated.begin(), not_evaluated.end(),  root->getUnderlyingObject()));
 
 				if(items_rect.width() > max_w)
 					max_w = items_rect.width();
 			}
 			else
 			{
-				tab_view = dynamic_cast<BaseTableView *>(dynamic_cast<BaseTable *>(not_evaluated.front())->getReceiverObject());
+				tab_view = dynamic_cast<BaseTableView *>(dynamic_cast<BaseTable *>(not_evaluated.front())->getOverlyingObject());
 
 				//If the table/view has not relationships connected we separate it in a new list for further rearrangement
 				if(tab_view->getConnectRelsCount() == 0)
@@ -4385,17 +5084,17 @@ void ModelWidget::rearrangeObjects(void)
 		//Repositioning remaining tables (without relationships) and textboxes
 		objects.clear();
 		objects.assign(not_linked_tabs.begin(), not_linked_tabs.end());
-		objects.insert(objects.end(), db_model->getObjectList(OBJ_TEXTBOX)->begin(), db_model->getObjectList(OBJ_TEXTBOX)->end());
+		objects.insert(objects.end(), db_model->getObjectList(ObjectType::Textbox)->begin(), db_model->getObjectList(ObjectType::Textbox)->end());
 
 		px = 50;
-		py = items_rect.bottom() + 50;
+		py = items_rect.bottom() + 100;
 		max_h = 0;
 
 		for(auto &obj : objects)
 		{
-			obj_view = dynamic_cast<BaseObjectView *>(dynamic_cast<BaseGraphicObject *>(obj)->getReceiverObject());
+			obj_view = dynamic_cast<BaseObjectView *>(dynamic_cast<BaseGraphicObject *>(obj)->getOverlyingObject());
 			obj_view->setPos(px, py);
-			px += obj_view->boundingRect().width() + 50;
+			px += obj_view->boundingRect().width() + 100;
 
 			if(obj_view->boundingRect().height() > max_h)
 				max_h = obj_view->boundingRect().height();
@@ -4403,13 +5102,13 @@ void ModelWidget::rearrangeObjects(void)
 			if(px > max_w)
 			{
 				px = 50;
-				py += max_h + 50;
+				py += max_h + 100;
 			}
 		}
 
 		objects.clear();
-		objects.assign(db_model->getObjectList(OBJ_RELATIONSHIP)->begin(), db_model->getObjectList(OBJ_RELATIONSHIP)->end());
-		objects.insert(objects.end(), db_model->getObjectList(BASE_RELATIONSHIP)->begin(), db_model->getObjectList(BASE_RELATIONSHIP)->end());
+		objects.assign(db_model->getObjectList(ObjectType::Relationship)->begin(), db_model->getObjectList(ObjectType::Relationship)->end());
+		objects.insert(objects.end(), db_model->getObjectList(ObjectType::BaseRelationship)->begin(), db_model->getObjectList(ObjectType::BaseRelationship)->end());
 
 		for(auto obj : objects)
 		{
@@ -4417,17 +5116,18 @@ void ModelWidget::rearrangeObjects(void)
 			rel->setPoints({});
 			rel->resetLabelsDistance();
 
-			if(rel->getTable(BaseRelationship::SRC_TABLE)->getPosition().y() !=
-				 rel->getTable(BaseRelationship::DST_TABLE)->getPosition().y())
-				breakRelationshipLine(dynamic_cast<BaseRelationship *>(obj), ModelWidget::BREAK_VERT_2NINETY_DEGREES);
+			if(!RelationshipView::isCurvedLines() &&
+				 round(rel->getTable(BaseRelationship::SrcTable)->getPosition().y()) !=
+				 round(rel->getTable(BaseRelationship::DstTable)->getPosition().y()))
+				breakRelationshipLine(dynamic_cast<BaseRelationship *>(obj), ModelWidget::BreakVert2NinetyDegrees);
 		}
 
-		db_model->setObjectsModified({ OBJ_TABLE, OBJ_VIEW, OBJ_SCHEMA, OBJ_RELATIONSHIP, BASE_RELATIONSHIP });
+		db_model->setObjectsModified({ ObjectType::Table, ObjectType::View, ObjectType::Schema, ObjectType::Relationship, ObjectType::BaseRelationship });
 	}
 	else
 	{
 		//This is a fallback arrangement when the model does not have relationships
-		rearrangeSchemas(QPointF(50,50), 10, 5, 50);
+		rearrangeSchemasInGrid();
 	}
 
 	adjustSceneSize();
@@ -4436,7 +5136,7 @@ void ModelWidget::rearrangeObjects(void)
 
 QRectF ModelWidget::rearrangeTablesHierarchically(BaseTableView *root, vector<BaseObject *> &evaluated_tabs)
 {
-	BaseTable *base_tab = dynamic_cast<BaseTable *>(root->getSourceObject()),
+	BaseTable *base_tab = dynamic_cast<BaseTable *>(root->getUnderlyingObject()),
 			*src_tab = nullptr, *dst_tab = nullptr, *curr_tab = nullptr;
 	vector<BaseRelationship *> rels ;
 	double px = 0, py = 0, px1 = 0, py1 = 0;
@@ -4448,7 +5148,7 @@ QRectF ModelWidget::rearrangeTablesHierarchically(BaseTableView *root, vector<Ba
 	{
 		base_tab = tabs.front();
 		tabs.erase(tabs.begin());
-		tab_view = dynamic_cast<BaseTableView *>(base_tab->getReceiverObject());
+		tab_view = dynamic_cast<BaseTableView *>(base_tab->getOverlyingObject());
 		rels = db_model->getRelationships(base_tab);
 
 		for(auto &rel : rels)
@@ -4456,8 +5156,8 @@ QRectF ModelWidget::rearrangeTablesHierarchically(BaseTableView *root, vector<Ba
 			if(rel->isSelfRelationship())
 				continue;
 
-			src_tab = rel->getTable(BaseRelationship::SRC_TABLE);
-			dst_tab = rel->getTable(BaseRelationship::DST_TABLE);
+			src_tab = rel->getTable(BaseRelationship::SrcTable);
+			dst_tab = rel->getTable(BaseRelationship::DstTable);
 
 			if(src_tab != base_tab)
 				curr_tab = src_tab;
@@ -4476,11 +5176,11 @@ QRectF ModelWidget::rearrangeTablesHierarchically(BaseTableView *root, vector<Ba
 		if(tabs.empty())
 		{
 			px = tab_view->pos().x() + (tab_view->boundingRect().width() * 1.50);
-			py = root->pos().y() + 25;
+			py = root->pos().y() + 75;
 
 			for(auto &next_tab : next_tabs)
 			{
-				tab_view = dynamic_cast<BaseTableView *>(next_tab->getReceiverObject());
+				tab_view = dynamic_cast<BaseTableView *>(next_tab->getOverlyingObject());
 
 				//Temporarily unprotecting the table so it can be moved
 				if(next_tab->isProtected())
@@ -4494,7 +5194,7 @@ QRectF ModelWidget::rearrangeTablesHierarchically(BaseTableView *root, vector<Ba
 				tab_view->setPos(QPointF(px, py));
 				next_tab->setProtected(is_protected);
 
-				py += tab_view->boundingRect().height() + 50;
+				py += tab_view->boundingRect().height() + 75;
 				px += 50;
 			}
 
@@ -4506,10 +5206,230 @@ QRectF ModelWidget::rearrangeTablesHierarchically(BaseTableView *root, vector<Ba
 		}
 	}
 
-	return(QRectF(root->pos(), QPointF(px1, py1)));
+	return QRectF(root->pos(), QPointF(px1, py1));
 }
 
-void ModelWidget::updateMagnifierArea(void)
+void ModelWidget::rearrangeTablesInSchema(Schema *schema, QPointF start)
+{
+	vector<BaseObject *> tables, views;
+
+	if(!schema) return;
+
+	tables = db_model->getObjects(ObjectType::Table, schema);
+	views = db_model->getObjects(ObjectType::View, schema);
+	tables.insert(tables.end(), views.begin(), views.end());
+
+	if(!tables.empty())
+	{
+		BaseTable *base_tab = nullptr;
+		BaseTableView *tab_view = nullptr,  *comp_tab = nullptr, *curr_tab = nullptr;
+
+		//If there two or less tables we put them side-by-side
+		if(tables.size() <= 2)
+		{
+			base_tab = dynamic_cast<BaseTable *>(tables[0]);
+			curr_tab = dynamic_cast<BaseTableView *>(base_tab->getOverlyingObject());
+			curr_tab->setPos(start);
+
+			if(tables.size() > 1)
+			{
+				tab_view = curr_tab;
+				base_tab = dynamic_cast<BaseTable *>(tables[1]);
+				curr_tab = dynamic_cast<BaseTableView *>(base_tab->getOverlyingObject());
+				curr_tab->setPos(start + QPointF(tab_view->boundingRect().width() * 1.25, 0));
+			}
+		}
+		else
+		{
+			double max_w = 0, max_h = 0;
+			bool has_collision = false;
+			QRectF curr_brect, comp_brect, irect;
+			QPointF pos;
+			random_device rand_seed;
+			default_random_engine rand_num_engine;
+			unsigned tries = 0;
+
+			rand_num_engine.seed(rand_seed());
+
+			/* Calculating the maximum width and height
+			 * The new tables' positions are calculated using these dimensions */
+			for(auto &tab : tables)
+			{
+				base_tab = dynamic_cast<BaseTable *>(tab);
+				curr_tab = dynamic_cast<BaseTableView *>(base_tab->getOverlyingObject());
+				max_w += curr_tab->boundingRect().width();
+				max_h += curr_tab->boundingRect().height();
+			}
+
+			if(tables.size() >= 4)
+			{
+				max_w *= 0.50;
+				max_h *= 0.50;
+			}
+			else
+			{
+				max_w *= 1.15;
+				max_h *= 1.15;
+			}
+
+			uniform_int_distribution<unsigned> dist_x(start.x(), start.x() + max_w),
+					dist_y(start.y(), start.y() + max_h);
+
+			//Doing the first random positioning on all tables
+			for(auto &tab : tables)
+			{
+				base_tab = dynamic_cast<BaseTable *>(tab);
+				curr_tab = dynamic_cast<BaseTableView *>(base_tab->getOverlyingObject());
+				pos.setX(dist_x(rand_num_engine));
+				pos.setY(dist_y(rand_num_engine));
+				curr_tab->setPos(pos);
+			}
+
+			/* Collision detection: If a table collides with other tables it'll then repositioned
+			 * until no interception is detected */
+			for(auto &tab : tables)
+			{
+				base_tab = dynamic_cast<BaseTable *>(tab);
+				curr_tab = dynamic_cast<BaseTableView *>(base_tab->getOverlyingObject());
+				curr_brect = QRectF(curr_tab->pos(), curr_tab->boundingRect().size());
+				tries = 0;
+
+				do
+				{
+					has_collision = false;
+
+					for(auto &tab1 : tables)
+					{
+						if(tab == tab1)
+							continue;
+
+						base_tab = dynamic_cast<BaseTable *>(tab1);
+						comp_tab = dynamic_cast<BaseTableView *>(base_tab->getOverlyingObject());
+						comp_brect = QRectF(comp_tab->pos(), comp_tab->boundingRect().size());
+						irect = comp_brect.intersected(curr_brect);
+
+						if(irect.isValid())
+						{
+							has_collision = true;
+							pos.setX(dist_x(rand_num_engine));
+							pos.setY(dist_y(rand_num_engine));
+							curr_tab->setPos(pos);
+							curr_brect = QRectF(curr_tab->pos(), curr_tab->boundingRect().size());
+							break;
+						}
+					}
+
+					tries++;
+				}
+				while(has_collision && tries < (tables.size() * 100));
+			}
+		}
+
+		schema->setRectVisible(true);
+		schema->setModified(true);
+	}
+}
+
+void ModelWidget::rearrangeTablesInSchemas()
+{
+	BaseRelationship *base_rel = nullptr;
+	Schema *schema = nullptr;
+	SchemaView *sch_view = nullptr, *sch_view_aux = nullptr;
+	QRectF curr_brect, comp_brect, irect;
+	random_device rand_seed;
+	default_random_engine rand_num_engine;
+	double max_w = 1000, max_h = 1000;
+	vector<BaseObject *> schemas = *db_model->getObjectList(ObjectType::Schema), rels;
+	bool has_collision = false;
+	uniform_int_distribution<unsigned> dist_x(0, max_w), dist_y(0, max_h);
+	unsigned tries = 0,
+			max_tries = (db_model->getObjectCount(ObjectType::Table) +
+									 db_model->getObjectCount(ObjectType::View) +
+									 db_model->getObjectCount(ObjectType::Schema)) * 100;
+
+
+	rand_num_engine.seed(rand_seed());
+
+	/* Rearraging tables inside schemas and determining the maximum width and height by summing
+	 * all schemas widths and heights. These values will be serve as the maximum
+	 * position limit for the schemas */
+	for(auto &sch : schemas)
+	{
+		schema = dynamic_cast<Schema *>(sch);
+		sch_view = dynamic_cast<SchemaView *>(schema->getOverlyingObject());
+
+		if(!sch_view)	continue;
+
+		rearrangeTablesInSchema(schema, QPointF(dist_x(rand_num_engine), dist_y(rand_num_engine)));
+
+		max_w += sch_view->boundingRect().width();
+		max_h += sch_view->boundingRect().height();
+	}
+
+	uniform_int_distribution<unsigned>::param_type new_dx(0, max_w * 0.40);
+	dist_x.param(new_dx);
+
+	uniform_int_distribution<unsigned>::param_type new_dy(0, max_h * 0.40);
+	dist_y.param(new_dy);
+
+	/* Collision detection: If a schema collides with other schemas it'll then repositioned
+	 * until no interception is detected or the tries reached the max_tries value */
+	for(auto &sch : schemas)
+	{
+		schema = dynamic_cast<Schema *>(sch);
+		sch_view = dynamic_cast<SchemaView *>(schema->getOverlyingObject());
+		tries = 0;
+
+		if(!sch_view)	continue;
+
+		curr_brect = QRectF(sch_view->pos(), sch_view->boundingRect().size());
+
+		do
+		{
+			has_collision = false;
+
+			for(auto &sch1 : schemas)
+			{
+				schema = dynamic_cast<Schema *>(sch1);
+				sch_view_aux = dynamic_cast<SchemaView *>(schema->getOverlyingObject());
+
+				if(sch == sch1 || !sch_view_aux)
+					continue;
+
+				comp_brect = QRectF(sch_view_aux->pos(), sch_view_aux->boundingRect().size());
+				irect = comp_brect.intersected(curr_brect);
+
+				if(irect.isValid())
+				{
+					has_collision = true;
+					sch_view->moveTo(QPointF(dist_x(rand_num_engine), dist_y(rand_num_engine)));
+					curr_brect = QRectF(sch_view->pos(), sch_view->boundingRect().size());
+					break;
+				}
+			}
+
+			tries++;
+		}
+		while(has_collision && tries < max_tries);
+	}
+
+	//Removing all custom points from relationships
+	rels.assign(db_model->getObjectList(ObjectType::Relationship)->begin(), db_model->getObjectList(ObjectType::Relationship)->end());
+	rels.insert(rels.end(), db_model->getObjectList(ObjectType::BaseRelationship)->begin(), db_model->getObjectList(ObjectType::BaseRelationship)->end());
+
+	for(auto &rel : rels)
+	{
+		base_rel = dynamic_cast<BaseRelationship *>(rel);
+		base_rel->setPoints({});
+		base_rel->resetLabelsDistance();
+	}
+
+	db_model->setObjectsModified({ ObjectType::Table, ObjectType::View, ObjectType::Schema, ObjectType::Relationship, ObjectType::BaseRelationship });
+	adjustSceneSize();
+	viewport->updateScene({ scene->sceneRect() });
+}
+
+void ModelWidget::updateMagnifierArea()
 {
 	QPoint pos = viewport->mapFromGlobal(QCursor::pos());
 	QPointF scene_pos = viewport->mapToScene(pos);
@@ -4529,12 +5449,11 @@ void ModelWidget::updateMagnifierArea(void)
 		magnifier_area_lbl->move(5, magnifier_area_lbl->geometry().top());
 
 	QPainter p(&pix);
-	p.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
+	p.setRenderHints(viewport->renderHints());
 
 	scene->blockSignals(true);
 	scene->render(&p, QRectF(QPointF(0,0), size), QRectF(scene_pos - QPointF(cx, cy), size));
 
-	p.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing, false);
 	p.setPen(QColor(80,0,0));
 	p.drawLine(QPointF(cx, cy - 10), QPointF(cx, cy + 10));
 	p.drawLine(QPointF(cx - 10, cy), QPointF(cx + 10, cy));

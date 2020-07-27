@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -99,7 +99,7 @@ class CodeCompletionWidget: public QWidget
 		
 		/*! \brief Insert the objects of the vector into the name listing. The filter parameter is used to
 		insert only the object which names matches the filter */
-		void populateNameList(vector<BaseObject *> &objects, QString filter=QString());
+		void populateNameList(vector<BaseObject *> &objects, QString filter="");
 		
 		//! \brief Configures the current qualifying level according to the passed object
 		void setQualifyingLevel(BaseObject *obj);
@@ -112,29 +112,32 @@ class CodeCompletionWidget: public QWidget
 		highlighter uses an different configuration */
 		void configureCompletion(DatabaseModel *db_model, SyntaxHighlighter *syntax_hl=nullptr, const QString &keywords_grp=QString("keywords"));
 		
-		//! \brief Inserts a custom named item on the list with a custom icon. Custom item will be always appear at the beggining of the list
+		//! \brief Inserts a custom named item on the list with a custom icon. Custom item will always appear at the beggining of the list
 		void insertCustomItem(const QString &name, const QString &tooltip, const QPixmap &icon);
 		
-		//! \brief Inserts several custom named item on the list with a custom icon. Custom item will be always appear at the beggining of the list
+		//! \brief Inserts several custom named item on the list with a custom icon. Custom item will always appear at the beggining of the list
 		void insertCustomItems(const QStringList &names, const QStringList &tooltips, const QPixmap &icon);
+
+//! \brief Inserts several custom named items on the list with an icon related to the obj_type. Custom item will always appear at the beggining of the list
+		void insertCustomItems(const QStringList &names, const QString &tooltip, ObjectType obj_type);
 		
 		//! \brief Clear the custom added items
-		void clearCustomItems(void);
+		void clearCustomItems();
 		
 	public slots:
 		//! \brief Updates the completion list based upon the typed word
-		void updateList(void);
+		void updateList();
 		
 		//! \brief Shows the configured completion list
-		void show(void);
+		void show();
 		
 		//! \brief Close without select any item on completion list
-		void close(void);
+		void close();
 		
 		//! \brief Selects an item and closes the completion list
-		void selectItem(void);
+		void selectItem();
 		
-		void showItemTooltip(void);
+		void showItemTooltip();
 		
 	signals:
 		//! \brief This signal is emitted whenever a word is placed into the parent textbox through the completion popup.

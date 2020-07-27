@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 #include "indexelement.h"
 
-IndexElement::IndexElement(void) : Element()
+IndexElement::IndexElement() : Element()
 {
 	collation=nullptr;
 }
@@ -28,9 +28,9 @@ void IndexElement::setCollation(Collation *collation)
 	this->collation=collation;
 }
 
-Collation *IndexElement::getCollation(void)
+Collation *IndexElement::getCollation()
 {
-	return(collation);
+	return collation;
 }
 
 QString IndexElement::getCodeDefinition(unsigned def_type)
@@ -38,17 +38,17 @@ QString IndexElement::getCodeDefinition(unsigned def_type)
 	attribs_map attributes;
 
 	schparser.setPgSQLVersion(BaseObject::getPgSQLVersion());
-	attributes[ParsersAttributes::COLLATION]=QString();
+	attributes[Attributes::Collation]="";
 	configureAttributes(attributes, def_type);
 
 	if(collation)
 	{
-		if(def_type==SchemaParser::SQL_DEFINITION)
-			attributes[ParsersAttributes::COLLATION]=collation->getName(true);
+		if(def_type==SchemaParser::SqlDefinition)
+			attributes[Attributes::Collation]=collation->getName(true);
 		else
-			attributes[ParsersAttributes::COLLATION]=collation->getCodeDefinition(def_type, true);
+			attributes[Attributes::Collation]=collation->getCodeDefinition(def_type, true);
 	}
 
-	return(schparser.getCodeDefinition(ParsersAttributes::INDEX_ELEMENT,attributes, def_type));
+	return schparser.getCodeDefinition(Attributes::IndexElement,attributes, def_type);
 }
 

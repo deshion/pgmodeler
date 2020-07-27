@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2017 - Raphael Araújo e Silva <raphael@pgmodeler.com.br>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@
 CodeCompletionWidget::CodeCompletionWidget(QPlainTextEdit *code_field_txt, bool enable_snippets) :	QWidget(dynamic_cast<QWidget *>(code_field_txt))
 {
 	if(!code_field_txt)
-		throw Exception(ERR_ASG_NOT_ALOC_OBJECT,__PRETTY_FUNCTION__,__FILE__,__LINE__);
+		throw Exception(ErrorCode::AsgNotAllocattedObject,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
 	this->enable_snippets = enable_snippets;
 	popup_timer.setInterval(300);
@@ -35,11 +35,11 @@ CodeCompletionWidget::CodeCompletionWidget(QPlainTextEdit *code_field_txt, bool 
 	name_list=new QListWidget(completion_wgt);
 	name_list->setSpacing(2);
 	name_list->setIconSize(QSize(16,16));
-	name_list->setSortingEnabled(true);
+	name_list->setSortingEnabled(false);
 
 	persistent_chk=new QCheckBox(completion_wgt);
-	persistent_chk->setText(trUtf8("Make &persistent"));
-	persistent_chk->setToolTip(trUtf8("Makes the widget closable only by ESC key or mouse click on other controls."));
+	persistent_chk->setText(tr("Make &persistent"));
+	persistent_chk->setToolTip(tr("Makes the widget closable only by ESC key or mouse click on other controls."));
 	persistent_chk->setFocusPolicy(Qt::NoFocus);
 
 	QVBoxLayout *vbox=new QVBoxLayout(completion_wgt);
@@ -49,9 +49,7 @@ CodeCompletionWidget::CodeCompletionWidget(QPlainTextEdit *code_field_txt, bool 
 	vbox->setSpacing(6);
 	completion_wgt->setLayout(vbox);
 
-	QFont font=name_list->font();
-	font.setPointSizeF(8);
-	name_list->setFont(font);
+	PgModelerUiNs::configureWidgetFont(name_list, PgModelerUiNs::MediumFontFactor);
 
 	this->code_field_txt=code_field_txt;
 	auto_triggered=false;
@@ -59,8 +57,8 @@ CodeCompletionWidget::CodeCompletionWidget(QPlainTextEdit *code_field_txt, bool 
 	db_model=nullptr;
 	setQualifyingLevel(nullptr);
 
-	connect(name_list, SIGNAL(itemDoubleClicked(QListWidgetItem*)), this, SLOT(selectItem(void)));
-	connect(name_list, SIGNAL(currentRowChanged(int)), this, SLOT(showItemTooltip(void)));
+	connect(name_list, SIGNAL(itemDoubleClicked(QListWidgetItem*)), this, SLOT(selectItem()));
+	connect(name_list, SIGNAL(currentRowChanged(int)), this, SLOT(showItemTooltip()));
 
 	connect(&popup_timer, &QTimer::timeout, [&](){
 		if(qualifying_level < 2)
@@ -118,7 +116,7 @@ bool CodeCompletionWidget::eventFilter(QObject *object, QEvent *event)
 				{
 					setQualifyingLevel(nullptr);
 					this->show();
-					return(true);
+					return true;
 				}
 				else if(k_event->key()==Qt::Key_Space || k_event->key()==Qt::Key_Backspace || k_event->key()==Qt::Key_Delete)
 				{
@@ -132,7 +130,7 @@ bool CodeCompletionWidget::eventFilter(QObject *object, QEvent *event)
 						 tc.selectedText().contains(completion_trigger))
 					{
 						event->ignore();
-						return(true);
+						return true;
 					}
 					else if(k_event->key()==Qt::Key_Space)
 					{
@@ -152,7 +150,7 @@ bool CodeCompletionWidget::eventFilter(QObject *object, QEvent *event)
 			if(k_event->key()==Qt::Key_Escape)
 			{
 				this->close();
-				return(true);
+				return true;
 			}
 			//Filters the ENTER/RETURN press to close the code completion widget select the name
 			else if(k_event->key()==Qt::Key_Enter || k_event->key()==Qt::Key_Return)
@@ -175,7 +173,7 @@ bool CodeCompletionWidget::eventFilter(QObject *object, QEvent *event)
 					this->show();
 				}
 
-				return(true);
+				return true;
 			}
 			//Filters other key press and redirects to the code input field
 			else if(k_event->key()!=Qt::Key_Up && k_event->key()!=Qt::Key_Down &&
@@ -186,12 +184,12 @@ bool CodeCompletionWidget::eventFilter(QObject *object, QEvent *event)
 
 				QCoreApplication::sendEvent(code_field_txt, k_event);
 				this->updateList();
-				return(true);
+				return true;
 			}
 		}
 	}
 
-	return(QWidget::eventFilter(object, event));
+	return QWidget::eventFilter(object, event);
 }
 
 void CodeCompletionWidget::configureCompletion(DatabaseModel *db_model, SyntaxHighlighter *syntax_hl, const QString &keywords_grp)
@@ -204,7 +202,7 @@ void CodeCompletionWidget::configureCompletion(DatabaseModel *db_model, SyntaxHi
 	auto_triggered=false;
 	this->db_model=db_model;
 
-	if(confs[ParsersAttributes::CONFIGURATION][ParsersAttributes::CODE_COMPLETION]==ParsersAttributes::_TRUE_)
+	if(confs[Attributes::Configuration][Attributes::CodeCompletion]==Attributes::True)
 	{
 		code_field_txt->installEventFilter(this);
 		name_list->installEventFilter(this);
@@ -228,9 +226,9 @@ void CodeCompletionWidget::configureCompletion(DatabaseModel *db_model, SyntaxHi
 		if(enable_snippets)
 		{
 			clearCustomItems();
-			insertCustomItems(SnippetsConfigWidget::getAllSnippetsAttribute(ParsersAttributes::ID),
-												SnippetsConfigWidget::getAllSnippetsAttribute(ParsersAttributes::LABEL),
-												QPixmap(PgModelerUiNS::getIconPath("codesnippet")));
+			insertCustomItems(SnippetsConfigWidget::getAllSnippetsAttribute(Attributes::Id),
+												SnippetsConfigWidget::getAllSnippetsAttribute(Attributes::Label),
+												QPixmap(PgModelerUiNs::getIconPath("codesnippet")));
 		}
 	}
 	else
@@ -254,11 +252,17 @@ void CodeCompletionWidget::insertCustomItems(const QStringList &names, const QSt
 {
 	for(int i=0; i < names.size(); i++)
 	{
-		insertCustomItem(names[i], (i < tooltips.size() ? tooltips[i] : QString()), icon);
+		insertCustomItem(names[i], (i < tooltips.size() ? tooltips[i] : ""), icon);
 	}
 }
 
-void CodeCompletionWidget::clearCustomItems(void)
+void CodeCompletionWidget::insertCustomItems(const QStringList &names, const QString &tooltip, ObjectType obj_type)
+{
+	for(auto &name : names)
+		insertCustomItem(name, tooltip, QPixmap(PgModelerUiNs::getIconPath(obj_type)));
+}
+
+void CodeCompletionWidget::clearCustomItems()
 {
 	custom_items.clear();
 }
@@ -278,12 +282,12 @@ void CodeCompletionWidget::populateNameList(vector<BaseObject *> &objects, QStri
 		obj_name.clear();
 
 		//Formatting the object name according to the object type
-		if(obj_type==OBJ_FUNCTION)
+		if(obj_type==ObjectType::Function)
 		{
 			dynamic_cast<Function *>(objects[i])->createSignature(false);
 			obj_name=dynamic_cast<Function *>(objects[i])->getSignature();
 		}
-		else if(obj_type==OBJ_OPERATOR)
+		else if(obj_type==ObjectType::Operator)
 			obj_name=dynamic_cast<Operator *>(objects[i])->getSignature(false);
 		else
 			obj_name+=objects[i]->getName(false, false);
@@ -291,7 +295,7 @@ void CodeCompletionWidget::populateNameList(vector<BaseObject *> &objects, QStri
 		//The object will be inserted if its name matches the filter or there is no filter set
 		if(filter.isEmpty() || regexp.exactMatch(obj_name))
 		{
-			item=new QListWidgetItem(QPixmap(PgModelerUiNS::getIconPath(objects[i]->getSchemaName())), obj_name);
+			item=new QListWidgetItem(QPixmap(PgModelerUiNs::getIconPath(objects[i]->getSchemaName())), obj_name);
 			item->setToolTip(QString("%1 (%2)").arg(objects[i]->getName(true)).arg(objects[i]->getTypeName()));
 			item->setData(Qt::UserRole, QVariant::fromValue<void *>(objects[i]));
 			item->setToolTip(BaseObject::getTypeName(obj_type));
@@ -302,7 +306,7 @@ void CodeCompletionWidget::populateNameList(vector<BaseObject *> &objects, QStri
 	name_list->sortItems();
 }
 
-void CodeCompletionWidget::show(void)
+void CodeCompletionWidget::show()
 {
 	prev_txt_cur=code_field_txt->textCursor();
 	this->updateList();
@@ -315,10 +319,9 @@ void CodeCompletionWidget::setQualifyingLevel(BaseObject *obj)
 {
 	if(!obj)
 		qualifying_level=-1;
-	else if(obj->getObjectType()==OBJ_SCHEMA)
+	else if(obj->getObjectType()==ObjectType::Schema)
 		qualifying_level=0;
-	else if(obj->getObjectType()==OBJ_TABLE ||
-			obj->getObjectType()==OBJ_VIEW)
+	else if(BaseTable::isBaseTable(obj->getObjectType()))
 		qualifying_level=1;
 	else
 		qualifying_level=2;
@@ -334,13 +337,13 @@ void CodeCompletionWidget::setQualifyingLevel(BaseObject *obj)
 	}
 }
 
-void CodeCompletionWidget::updateList(void)
+void CodeCompletionWidget::updateList()
 {
 	QListWidgetItem *item=nullptr;
 	QString pattern;
 	QStringList list;
 	vector<BaseObject *> objects;
-	vector<ObjectType> types=BaseObject::getObjectTypes(false, 	{ OBJ_TEXTBOX, OBJ_RELATIONSHIP, BASE_RELATIONSHIP });
+	vector<ObjectType> types=BaseObject::getObjectTypes(false, 	{ ObjectType::Textbox, ObjectType::Relationship, ObjectType::BaseRelationship });
 	QTextCursor tc;
 
 	name_list->clear();
@@ -369,7 +372,7 @@ void CodeCompletionWidget::updateList(void)
 			word.remove(completion_trigger);
 			word.remove('"');
 
-			objects=db_model->findObjects(word, { OBJ_SCHEMA, OBJ_TABLE, OBJ_VIEW }, false, false, false, true);
+			objects=db_model->findObjects(word, { ObjectType::Schema, ObjectType::Table, ObjectType::ForeignTable, ObjectType::View }, false, false, true);
 
 			if(objects.size()==1)
 				setQualifyingLevel(objects[0]);
@@ -388,7 +391,7 @@ void CodeCompletionWidget::updateList(void)
 		//Negative qualifying level means that user called the completion before a space (empty word)
 		if(qualifying_level < 0)
 			//The default behavior for this is to search all the objects on the model
-			objects=db_model->findObjects(pattern, types, false, false, !auto_triggered, auto_triggered);
+			objects=db_model->findObjects(pattern, types, false, !auto_triggered, auto_triggered);
 		else
 		{
 			QString left_word;
@@ -421,7 +424,7 @@ void CodeCompletionWidget::updateList(void)
 		 we try to find any object in the model and reset the qualifying level */
 			else
 			{
-				objects=db_model->findObjects(pattern, types, false, false, !auto_triggered, auto_triggered);
+				objects=db_model->findObjects(pattern, types, false, !auto_triggered, auto_triggered);
 				setQualifyingLevel(nullptr);
 			}
 
@@ -443,8 +446,8 @@ void CodeCompletionWidget::updateList(void)
 		list=keywords.filter(regexp);
 		for(int i=0; i < list.size(); i++)
 		{
-			item=new QListWidgetItem(QPixmap(PgModelerUiNS::getIconPath("keyword")), list[i]);
-			item->setToolTip(trUtf8("SQL Keyword"));
+			item=new QListWidgetItem(QPixmap(PgModelerUiNs::getIconPath("keyword")), list[i]);
+			item->setToolTip(tr("SQL Keyword"));
 			name_list->addItem(item);
 		}
 
@@ -475,19 +478,19 @@ void CodeCompletionWidget::updateList(void)
 
 	if(name_list->count()==0)
 	{
-		name_list->addItem(trUtf8("(no items found.)"));
+		name_list->addItem(tr("(no items found.)"));
 		name_list->item(0)->setFlags(Qt::NoItemFlags);
 		QToolTip::hideText();
 	}
 	else
-		name_list->setItemSelected(name_list->item(0), true);
+		name_list->item(0)->setSelected(true);
 
 	//Sets the list position right below of text cursor
 	completion_wgt->move(code_field_txt->mapToGlobal(code_field_txt->cursorRect().topLeft() + QPoint(0,20)));
 	name_list->setFocus();
 }
 
-void CodeCompletionWidget::selectItem(void)
+void CodeCompletionWidget::selectItem()
 {
 	if(!name_list->selectedItems().isEmpty())
 	{
@@ -555,7 +558,7 @@ void CodeCompletionWidget::selectItem(void)
 		this->close();
 }
 
-void CodeCompletionWidget::showItemTooltip(void)
+void CodeCompletionWidget::showItemTooltip()
 {
 	QListWidgetItem *item=name_list->currentItem();
 
@@ -566,7 +569,7 @@ void CodeCompletionWidget::showItemTooltip(void)
 	}
 }
 
-void CodeCompletionWidget::close(void)
+void CodeCompletionWidget::close()
 {
 	name_list->clearSelection();
 	completion_wgt->close();
@@ -583,11 +586,11 @@ void CodeCompletionWidget::insertObjectName(BaseObject *obj)
 
 
 	if(modify_name &&
-			(obj_type==OBJ_TABLE || TableObject::isTableObject(obj_type)))
+			(PhysicalTable::isPhysicalTable(obj_type) || TableObject::isTableObject(obj_type)))
 	{
-		if(obj_type==OBJ_TABLE)
+		if(PhysicalTable::isPhysicalTable(obj_type))
 		{
-			Table *tab=dynamic_cast<Table *>(obj);
+			PhysicalTable *tab=dynamic_cast<PhysicalTable *>(obj);
 
 			name+=QString("(");
 			for(unsigned i=0; i < tab->getColumnCount(); i++)
@@ -607,17 +610,17 @@ void CodeCompletionWidget::insertObjectName(BaseObject *obj)
 			code_field_txt->setTextCursor(lvl_cur);
 		}
 	}
-	else if(obj_type==OBJ_FUNCTION)
+	else if(obj_type==ObjectType::Function)
 	{
 		Function *func=dynamic_cast<Function *>(obj);
 		func->createSignature(true, sch_qualified);
 		name=func->getSignature();
 	}
-	else if(obj_type==OBJ_CAST)
+	else if(obj_type==ObjectType::Cast)
 	{
 		name.replace(',', QLatin1String(" AS "));
 	}
-	else if(obj_type==OBJ_AGGREGATE)
+	else if(obj_type==ObjectType::Aggregate)
 	{
 		Aggregate *agg;
 		agg=dynamic_cast<Aggregate *>(obj);
